@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Da Nang Voice Agent — Phase 0</title>
+    <style>
+      :root {
+        --bg: #0f1c24;
+        --fg: #e8f1f5;
+        --accent: #3db8a8;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(ellipse at 20% 10%, #1a3a44 0%, transparent 50%),
+          radial-gradient(ellipse at 80% 90%, #243048 0%, transparent 45%),
+          var(--bg);
+        color: var(--fg);
+      }
+      main {
+        max-width: 28rem;
+        padding: 2rem;
+        text-align: center;
+      }
+      h1 {
+        font-family: "Fraunces", Georgia, serif;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.5rem;
+      }
+      p {
+        opacity: 0.85;
+        line-height: 1.5;
+      }
+      code {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Da Nang Voice Agent</h1>
+      <p>Phase 0 scaffold. Mic UI arrives in Phase 3.</p>
+      <p>API health: <code>/health</code></p>
+    </main>
+  </body>
+</html>

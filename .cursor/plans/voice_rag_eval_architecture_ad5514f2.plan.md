@@ -4,7 +4,7 @@ overview: "Phased Realtime English voice agent: scaffold → JSON KB+local Chrom
 todos:
   - id: phase-0
     content: "Phase 0: Repo scaffold, deps, .env.example, config skeletons (no API keys required)"
-    status: in_progress
+    status: completed
   - id: phase-1
     content: "Phase 1: Rich Da Nang English JSON KB + chunk/ingest into local Chroma + BM25"
     status: pending
