@@ -8,7 +8,7 @@ Realtime Agent track: **AssemblyAI Realtime STT** + custom orchestration (local 
 |-------|--------|----------------|
 | 0 Scaffold | done | No |
 | 1 JSON KB + ingest | done | No |
-| 2 Hybrid RAG + cache | pending | No |
+| 2 Hybrid RAG + cache | done | No |
 | 3 Pipeline stubs + UI + metrics | pending | No |
 | 4 Wire live clients | pending | Yes |
 | 5 E2E test + reports | pending | Yes |
@@ -35,6 +35,22 @@ PYTHONPATH=. python -m rag.ingest_json --peek-only
 ```
 
 Writes local Chroma to `data/chroma/` and BM25 to `data/bm25/index.pkl`.
+
+## Hybrid RAG ask + cache bench (Phase 2)
+
+```bash
+# Text ask (extractive answer, no LLM key)
+PYTHONPATH=. python -m rag.ask "What is Ba Na Hills?" --twice
+
+# Cache hit vs miss report
+PYTHONPATH=. python -m eval.run_cache_bench
+
+# HTTP
+PYTHONPATH=. uvicorn backend.app.main:app --reload --port 8000
+curl -s -X POST http://127.0.0.1:8000/rag/ask \
+  -H 'content-type: application/json' \
+  -d '{"query":"Dragon Bridge fire show"}' | python3 -m json.tool
+```
 
 ## Layout
 

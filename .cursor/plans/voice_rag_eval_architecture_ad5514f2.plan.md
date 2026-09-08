@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: phase-2
     content: "Phase 2: Hybrid RRF retrieve + multi-layer cache + text-only RAG demo + latency spans"
-    status: pending
+    status: completed
   - id: phase-3
     content: "Phase 3: Orchestration pipeline stubs (ASR/LLM/TTS interfaces) + mic UI + metrics JSONL"
     status: pending
