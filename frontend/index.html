@@ -633,29 +633,34 @@
         z-index: 1;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        justify-content: center;
+        gap: 16px;
         margin-top: var(--space-1);
-        padding: 8px;
-        background: rgba(41, 37, 36, 0.85);
-        border: 1px solid rgba(231, 229, 228, 0.12);
-        border-radius: 9999px;
-        backdrop-filter: blur(8px);
+        padding: 0;
+        background: transparent;
+        border: 0;
+        backdrop-filter: none;
       }
 
       .agent-pill button {
-        width: 44px;
-        height: 44px;
-        border: 0;
-        background: transparent;
+        width: 52px;
+        height: 52px;
+        padding: 0;
+        margin: 0;
+        border: 1px solid rgba(231, 229, 228, 0.2);
+        background: rgba(41, 37, 36, 0.9);
         color: var(--bg);
         cursor: pointer;
-        display: grid;
-        place-items: center;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         border-radius: 9999px;
+        line-height: 0;
       }
 
       .agent-pill button:hover {
-        background: rgba(245, 245, 244, 0.08);
+        background: rgba(68, 64, 60, 0.95);
+        border-color: rgba(231, 229, 228, 0.35);
       }
 
       .agent-pill button:disabled {
@@ -664,8 +669,9 @@
       }
 
       .agent-pill button.active {
-        color: #e7e5e4;
-        background: rgba(120, 113, 108, 0.45);
+        color: var(--bg);
+        background: rgba(120, 113, 108, 0.95);
+        border-color: rgba(231, 229, 228, 0.45);
       }
 
       .agent-pill button:focus-visible {
@@ -674,6 +680,7 @@
       }
 
       .agent-pill svg {
+        display: block;
         width: 20px;
         height: 20px;
         fill: none;
