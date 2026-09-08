@@ -1,0 +1,94 @@
+{
+  "file": "/Users/davark/Downloads/Everything/Github/Team-Develarper---AssemblyAI---Voice-Agent-Hackathon/reports/turns.jsonl",
+  "turns": 2,
+  "waterfall": {
+    "stt_finalize_ms": {
+      "count": 2,
+      "p50": 45.678,
+      "p95": 46.121,
+      "mean": 45.678
+    },
+    "rag_ms": {
+      "count": 2,
+      "p50": 73.916,
+      "p95": 147.785,
+      "mean": 73.916
+    },
+    "llm_ttft_ms": {
+      "count": 2,
+      "p50": 25.88,
+      "p95": 26.135,
+      "mean": 25.88
+    },
+    "llm_total_ms": {
+      "count": 2,
+      "p50": 25.926,
+      "p95": 26.197,
+      "mean": 25.926
+    },
+    "tts_ttfb_ms": {
+      "count": 2,
+      "p50": 21.098,
+      "p95": 21.126,
+      "mean": 21.098
+    },
+    "tts_total_ms": {
+      "count": 2,
+      "p50": 22.563,
+      "p95": 22.877,
+      "mean": 22.563
+    },
+    "e2e_turn_ms": {
+      "count": 2,
+      "p50": 168.505,
+      "p95": 241.618,
+      "mean": 168.505
+    }
+  },
+  "latest": {
+    "turn_id": "3bdcd19823d8",
+    "session_id": "phase3-test",
+    "query": "When is the Dragon Bridge fire show?",
+    "transcript": "When is the Dragon Bridge fire show?",
+    "answer": "Sure — Weekend dragon fire show planning: Weekend dragon fire show planning. For the Dragon Bridge fire and water show, aim to arrive 30–45 minutes early on Saturday or Sunday evenings. Popular viewing areas include the riverside promenades near the bridge. Vendors...",
+    "profile": "friendly_guide",
+    "provider": {
+      "asr": "stub_asr",
+      "llm": "stub_llm",
+      "tts": "stub_tts"
+    },
+    "timings_ms": {
+      "stt_finalize_ms": 46.121,
+      "rag_ms": 0.047,
+      "llm_ttft_ms": 26.135,
+      "llm_total_ms": 26.197,
+      "tts_ttfb_ms": 21.126,
+      "tts_total_ms": 22.877,
+      "e2e_turn_ms": 95.391
+    },
+    "cache": {
+      "retrieval_cache_hit": true,
+      "stats": {
+        "retrieval": {
+          "hits": 1,
+          "misses": 1,
+          "hit_rate": 0.5
+        },
+        "answer": {
+          "hits": 0,
+          "misses": 0,
+          "hit_rate": 0.0
+        }
+      }
+    },
+    "chunk_ids": [
+      "events_dragon_show",
+      "attr_dragon_bridge",
+      "itinerary_3_day",
+      "itinerary_1_day",
+      "attr_golden_bridge"
+    ],
+    "timestamp": "2026-09-08T07:35:43.552431+00:00",
+    "phase": 3
+  }
+}
