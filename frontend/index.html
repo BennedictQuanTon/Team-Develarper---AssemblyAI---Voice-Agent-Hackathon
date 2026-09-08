@@ -555,6 +555,142 @@
         line-height: 1.7;
       }
 
+      /* Agent stage — ThoughtStream stone (no blue) */
+      .agent-stage {
+        position: relative;
+        margin: 0 0 var(--space-4);
+        padding: var(--space-4) var(--space-2) var(--space-3);
+        background: var(--tertiary);
+        border: 1px solid #292524;
+        border-radius: var(--radius);
+        overflow: hidden;
+        text-align: center;
+        min-height: 340px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+      }
+
+      .agent-stage::before {
+        content: "";
+        position: absolute;
+        inset: auto 10% -40% 10%;
+        height: 70%;
+        background: radial-gradient(ellipse at center, rgba(168, 162, 158, 0.28), transparent 70%);
+        pointer-events: none;
+      }
+
+      .orb-wrap {
+        position: relative;
+        width: min(220px, 56vw);
+        height: min(220px, 56vw);
+        z-index: 1;
+      }
+
+      #orbCanvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        border-radius: 50%;
+      }
+
+      .agent-line {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        max-width: 36rem;
+        min-height: 1.6em;
+        font-family: var(--font-display);
+        font-size: 22px;
+        font-weight: 400;
+        line-height: 1.4;
+        letter-spacing: -0.01em;
+        color: var(--bg);
+      }
+
+      .agent-line .muted {
+        color: var(--secondary);
+      }
+
+      .agent-live {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        max-width: 36rem;
+        min-height: 1.4em;
+        font-family: var(--font-display);
+        font-size: 17px;
+        font-weight: 400;
+        line-height: 1.5;
+        letter-spacing: -0.01em;
+        color: #d6d3d1;
+      }
+
+      .agent-pill {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: var(--space-1);
+        padding: 8px;
+        background: rgba(41, 37, 36, 0.85);
+        border: 1px solid rgba(231, 229, 228, 0.12);
+        border-radius: 9999px;
+        backdrop-filter: blur(8px);
+      }
+
+      .agent-pill button {
+        width: 44px;
+        height: 44px;
+        border: 0;
+        background: transparent;
+        color: var(--bg);
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        border-radius: 9999px;
+      }
+
+      .agent-pill button:hover {
+        background: rgba(245, 245, 244, 0.08);
+      }
+
+      .agent-pill button:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+
+      .agent-pill button.active {
+        color: #e7e5e4;
+        background: rgba(120, 113, 108, 0.45);
+      }
+
+      .agent-pill button:focus-visible {
+        outline: 2px solid var(--secondary);
+        outline-offset: 2px;
+      }
+
+      .agent-pill svg {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .agent-hint {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        font-size: 13px;
+        color: var(--secondary);
+      }
+
     </style>
   </head>
   <body>
@@ -565,8 +701,31 @@
         A contemplative voice agent for Da Nang travel questions. Type or speak in English.
         Answers stay short, grounded, and unhurried.
       </p>
-      <hr class="divider" />
 
+      <section class="agent-stage" id="agentStage" aria-label="Voice agent">
+        <div class="orb-wrap">
+          <canvas id="orbCanvas" width="440" height="440" aria-hidden="true"></canvas>
+        </div>
+        <p class="agent-line" id="agentLine">
+          <span class="muted">Tap the mic — I’m here when you’re ready.</span>
+        </p>
+        <p class="agent-live" id="agentLive" aria-live="polite"></p>
+        <div class="agent-pill" role="group" aria-label="Voice controls">
+          <button type="button" id="orbMicBtn" aria-label="Microphone" title="Microphone">
+            <svg viewBox="0 0 24 24">
+              <rect x="9" y="3" width="6" height="11" rx="2" />
+              <path d="M6 11a6 6 0 0 0 12 0" />
+              <path d="M12 17v4M8 21h8" />
+            </svg>
+          </button>
+          <button type="button" id="orbStopBtn" aria-label="Stop" title="Stop">
+            <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" /></svg>
+          </button>
+        </div>
+        <p class="agent-hint" id="agentHint">Safari: mic drives the orb · type your question below · Send</p>
+      </section>
+
+      <hr class="divider" />
       <div class="layout">
         <section class="card" aria-labelledby="compose-title">
           <h2 class="subhead" id="compose-title">Compose a turn</h2>
@@ -674,6 +833,12 @@
       const fillerPreview = document.getElementById("fillerPreview");
       const fillerPlayer = document.getElementById("fillerPlayer");
       const ttsPlayer = document.getElementById("ttsPlayer");
+      const agentLine = document.getElementById("agentLine");
+      const agentLive = document.getElementById("agentLive");
+      const agentHint = document.getElementById("agentHint");
+      const orbMicBtn = document.getElementById("orbMicBtn");
+      const orbStopBtn = document.getElementById("orbStopBtn");
+      const orbCanvas = document.getElementById("orbCanvas");
 
       let sessionId = crypto.randomUUID();
       let recognition = null;
@@ -683,6 +848,25 @@
       let ws = null;
       const audioQueue = [];
       let playingAnswer = false;
+      let micStream = null;
+      let audioCtx = null;
+      let micAnalyser = null;
+      let ttsAnalyser = null;
+      let ttsSource = null;
+      let fillerSource = null;
+      let rafId = 0;
+      let orbMode = "idle"; // idle | listen | speak | think
+      let level = 0;
+      const hasSpeechRecognition = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+      function setAgentLine(html) {
+        agentLine.innerHTML = html;
+      }
+
+      function setAgentLive(text) {
+        agentLive.textContent = text || "";
+      }
 
       function setStatus(text, kind) {
         statusEl.textContent = text || "";
@@ -690,15 +874,16 @@
       }
 
       function updateTurnMeter(count, maxTurns) {
-        const c = count == null ? 0 : count;
-        const m = maxTurns || 3;
-        turnMeter.textContent = `Turn ${c} / ${m}`;
+        turnMeter.textContent = `Turn ${count == null ? 0 : count} / ${maxTurns || 3}`;
       }
 
       function setProcessing(on) {
         procChip.hidden = !on;
-        if (on) procChip.classList.add("processing");
-        else procChip.classList.remove("processing");
+        procChip.classList.toggle("processing", on);
+        if (on) {
+          orbMode = "think";
+          setAgentLine("Checking that for you…");
+        }
       }
 
       function setEnded(ended) {
@@ -707,7 +892,185 @@
         endedBanner.hidden = !ended;
         sendBtn.disabled = ended || turnBusy;
         micBtn.disabled = ended;
-        if (ended) stopFiller();
+        orbMicBtn.disabled = ended;
+        if (ended) {
+          stopListening();
+          stopFiller();
+          setAgentLine("Conversation ended. Start a new one anytime.");
+          setAgentLive("");
+          orbMode = "idle";
+        }
+      }
+
+      function ensureAudioCtx() {
+        if (!audioCtx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new Ctx();
+        }
+        if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+        return audioCtx;
+      }
+
+      function drawOrb() {
+        const ctx = orbCanvas.getContext("2d");
+        const w = orbCanvas.width;
+        const h = orbCanvas.height;
+        const cx = w / 2;
+        const cy = h / 2;
+        let energy = 0.08;
+        if (orbMode === "listen" && micAnalyser) {
+          const buf = new Uint8Array(micAnalyser.frequencyBinCount);
+          micAnalyser.getByteFrequencyData(buf);
+          let sum = 0;
+          for (let i = 0; i < buf.length; i++) sum += buf[i];
+          energy = Math.min(1, sum / (buf.length * 180));
+        } else if (orbMode === "speak" && ttsAnalyser) {
+          const buf = new Uint8Array(ttsAnalyser.frequencyBinCount);
+          ttsAnalyser.getByteFrequencyData(buf);
+          let sum = 0;
+          for (let i = 0; i < buf.length; i++) sum += buf[i];
+          energy = Math.min(1, sum / (buf.length * 160));
+        } else if (orbMode === "think") {
+          energy = 0.18 + 0.08 * Math.sin(performance.now() / 280);
+        } else {
+          energy = 0.06 + 0.03 * Math.sin(performance.now() / 900);
+        }
+        level += (energy - level) * 0.18;
+
+        ctx.clearRect(0, 0, w, h);
+        const base = Math.min(w, h) * 0.28;
+        const radius = base * (1 + level * 0.55);
+        const g = ctx.createRadialGradient(cx, cy, radius * 0.1, cx, cy, radius * 1.6);
+        // ThoughtStream stone: #FAFAF9 / #E7E5E4 / #A8A29E / #78716C / #1C1917
+        if (orbMode === "listen") {
+          g.addColorStop(0, "rgba(250, 250, 249, 0.95)");
+          g.addColorStop(0.4, "rgba(168, 162, 158, 0.8)");
+          g.addColorStop(1, "rgba(28, 25, 23, 0)");
+        } else if (orbMode === "speak") {
+          g.addColorStop(0, "rgba(245, 245, 244, 0.95)");
+          g.addColorStop(0.4, "rgba(120, 113, 108, 0.85)");
+          g.addColorStop(1, "rgba(28, 25, 23, 0)");
+        } else if (orbMode === "think") {
+          g.addColorStop(0, "rgba(231, 229, 228, 0.75)");
+          g.addColorStop(0.5, "rgba(120, 113, 108, 0.45)");
+          g.addColorStop(1, "rgba(28, 25, 23, 0)");
+        } else {
+          g.addColorStop(0, "rgba(214, 211, 209, 0.65)");
+          g.addColorStop(0.5, "rgba(120, 113, 108, 0.35)");
+          g.addColorStop(1, "rgba(28, 25, 23, 0)");
+        }
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 1.35, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Frequency rings
+        const rings = 3;
+        for (let r = 0; r < rings; r++) {
+          const t = performance.now() / (700 - r * 80);
+          const wobble = 1 + level * (0.2 + r * 0.08) * Math.sin(t + r);
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(231, 229, 228, ${0.1 + level * 0.35 - r * 0.03})`;
+          ctx.lineWidth = 2 + level * 4;
+          ctx.arc(cx, cy, radius * (0.55 + r * 0.22) * wobble, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Soft core
+        const core = ctx.createRadialGradient(cx - radius * 0.15, cy - radius * 0.2, 0, cx, cy, radius);
+        core.addColorStop(0, "rgba(250, 250, 249, 0.9)");
+        core.addColorStop(0.35, "rgba(168, 162, 158, 0.55)");
+        core.addColorStop(1, "rgba(28, 25, 23, 0.05)");
+        ctx.fillStyle = core;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.72, 0, Math.PI * 2);
+        ctx.fill();
+
+        rafId = requestAnimationFrame(drawOrb);
+      }
+
+      async function startListening() {
+        if (sessionEnded || turnBusy) return;
+        try {
+          ensureAudioCtx();
+          if (!micStream) {
+            micStream = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true },
+              video: false,
+            });
+            const src = audioCtx.createMediaStreamSource(micStream);
+            micAnalyser = audioCtx.createAnalyser();
+            micAnalyser.fftSize = 256;
+            micAnalyser.smoothingTimeConstant = 0.75;
+            src.connect(micAnalyser);
+          }
+          orbMode = "listen";
+          orbMicBtn.classList.add("active");
+          stopBtn.disabled = false;
+          setAgentLine("I’m listening… What’s on your mind?");
+          setStatus("Listening…", "info");
+
+          if (hasSpeechRecognition && recognition) {
+            try {
+              recognition.start();
+            } catch (_) {}
+            agentHint.textContent = "Live transcript below · auto-sends when you finish";
+          } else {
+            setAgentLive("(Safari) Speak to move the orb — type your question, then Send");
+            agentHint.textContent = "Safari has no free speech-to-text — type + Send while mic is open";
+          }
+        } catch (err) {
+          setStatus("Mic permission denied — allow mic for this site", "error");
+          setAgentLine('<span class="muted">Mic blocked. Allow microphone, then try again.</span>');
+          agentHint.textContent = "Safari → Settings for this website → Microphone → Allow";
+        }
+      }
+
+      function stopListening() {
+        orbMicBtn.classList.remove("active");
+        if (recognition) {
+          try {
+            recognition.stop();
+          } catch (_) {}
+        }
+        if (micStream) {
+          micStream.getTracks().forEach((t) => t.stop());
+          micStream = null;
+          micAnalyser = null;
+        }
+        if (orbMode === "listen") orbMode = "idle";
+        stopBtn.disabled = true;
+        if (!sessionEnded && !turnBusy) {
+          setAgentLine('<span class="muted">Tap the mic — I’m here when you’re ready.</span>');
+        }
+      }
+
+      function hookMediaElement(el, kind) {
+        ensureAudioCtx();
+        try {
+          if (kind === "tts") {
+            if (!ttsSource) {
+              ttsSource = audioCtx.createMediaElementSource(el);
+              ttsAnalyser = audioCtx.createAnalyser();
+              ttsAnalyser.fftSize = 256;
+              ttsSource.connect(ttsAnalyser);
+              ttsAnalyser.connect(audioCtx.destination);
+            }
+          } else if (kind === "filler") {
+            if (!fillerSource) {
+              fillerSource = audioCtx.createMediaElementSource(el);
+              // Route filler through same analyser path for orb pulse
+              if (!ttsAnalyser) {
+                ttsAnalyser = audioCtx.createAnalyser();
+                ttsAnalyser.fftSize = 256;
+                ttsAnalyser.connect(audioCtx.destination);
+              }
+              fillerSource.connect(ttsAnalyser);
+            }
+          }
+        } catch (_) {
+          // Already connected or unsupported — orb still idles/thinks
+        }
       }
 
       function addBubble(text, who) {
@@ -754,7 +1117,9 @@
         const clip = (fillerManifest.clips || []).find((c) => c.id === id);
         if (!clip || !fillerPlayer) return;
         stopFiller();
+        hookMediaElement(fillerPlayer, "filler");
         fillerPlayer.src = clip.file;
+        orbMode = "speak";
         fillerPlayer.play().catch(() => {});
       }
 
@@ -768,15 +1133,24 @@
         if (playingAnswer || !audioQueue.length) return;
         playingAnswer = true;
         stopFiller();
+        stopListening();
         const audio = audioQueue.shift();
         const panel = document.getElementById("audioPanel");
         const src = `data:${audio.mime_type};base64,${audio.b64}`;
+        hookMediaElement(ttsPlayer, "tts");
         ttsPlayer.onended = () => {
           playingAnswer = false;
+          orbMode = sessionEnded ? "idle" : "idle";
+          if (!audioQueue.length) {
+            setAgentLine('<span class="muted">Your turn — tap mic or type below.</span>');
+            setAgentLive("");
+          }
           drainAudioQueue();
         };
         ttsPlayer.src = src;
         panel.hidden = false;
+        orbMode = "speak";
+        setAgentLine("Speaking…");
         ttsPlayer.play().catch(() => {
           playingAnswer = false;
           drainAudioQueue();
@@ -818,13 +1192,14 @@
         if (turnBusy) return;
         turnBusy = true;
         sendBtn.disabled = true;
+        stopListening();
         setProcessing(true);
         setStatus("Processing…", "info");
+        setAgentLive(q);
         addBubble(q, "user");
         audioQueue.length = 0;
         playingAnswer = false;
 
-        // Optimistic local filler while WS connects / backend picks id
         const localGuess = /\b(when|schedule|price|how much|what time)\b/i.test(q)
           ? "checking"
           : /\?|\b(what|where|how|why|which|who)\b/i.test(q)
@@ -848,7 +1223,9 @@
                 setStatus("Checking…", "info");
               } else if (msg.type === "rag_done") {
                 setStatus("Drafting answer…", "info");
+                setAgentLine("Drafting a short answer…");
               } else if (msg.type === "audio_chunk" && msg.audio) {
+                if (msg.text) setAgentLine(msg.text);
                 enqueueAnswerAudio(msg.audio);
               } else if (msg.type === "session" && msg.session) {
                 updateTurnMeter(msg.session.turn_count, msg.session.max_turns);
@@ -878,24 +1255,27 @@
             );
           });
 
-          if (final.answer) addBubble(final.answer, "agent");
-          // If no streamed chunks arrived, play final audio
+          if (final.answer) {
+            addBubble(final.answer, "agent");
+            setAgentLine(final.answer);
+          }
           if (!audioQueue.length && !playingAnswer && final.audio?.b64) {
             playAudio(final.audio);
           }
           metricsEl.textContent = formatMetrics(final);
-          chunksEl.textContent = (final.chunks || [])
-            .slice(0, 5)
-            .map((c, i) => `${i + 1}. ${c.chunk_id} (${(c.sources || []).join("+")})`)
-            .join("\n") || "—";
-          if (final.session) {
-            updateTurnMeter(final.session.turn_count, final.session.max_turns);
-          }
+          chunksEl.textContent =
+            (final.chunks || [])
+              .slice(0, 5)
+              .map((c, i) => `${i + 1}. ${c.chunk_id} (${(c.sources || []).join("+")})`)
+              .join("\n") || "—";
+          if (final.session) updateTurnMeter(final.session.turn_count, final.session.max_turns);
           if (final.session_ended || final.ended) setEnded(true);
           setStatus(final.session_ended ? "Conversation ended" : "Turn complete", "success");
         } catch (err) {
           stopFiller();
+          orbMode = "idle";
           setStatus("Error: " + err.message, "error");
+          setAgentLine('<span class="muted">Something went wrong — try again.</span>');
         } finally {
           turnBusy = false;
           setProcessing(false);
@@ -934,12 +1314,15 @@
         metricsEl.textContent = "No turns yet.";
         chunksEl.textContent = "—";
         stopFiller();
+        stopListening();
         audioQueue.length = 0;
         playingAnswer = false;
         ttsPlayer.removeAttribute("src");
         document.getElementById("audioPanel").hidden = true;
         setEnded(false);
         updateTurnMeter(0, 3);
+        setAgentLive("");
+        setAgentLine('<span class="muted">Tap the mic — I’m here when you’re ready.</span>');
         try {
           await fetch(`/session/reset?session_id=${encodeURIComponent(sessionId)}`, { method: "POST" });
         } catch (_) {}
@@ -956,62 +1339,70 @@
 
       sendBtn.addEventListener("click", () => runTurn(queryEl.value));
       newConvoBtn.addEventListener("click", () => newConversation());
-      updateTurnMeter(0, 3);
-      loadFillers();
+      orbMicBtn.addEventListener("click", () => {
+        if (orbMicBtn.classList.contains("active")) stopListening();
+        else startListening();
+      });
+      orbStopBtn.addEventListener("click", () => {
+        stopListening();
+        stopFiller();
+        ttsPlayer.pause();
+        playingAnswer = false;
+        audioQueue.length = 0;
+        orbMode = "idle";
+      });
+      micBtn.addEventListener("click", () => startListening());
+      stopBtn.addEventListener("click", () => {
+        stopListening();
+        stopFiller();
+        ttsPlayer.pause();
+      });
 
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        recognition = new SpeechRecognition();
+      if (hasSpeechRecognition) {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SR();
         recognition.lang = "en-US";
         recognition.interimResults = true;
         recognition.continuous = false;
-
-        recognition.onstart = () => {
-          setStatus("Listening…", "info");
-          stopBtn.disabled = false;
-          micBtn.disabled = true;
-        };
-        recognition.onerror = (e) => {
-          setStatus("Mic error: " + e.error, "error");
-          stopBtn.disabled = true;
-          if (!sessionEnded) micBtn.disabled = false;
-        };
-        recognition.onend = () => {
-          stopBtn.disabled = true;
-          if (!sessionEnded) micBtn.disabled = false;
-        };
         recognition.onresult = (event) => {
+          let interim = "";
           let finalText = "";
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const piece = event.results[i][0].transcript;
             if (event.results[i].isFinal) finalText += piece;
-            else queryEl.value = piece;
+            else interim += piece;
+          }
+          if (interim) {
+            setAgentLive(interim);
+            queryEl.value = interim;
           }
           if (finalText.trim()) {
             queryEl.value = finalText.trim();
+            setAgentLive(finalText.trim());
+            stopListening();
             runTurn(finalText.trim());
           }
         };
-
-        micBtn.addEventListener("click", () => {
-          if (sessionEnded) return;
-          try {
-            recognition.start();
-          } catch (e) {
-            setStatus(String(e), "error");
+        recognition.onerror = (e) => {
+          if (e.error !== "aborted") setStatus("Mic error: " + e.error, "error");
+          orbMicBtn.classList.remove("active");
+        };
+        recognition.onend = () => {
+          if (orbMode === "listen" && !turnBusy) {
+            // keep analyser if stream still open; Safari SR may end early
           }
-        });
-        stopBtn.addEventListener("click", () => {
-          try {
-            recognition.stop();
-          } catch (_) {}
-          stopFiller();
-          ttsPlayer.pause();
-        });
+        };
+        agentHint.textContent = "Chrome: live transcript free · auto-send when you pause";
       } else {
-        micBtn.disabled = true;
-        setStatus("Speech recognition unavailable — use text", "warning");
+        agentHint.textContent = isSafari
+          ? "Safari: allow mic → orb reacts · type question → Send (no free live STT)"
+          : "Speech-to-text unavailable — type + Send. Mic still drives the orb.";
+        setStatus("Type your question (live STT unavailable in this browser)", "warning");
       }
+
+      updateTurnMeter(0, 3);
+      loadFillers();
+      drawOrb();
     </script>
   </body>
 </html>
