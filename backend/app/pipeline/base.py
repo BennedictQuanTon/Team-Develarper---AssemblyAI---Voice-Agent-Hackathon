@@ -51,6 +51,8 @@ class LLMClient(Protocol):
         context_chunks: list[dict[str, Any]],
         style_prompt: str,
         answer_template: str,
+        history: list[dict[str, str]] | None = None,
+        last_turn: bool = False,
     ) -> LLMResult: ...
 
     def stream(
@@ -60,6 +62,8 @@ class LLMClient(Protocol):
         context_chunks: list[dict[str, Any]],
         style_prompt: str,
         answer_template: str,
+        history: list[dict[str, str]] | None = None,
+        last_turn: bool = False,
     ) -> AsyncIterator[str]: ...
 
 

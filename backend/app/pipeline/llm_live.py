@@ -25,20 +25,45 @@ class GeminiLLMClient:
         context_chunks: list[dict[str, Any]],
         style_prompt: str,
         answer_template: str,
+        history: list[dict[str, str]] | None = None,
+        last_turn: bool = False,
     ) -> str:
         context_blocks: list[str] = []
-        for i, chunk in enumerate(context_chunks[:5], start=1):
+        for i, chunk in enumerate(context_chunks[:3], start=1):
             meta = chunk.get("metadata") or {}
             title = meta.get("title") or chunk.get("chunk_id")
             context_blocks.append(f"[{i}] {title}: {chunk.get('text') or ''}")
         context = "\n".join(context_blocks) if context_blocks else "(no context)"
+
+        history_block = ""
+        if history:
+            lines: list[str] = []
+            for turn in history[-2:]:
+                u = (turn.get("user") or "").strip()
+                a = (turn.get("agent") or "").strip()
+                if u:
+                    lines.append(f"User: {u}")
+                if a:
+                    lines.append(f"Assistant: {a}")
+            if lines:
+                history_block = "Recent conversation:\n" + "\n".join(lines) + "\n\n"
+
+        closing = ""
+        if last_turn:
+            closing = (
+                "This is the last turn of the conversation. "
+                "End with one warm closing sentence inviting them to enjoy Da Nang.\n"
+            )
+
         return (
             "You are a concise English-speaking Da Nang travel voice assistant.\n"
             f"Style: {style_prompt}\n"
             f"Format rules: {answer_template}\n"
             "Answer ONLY using the context below. If unsupported, say you do not know.\n"
-            "Keep the reply under 40 words, spoken English, no markdown.\n\n"
+            "Keep the reply under 25 words, spoken English, no markdown.\n"
+            f"{closing}\n"
             f"Context:\n{context}\n\n"
+            f"{history_block}"
             f"User: {user_text}\n"
             "Assistant:"
         )
@@ -50,12 +75,16 @@ class GeminiLLMClient:
         context_chunks: list[dict[str, Any]],
         style_prompt: str,
         answer_template: str,
+        history: list[dict[str, str]] | None = None,
+        last_turn: bool = False,
     ) -> LLMResult:
         prompt = self._build_prompt(
             user_text=user_text,
             context_chunks=context_chunks,
             style_prompt=style_prompt,
             answer_template=answer_template,
+            history=history,
+            last_turn=last_turn,
         )
         t0 = time.perf_counter()
         text = await asyncio.to_thread(self._generate_sync, prompt)
@@ -75,9 +104,8 @@ class GeminiLLMClient:
         client = genai.Client(api_key=self.api_key)
         config_kwargs: dict[str, Any] = {
             "temperature": 0.3,
-            "max_output_tokens": 120,
+            "max_output_tokens": 80,
         }
-        # Best-effort minimal thinking for flash-lite variants
         try:
             config = types.GenerateContentConfig(
                 **config_kwargs,
@@ -103,11 +131,62 @@ class GeminiLLMClient:
         context_chunks: list[dict[str, Any]],
         style_prompt: str,
         answer_template: str,
+        history: list[dict[str, str]] | None = None,
+        last_turn: bool = False,
     ) -> AsyncIterator[str]:
-        result = await self.generate(
+        """Yield text chunks from Gemini streaming when available; else one full string."""
+        prompt = self._build_prompt(
             user_text=user_text,
             context_chunks=context_chunks,
             style_prompt=style_prompt,
             answer_template=answer_template,
+            history=history,
+            last_turn=last_turn,
         )
-        yield result.text
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
+
+        def _produce() -> None:
+            try:
+                from google import genai
+                from google.genai import types
+
+                client = genai.Client(api_key=self.api_key)
+                config_kwargs: dict[str, Any] = {
+                    "temperature": 0.3,
+                    "max_output_tokens": 80,
+                }
+                try:
+                    config = types.GenerateContentConfig(
+                        **config_kwargs,
+                        thinking_config=types.ThinkingConfig(thinking_level="MINIMAL"),
+                    )
+                except Exception:
+                    config = types.GenerateContentConfig(**config_kwargs)
+
+                stream = client.models.generate_content_stream(
+                    model=self.model,
+                    contents=prompt,
+                    config=config,
+                )
+                for chunk in stream:
+                    piece = (getattr(chunk, "text", None) or "").strip()
+                    if piece:
+                        queue.put_nowait(piece)
+            except Exception:
+                # Fallback: non-streaming
+                try:
+                    full = self._generate_sync(prompt)
+                    if full:
+                        queue.put_nowait(full)
+                except Exception:
+                    pass
+            finally:
+                queue.put_nowait(None)
+
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(None, _produce)
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            yield item

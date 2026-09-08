@@ -34,8 +34,8 @@ class CartesiaTTSClient:
         voice = (voice_id or self.voice_id or DEFAULT_VOICE_ID).strip()
         # Cap length hard to control free-tier credit burn
         words = text.split()
-        if len(words) > 45:
-            text = " ".join(words[:45])
+        if len(words) > 30:
+            text = " ".join(words[:30])
 
         payload = {
             "model_id": "sonic-3",
