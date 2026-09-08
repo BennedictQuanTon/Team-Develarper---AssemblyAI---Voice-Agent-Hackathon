@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# Local data / indexes
+data/chroma/
+data/bm25/
+*.bin
+*.pkl
+
+# Reports & logs
+reports/*.jsonl
+reports/*.html
+!reports/.gitkeep
+logs/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Model caches (local embeddings)
+.cache/
+sentence-transformers/

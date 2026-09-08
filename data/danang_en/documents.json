@@ -1,0 +1,438 @@
+{
+  "version": "1.0",
+  "locale": "en",
+  "city": "Da Nang",
+  "updated_at": "2026-09-08",
+  "documents": [
+    {
+      "id": "overview_danang",
+      "category": "overview",
+      "place_name": "Da Nang",
+      "title": "Da Nang city overview",
+      "content": "Da Nang is a major coastal city in central Vietnam, sitting between Hue to the north and Hoi An to the south. It is known for long sandy beaches, a modern skyline along the Han River, and easy access to UNESCO-listed sites nearby. The city is a common base for travelers who want beach time plus day trips to Ba Na Hills, Marble Mountains, and Hoi An Ancient Town. English is widely understood in hotels, restaurants, and tour desks in tourist areas.",
+      "tags": ["introduction", "central_vietnam", "base_city"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "attr_ba_na_hills",
+      "category": "attraction",
+      "place_name": "Ba Na Hills",
+      "title": "Ba Na Hills overview",
+      "content": "Ba Na Hills is a mountain resort about 25 to 40 minutes by road west of Da Nang, depending on traffic. Visitors ride a cable car up to a French village–themed complex with gardens, restaurants, entertainment, and viewpoints. The most famous photo spot is the Golden Bridge, held by two giant stone hands. Plan a full day; mornings are cooler and often less crowded. Tickets typically include cable car access; check current combo options for Fantasy Park and buffets before you go.",
+      "tags": ["cable_car", "golden_bridge", "day_trip", "mountain"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "attr_golden_bridge",
+      "category": "attraction",
+      "place_name": "Golden Bridge",
+      "title": "Golden Bridge at Ba Na Hills",
+      "content": "The Golden Bridge is a pedestrian bridge at Ba Na Hills that appears to be held aloft by two giant stone hands. It opened in 2018 and quickly became one of Vietnam’s most photographed landmarks. The bridge sits at high elevation, so bring a light jacket; mist and cooler temperatures are common. Access is via Ba Na Hills cable car tickets. Arrive early for clearer photos and shorter waits.",
+      "tags": ["golden_bridge", "ba_na_hills", "photo_spot"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "attr_marble_mountains",
+      "category": "attraction",
+      "place_name": "Marble Mountains",
+      "title": "Marble Mountains (Ngu Hanh Son)",
+      "content": "Marble Mountains, locally called Ngu Hanh Son, are a cluster of five limestone and marble hills named after the five elements. The main visitor hill is Thuy Son, with stairways, caves, pagodas, and viewpoints overlooking the East Sea. Wear good shoes; steps can be steep and slippery after rain. A short elevator option is available for part of the ascent. Combine Marble Mountains with Non Nuoc Beach or a My Khe afternoon for an easy half-day itinerary.",
+      "tags": ["caves", "pagoda", "half_day", "viewpoint"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "attr_dragon_bridge",
+      "category": "attraction",
+      "place_name": "Dragon Bridge",
+      "title": "Dragon Bridge and fire show",
+      "content": "Dragon Bridge crosses the Han River in central Da Nang and is shaped like a dragon. On weekend evenings (commonly Saturday and Sunday around 9:00 PM local time), the dragon breathes fire and water in a short public show. Crowds gather on both riverbanks and on the bridge approaches; arrive early for a good viewing spot. Traffic closes on parts of the bridge during the show. Confirm the latest schedule with your hotel, as timings can change for holidays or special events.",
+      "tags": ["fire_show", "han_river", "night", "landmark"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "attr_han_river",
+      "category": "attraction",
+      "place_name": "Han River",
+      "title": "Han River waterfront",
+      "content": "The Han River runs through Da Nang and is lined with promenades, bridges, cafes, and hotels. Evening walks along the river are popular, especially near Dragon Bridge and Bach Dang Street. River cruises are available for sunset or night views of the lit skyline. The waterfront is generally safe and well lit in tourist zones; use normal city awareness at late hours.",
+      "tags": ["waterfront", "evening", "cruise", "walk"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "attr_lady_buddha",
+      "category": "attraction",
+      "place_name": "Lady Buddha",
+      "title": "Lady Buddha at Linh Ung Pagoda",
+      "content": "The Lady Buddha statue stands at Linh Ung Pagoda on Son Tra Peninsula (Monkey Mountain). It is one of the tallest Buddha statues in Vietnam and overlooks Da Nang Bay. The pagoda complex is free to enter; dress modestly (covered shoulders and knees). Combine the visit with a Son Tra Peninsula drive for viewpoints and coastal scenery. Mornings offer softer light and fewer tour groups.",
+      "tags": ["pagoda", "son_tra", "statue", "viewpoint"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "attr_son_tra",
+      "category": "attraction",
+      "place_name": "Son Tra Peninsula",
+      "title": "Son Tra Peninsula (Monkey Mountain)",
+      "content": "Son Tra Peninsula, also called Monkey Mountain, is a protected area northeast of Da Nang with jungle roads, coastal views, and wildlife including red-shanked douc langurs. Do not feed monkeys or litter. Popular stops include Linh Ung Pagoda, Bai Bac Beach viewpoints, and winding ridge roads. A scooter or private car with an experienced driver is recommended; some roads are steep and narrow.",
+      "tags": ["nature", "wildlife", "scenic_drive", "beach"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "beach_my_khe",
+      "category": "beach",
+      "place_name": "My Khe Beach",
+      "title": "My Khe Beach",
+      "content": "My Khe Beach is Da Nang’s most famous urban beach, stretching along the eastern side of the city with soft sand and a long line of resorts, seafood restaurants, and beach clubs. It is suitable for swimming in calm conditions; always check flag warnings and local advice about currents. Sunrise walks are popular. Public access is available between resort stretches. Bring sunscreen; midday sun is strong year-round.",
+      "tags": ["swimming", "sunrise", "resort_area", "public_beach"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "beach_non_nuoc",
+      "category": "beach",
+      "place_name": "Non Nuoc Beach",
+      "title": "Non Nuoc Beach",
+      "content": "Non Nuoc Beach sits south of My Khe, closer to Marble Mountains. It tends to feel quieter than the central My Khe strip and pairs well with a Marble Mountains visit. Several upscale resorts line this stretch. Water conditions vary by season; during stormier months, swimming may be restricted. Expect beautiful sunrise views and fewer nightlife options than central Da Nang.",
+      "tags": ["quiet", "resort", "marble_mountains", "sunrise"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "beach_bac_my_an",
+      "category": "beach",
+      "place_name": "Bac My An Beach",
+      "title": "Bac My An Beach",
+      "content": "Bac My An Beach is a section of Da Nang’s eastern shoreline between central My Khe and southern resort areas. It offers a similar sandy coastline with a mix of hotels and local seafood spots. It is a convenient choice if you are staying mid-beach and want a shorter walk to the water without going into the busiest My Khe blocks.",
+      "tags": ["beach", "mid_coast", "hotels"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "food_seafood",
+      "category": "food",
+      "place_name": "Da Nang",
+      "title": "Seafood and local specialties",
+      "content": "Da Nang is excellent for fresh seafood: grilled fish, clams, prawns, and squid appear on many beach and riverside menus. Local specialties include mi Quang (turmeric noodles with shrimp or pork), bun cha ca (fish cake noodle soup), and banh trang cuon thit heo (pork rice-paper rolls). Ask for spice level adjustments if you prefer milder food. Tap water is generally not recommended for drinking; bottled or filtered water is standard.",
+      "tags": ["seafood", "mi_quang", "bun_cha_ca", "local_food"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "food_mi_quang",
+      "category": "food",
+      "place_name": "Da Nang",
+      "title": "Mi Quang noodles",
+      "content": "Mi Quang is a signature central Vietnamese noodle dish strongly associated with Da Nang and Quang Nam. It uses wide turmeric-tinted rice noodles with a modest amount of savory broth, topped with shrimp, pork, herbs, peanuts, and a sesame rice cracker. It is commonly eaten for breakfast or lunch. Look for busy local shops near the city center and Han Market area for authentic versions.",
+      "tags": ["mi_quang", "noodles", "breakfast", "signature_dish"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "food_cafes",
+      "category": "food",
+      "place_name": "Da Nang",
+      "title": "Coffee and cafe culture",
+      "content": "Da Nang has a strong cafe scene ranging from traditional Vietnamese coffee (ca phe sua da) to specialty third-wave shops. Riverside and beach-adjacent cafes are popular for remote work and sunset views. Air conditioning is common in modern cafes. Wi-Fi quality varies; ask staff for the password. Cash and cards are both accepted at many cafes, but small local shops may prefer cash.",
+      "tags": ["coffee", "cafe", "wifi", "riverside"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "food_vegetarian",
+      "category": "food",
+      "place_name": "Da Nang",
+      "title": "Vegetarian and vegan options",
+      "content": "Vegetarian dining is available in Da Nang, especially near pagodas and in the city center. Many restaurants can prepare vegetable stir-fries, tofu dishes, and vegetarian versions of noodle soups on request. Say “chay” for vegetarian/Buddhist-style food. On the 1st and 15th lunar calendar days, more local eateries offer vegetarian menus. Always confirm broth and fish sauce ingredients if you are strictly vegan.",
+      "tags": ["vegetarian", "vegan", "chay", "dietary"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "hotel_beach",
+      "category": "hotel",
+      "place_name": "My Khe Beach",
+      "title": "Where to stay: beach resorts",
+      "content": "Beachfront and near-beach hotels along My Khe and Non Nuoc suit travelers who want morning swims and ocean views. Mid-range and luxury resorts offer pools, spas, and airport transfers. Book early for peak season (roughly February to August for drier beach weather) and major holidays. Check whether your rate includes breakfast and beach service fees.",
+      "tags": ["accommodation", "resort", "my_khe", "luxury"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "hotel_center",
+      "category": "hotel",
+      "place_name": "Da Nang city center",
+      "title": "Where to stay: city center and riverside",
+      "content": "Staying near the Han River or Hai Chau district puts you closer to restaurants, markets, Dragon Bridge shows, and nightlife. These hotels are convenient if you plan day trips and do not need to be on the sand every morning. Grab and taxis make beach access quick (often 10–20 minutes depending on traffic). Look for rooms with river views if you enjoy evening city lights.",
+      "tags": ["accommodation", "riverside", "city_center", "convenient"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "hotel_areas_compare",
+      "category": "hotel",
+      "place_name": "Da Nang",
+      "title": "Choosing a neighborhood",
+      "content": "Choose My Khe/Non Nuoc for beach focus, Son Tra foothills for quieter nature-oriented stays, and the Han riverside for urban energy and show nights. Families often prefer resorts with pools near the beach. Backpackers and digital nomads may prefer central apartments with cafes nearby. Consider noise: weekend fire-show nights and busy beach clubs can be louder.",
+      "tags": ["neighborhoods", "planning", "families", "nightlife"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "transport_airport",
+      "category": "transport",
+      "place_name": "Da Nang International Airport",
+      "title": "Da Nang International Airport (DAD)",
+      "content": "Da Nang International Airport (DAD) is close to the city—often 10 to 20 minutes to central hotels or the beach strip by car, depending on traffic and exact location. Official taxis and app-based rides (Grab) are available outside arrivals. Agree on meter use or app pricing to avoid confusion. Many hotels offer paid airport pickup. Domestic flights connect Da Nang with Hanoi, Ho Chi Minh City, and other hubs.",
+      "tags": ["airport", "DAD", "arrival", "transfer"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "transport_grab",
+      "category": "transport",
+      "place_name": "Da Nang",
+      "title": "Grab and taxis",
+      "content": "Grab is widely used in Da Nang for cars and motorbike rides. It is convenient for English-speaking visitors because the fare is shown in the app. Street taxis are available; choose reputable companies and insist on the meter if not using an app. Keep your hotel address in Vietnamese text to show drivers. Traffic is moderate compared with larger Vietnamese cities but can spike at rush hour and near Dragon Bridge show times.",
+      "tags": ["grab", "taxi", "motorbike", "getting_around"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "transport_motorbike",
+      "category": "transport",
+      "place_name": "Da Nang",
+      "title": "Motorbike rental tips",
+      "content": "Motorbike rental is popular for flexible sightseeing around beaches, Son Tra, and Marble Mountains. You need a valid license recognized for local use and should wear a helmet. Photograph the bike before rental and clarify insurance. Avoid riding at night on unfamiliar mountain roads. If you are not confident riding in Vietnamese traffic, hire a car and driver instead.",
+      "tags": ["motorbike", "rental", "safety", "license"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "transport_bus",
+      "category": "transport",
+      "place_name": "Da Nang",
+      "title": "Buses and intercity travel",
+      "content": "Local buses exist but are less commonly used by short-stay tourists than Grab. For Hoi An, frequent private shuttles, cars, and Grab trips take roughly 30 to 45 minutes depending on traffic and drop-off point. Trains serve Da Nang on the north–south railway; the station is useful for trips toward Hue or further south. Book long-distance trains and sleeper buses in advance during peak holidays.",
+      "tags": ["bus", "train", "hoi_an_transfer", "intercity"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "daytrip_hoi_an",
+      "category": "day_trip",
+      "place_name": "Hoi An",
+      "title": "Day trip to Hoi An Ancient Town",
+      "content": "Hoi An Ancient Town is about 30 kilometers south of Da Nang and is a UNESCO World Heritage site famous for lantern-lit streets, tailor shops, and well-preserved architecture. A day trip is easy: morning departure, explore the old town, optional boat ride on the Thu Bon River, and evening lanterns before returning. Ticketed zones apply in parts of the ancient town. Wear comfortable shoes and bring cash for small vendors.",
+      "tags": ["hoi_an", "unesco", "lanterns", "day_trip"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "daytrip_hue",
+      "category": "day_trip",
+      "place_name": "Hue",
+      "title": "Day trip to Hue",
+      "content": "Hue, the former imperial capital, is roughly 1.5 to 2.5 hours north of Da Nang by car or train depending on route and stops. Highlights include the Imperial Citadel, royal tombs, and perfume river scenery. A full day is tight but possible with a private driver; an overnight stay is more relaxed. Combine with Lang Co lagoon views along the coastal Hai Van Pass route for dramatic scenery.",
+      "tags": ["hue", "citadel", "hai_van_pass", "history"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "daytrip_cham_islands",
+      "category": "day_trip",
+      "place_name": "Cham Islands",
+      "title": "Cham Islands day trip",
+      "content": "The Cham Islands (Cu Lao Cham) are a marine protected area off the coast near Hoi An. Day tours typically include a boat transfer, snorkeling, swimming, and a simple lunch. Sea conditions matter; tours may cancel in rough weather. Book with reputable operators and ask about life jackets and eco rules—do not touch coral or litter. Start early; boats often leave from Hoi An area harbors rather than Da Nang city center.",
+      "tags": ["cham_islands", "snorkeling", "boat", "marine_park"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "daytrip_hai_van",
+      "category": "day_trip",
+      "place_name": "Hai Van Pass",
+      "title": "Hai Van Pass scenic route",
+      "content": "Hai Van Pass is a mountain coastal pass between Da Nang and Lang Co/Hue with sweeping ocean views. Travelers enjoy it by private car or motorbike when weather is clear. Fog and rain can reduce visibility—drive carefully. There are viewpoint stops and an old fort area near the top. It pairs naturally with a Hue day trip or a Lang Co beach lunch stop.",
+      "tags": ["hai_van_pass", "scenic", "motorbike", "viewpoint"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "practical_money",
+      "category": "practical",
+      "place_name": "Da Nang",
+      "title": "Money, ATMs, and payments",
+      "content": "Vietnam’s currency is the Vietnamese dong (VND). ATMs are widely available in Da Nang; notify your bank of travel to avoid card blocks. Major hotels and restaurants accept Visa/Mastercard; markets and small eateries may be cash-only. Keep small bills for tips, street food, and temple donations. Currency exchange is available at airports, banks, and reputable exchange counters—compare rates.",
+      "tags": ["money", "atm", "vnd", "cards"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "practical_sim_wifi",
+      "category": "practical",
+      "place_name": "Da Nang",
+      "title": "SIM cards and internet",
+      "content": "Tourist SIM and eSIM options from major Vietnamese carriers work well in Da Nang with strong 4G/5G coverage in urban and beach areas. Airport and city shops sell tourist packages with data. Hotel and cafe Wi-Fi is common. Download offline maps for Son Tra and mountain roads where signal can dip. Keep your phone charged for Grab and translation apps.",
+      "tags": ["sim", "esim", "wifi", "4g"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "practical_safety",
+      "category": "practical",
+      "place_name": "Da Nang",
+      "title": "Safety tips",
+      "content": "Da Nang is generally considered traveler-friendly and safer than many large cities, but petty theft can still occur—watch bags on beaches and in crowded show areas. Swim only when conditions are safe and obey lifeguard flags. Use crosswalks carefully; traffic does not always stop. For emergencies, ask your hotel desk for bilingual assistance. Travel insurance covering scooters is recommended if you rent one.",
+      "tags": ["safety", "beach_flags", "theft", "insurance"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "practical_health",
+      "category": "practical",
+      "place_name": "Da Nang",
+      "title": "Health and pharmacies",
+      "content": "Pharmacies are easy to find in central Da Nang and near the beach. Drink bottled water and be cautious with ice at very small street stalls if you have a sensitive stomach. The sun is intense—use high-SPF sunscreen and reapply after swimming. International-standard clinics and hospitals are available for urgent care; your hotel can recommend English-capable options.",
+      "tags": ["health", "pharmacy", "sun", "water"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "practical_language",
+      "category": "practical",
+      "place_name": "Da Nang",
+      "title": "Language and etiquette",
+      "content": "English is commonly spoken in hotels, tours, and many restaurants in Da Nang’s tourist zones. Learning simple greetings is appreciated. Dress modestly at pagodas. Ask permission before photographing people at close range. Tipping is not always mandatory but rounding up or leaving small tips for good service is welcomed in tourist restaurants and for drivers.",
+      "tags": ["english", "etiquette", "pagoda", "tipping"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "weather_seasons",
+      "category": "weather",
+      "place_name": "Da Nang",
+      "title": "Weather and best time to visit",
+      "content": "Da Nang has a tropical climate. The drier, more beach-friendly period is often cited from roughly February to August, with warmer temperatures and better swimming odds. September to December can bring heavier rain, rough seas, and occasional storms. Always check a short-term forecast around typhoon season. Shoulder months can still be excellent for city sightseeing and Hoi An day trips with fewer crowds.",
+      "tags": ["weather", "best_time", "rain", "typhoon"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "weather_what_to_pack",
+      "category": "weather",
+      "place_name": "Da Nang",
+      "title": "What to pack",
+      "content": "Pack light breathable clothing, swimwear, sunscreen, a hat, and sandals for the beach. Bring a light rain jacket in wetter months and a thin layer for Ba Na Hills, which is cooler than sea level. Comfortable walking shoes help at Marble Mountains and Hoi An. Mosquito repellent is useful near rivers and green areas in the evenings.",
+      "tags": ["packing", "rain_jacket", "sunscreen", "shoes"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "events_dragon_show",
+      "category": "events",
+      "place_name": "Dragon Bridge",
+      "title": "Weekend dragon fire show planning",
+      "content": "For the Dragon Bridge fire and water show, aim to arrive 30–45 minutes early on Saturday or Sunday evenings. Popular viewing areas include the riverside promenades near the bridge. Vendors sell snacks and drinks. After the show, Grab demand spikes—walk a few blocks before requesting a ride. Confirm timing with local sources the same day, especially around holidays.",
+      "tags": ["fire_show", "weekend", "crowd", "planning"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "shopping_han_market",
+      "category": "shopping",
+      "place_name": "Han Market",
+      "title": "Han Market",
+      "content": "Han Market is a central market for souvenirs, clothing, dried goods, and local food stalls. Bargaining is common for non-food items. Keep an eye on your belongings in crowded aisles. It is a useful stop for gifts and a quick local lunch. Combine with a riverside walk afterward.",
+      "tags": ["market", "souvenirs", "bargaining", "food_stalls"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "shopping_non_nuoc_stone",
+      "category": "shopping",
+      "place_name": "Non Nuoc",
+      "title": "Non Nuoc stone carving village",
+      "content": "Near Marble Mountains, Non Nuoc stone carving village sells marble sculptures, statues, and souvenirs. You can watch artisans at work. Prices vary widely by size and craftsmanship; compare a few shops. Shipping large pieces internationally can be arranged by some sellers—ask about costs and timelines before buying.",
+      "tags": ["marble", "souvenirs", "artisans", "non_nuoc"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "shopping_supermarkets",
+      "category": "shopping",
+      "place_name": "Da Nang",
+      "title": "Supermarkets and malls",
+      "content": "Da Nang has modern malls and supermarkets for groceries, SIM cards, and travel essentials. These are handy on rainy days or if you need Western products. Shopping malls often include food courts with air conditioning—useful midday heat escapes. Opening hours are typically long, but confirm holiday schedules.",
+      "tags": ["mall", "supermarket", "essentials", "rainy_day"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "itinerary_1_day",
+      "category": "itinerary",
+      "place_name": "Da Nang",
+      "title": "Sample 1-day Da Nang itinerary",
+      "content": "Morning: My Khe Beach sunrise and breakfast with mi Quang. Midday: Marble Mountains, then seafood lunch near Non Nuoc. Afternoon: relax at the beach or cafe. Evening: Han River walk and Dragon Bridge show if it is a weekend. This plan minimizes transit time and covers beach, culture, and nightlife highlights.",
+      "tags": ["itinerary", "one_day", "sample"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "itinerary_3_day",
+      "category": "itinerary",
+      "place_name": "Da Nang",
+      "title": "Sample 3-day Da Nang itinerary",
+      "content": "Day 1: Beach and Dragon Bridge evening. Day 2: Full day at Ba Na Hills including the Golden Bridge. Day 3: Morning Son Tra and Lady Buddha, afternoon Hoi An Ancient Town, return to Da Nang at night. Adjust for weather: swap Ba Na Hills to a clearer day if the forecast shows heavy mountain fog.",
+      "tags": ["itinerary", "three_day", "ba_na", "hoi_an"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "faq_cost",
+      "category": "faq",
+      "place_name": "Da Nang",
+      "title": "Is Da Nang expensive?",
+      "content": "Da Nang is generally mid-range for Vietnam: more affordable than many Western beach cities, with options from budget eateries to luxury resorts. Street food and local noodle shops are inexpensive; beach clubs and fine dining cost more. Grab rides within the city are usually modest. Ba Na Hills is one of the pricier day attractions due to cable car and park tickets.",
+      "tags": ["cost", "budget", "faq"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "faq_how_many_days",
+      "category": "faq",
+      "place_name": "Da Nang",
+      "title": "How many days in Da Nang?",
+      "content": "Two to three full days cover the beach, one major mountain or peninsula outing, and a Hoi An day trip. Four to five days allow a slower pace, Hue or Cham Islands, and spa or beach downtime. If you only have one day, prioritize My Khe plus either Marble Mountains or a short Son Tra visit and an evening river walk.",
+      "tags": ["duration", "planning", "faq"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "faq_family",
+      "category": "faq",
+      "place_name": "Da Nang",
+      "title": "Is Da Nang good for families?",
+      "content": "Yes. Families like Da Nang for calm beach resorts, hotel pools, short airport transfers, and attractions like Ba Na Hills Fantasy Park. Choose resorts with kids’ clubs if needed. Watch sun exposure and sea conditions. Private cars are more comfortable than motorbikes when traveling with children.",
+      "tags": ["family", "kids", "faq"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    },
+    {
+      "id": "faq_nightlife",
+      "category": "faq",
+      "place_name": "Da Nang",
+      "title": "Nightlife in Da Nang",
+      "content": "Nightlife is milder than Ho Chi Minh City or Hanoi but includes beach bars, rooftop lounges, karaoke, and the weekend Dragon Bridge show. The vibe is relaxed rather than nonstop clubbing. Check dress codes for upscale rooftops. Ride-hailing is the easiest late-night transport.",
+      "tags": ["nightlife", "bars", "rooftop", "faq"],
+      "source": "curated",
+      "updated_at": "2026-09-08"
+    }
+  ]
+}
