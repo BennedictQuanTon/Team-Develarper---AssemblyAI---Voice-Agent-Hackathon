@@ -54,13 +54,28 @@ def _stats(values: list[float]) -> dict:
 
 
 def _wav_duration_ms(b64: str) -> float:
+    """Duration for standard WAV; Cartesia often uses RIFF size 0xFFFFFFFF — fall back to byte estimate."""
     if not b64:
         return 0.0
     raw = base64.b64decode(b64)
-    with wave.open(io.BytesIO(raw), "rb") as handle:
-        frames = handle.getnframes()
-        rate = handle.getframerate() or 1
-        return round(1000.0 * frames / rate, 1)
+    if len(raw) < 44:
+        return 0.0
+    try:
+        with wave.open(io.BytesIO(raw), "rb") as handle:
+            frames = handle.getnframes()
+            rate = handle.getframerate() or 1
+            channels = handle.getnchannels() or 1
+            width = handle.getsampwidth() or 2
+            # Streaming/incomplete RIFF headers report absurd frame counts
+            if 0 < frames < 10_000_000:
+                return round(1000.0 * frames / rate, 1)
+            bytes_per_sec = rate * channels * width
+            payload = max(0, len(raw) - 44)
+            return round(1000.0 * payload / max(1, bytes_per_sec), 1)
+    except Exception:
+        payload = max(0, len(raw) - 44)
+        return round(1000.0 * payload / 32000.0, 1)  # 16kHz mono s16le
+
 
 
 def _token_overlap(answer: str, context: str) -> float:
@@ -125,6 +140,7 @@ async def run_live_turns(settings, audio_dir: Path, use_cache: bool) -> dict:
     turns = []
     audio_dir.mkdir(parents=True, exist_ok=True)
 
+    # Live content turns on one session (max 3). Farewell tested on a fresh session.
     for qid in LIVE_QUERY_IDS:
         q = qrels[qid]
         result = await orch.run_turn(
@@ -153,7 +169,7 @@ async def run_live_turns(settings, audio_dir: Path, use_cache: bool) -> dict:
                 "grounded_overlap": _token_overlap(result.get("answer") or "", ctx),
                 "gold_keyword_hit": _gold_hit(qid, result.get("answer") or ""),
                 "audio_duration_ms": dur,
-                "audio_file": str(path.relative_to(ROOT_DIR)) if b64 else None,
+                "audio_file": str(path.resolve().relative_to(ROOT_DIR.resolve())) if b64 else None,
                 "audio_ok": dur > 400,
                 "timings_ms": result.get("timings_ms"),
                 "providers": result.get("providers"),
@@ -163,7 +179,7 @@ async def run_live_turns(settings, audio_dir: Path, use_cache: bool) -> dict:
 
     farewell = await orch.run_turn(
         text="Thanks, that's all.",
-        session_id=session_id,
+        session_id="e2e-farewell",
         use_cache=False,
         manage_session=True,
     )
