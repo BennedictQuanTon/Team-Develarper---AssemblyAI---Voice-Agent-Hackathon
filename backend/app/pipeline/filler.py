@@ -11,7 +11,7 @@ _CHECK = re.compile(
 _WH = re.compile(r"\b(what|where|how|why|which|who|tell me|is there|are there)\b", re.I)
 _ACK = re.compile(r"\b(ok|okay|yes|yeah|sure|got it|thanks|thank you)\b", re.I)
 _FAREWELL = re.compile(
-    r"\b(thanks|thank you|that'?s all|bye|goodbye|i'?m good|see you|all set|nothing else)\b",
+    r"\b(thanks|thank you|that'?s all|that is all|bye|goodbye|i'?m good|see you|all set|nothing else)\b",
     re.I,
 )
 
