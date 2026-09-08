@@ -438,6 +438,123 @@
         margin-top: 8px;
       }
 
+      .session-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-1);
+        margin: 0 0 var(--space-2);
+      }
+
+      .status-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        font-family: var(--font-body);
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.4;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border: 1px solid var(--border-medium);
+        border-radius: var(--radius);
+        color: var(--text-secondary);
+        background: transparent;
+      }
+
+      .status-chip.processing {
+        border-color: var(--border-medium);
+        background: var(--surface);
+        animation: pulse-border 1.4s ease-in-out infinite;
+      }
+
+      .status-chip.success {
+        background: #f0fdf4;
+        color: var(--success);
+        border-color: #bbf7d0;
+      }
+
+      .status-chip.ended {
+        background: #f0fdf4;
+        color: var(--success);
+        border-color: #bbf7d0;
+      }
+
+      @keyframes pulse-border {
+        0%,
+        100% {
+          border-color: var(--border-medium);
+        }
+        50% {
+          border-color: var(--primary);
+        }
+      }
+
+      .filter-chip {
+        border: 1px solid var(--border-medium);
+        background: transparent;
+        color: var(--text-secondary);
+        border-radius: var(--radius);
+        padding: 6px 14px;
+        font-family: var(--font-body);
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1.4;
+        cursor: pointer;
+      }
+
+      .filter-chip:hover {
+        background: var(--surface);
+      }
+
+      .filter-chip.selected,
+      .filter-chip:focus-visible {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: var(--bg);
+        outline: none;
+      }
+
+      .filter-chip:focus-visible {
+        box-shadow: var(--focus-ring);
+      }
+
+      .filler-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .caption {
+        margin: 0 0 8px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--text-tertiary);
+      }
+
+      .ended-banner {
+        margin-top: var(--space-2);
+        padding: var(--space-2);
+        border: 1px solid var(--border-subtle);
+        background: var(--surface);
+      }
+
+      .ended-banner[hidden] {
+        display: none;
+      }
+
+      .ended-banner .subhead {
+        margin-bottom: 8px;
+      }
+
+      .ended-banner p {
+        margin: 0 0 var(--space-2);
+        color: var(--text-secondary);
+        font-size: 15px;
+        line-height: 1.7;
+      }
+
     </style>
   </head>
   <body>
@@ -454,6 +571,12 @@
         <section class="card" aria-labelledby="compose-title">
           <h2 class="subhead" id="compose-title">Compose a turn</h2>
 
+          <div class="session-row" aria-live="polite">
+            <span class="status-chip" id="turnMeter">Turn 0 / 3</span>
+            <span class="status-chip" id="procChip" hidden>Checking…</span>
+            <span class="status-chip ended" id="endedChip" hidden>Conversation ended</span>
+          </div>
+
           <div class="field">
             <div class="filter-row" role="group" aria-label="Voice profile">
               <button type="button" class="chip selected" data-profile="friendly_guide">
@@ -467,6 +590,11 @@
               <option value="friendly_guide" selected>friendly_guide</option>
               <option value="calm_concierge">calm_concierge</option>
             </select>
+          </div>
+
+          <div class="field">
+            <p class="caption">Backchannel preview — tap to hear fillers used while processing</p>
+            <div class="filler-row" id="fillerPreview" role="group" aria-label="Backchannel clips"></div>
           </div>
 
           <div class="field">
@@ -501,10 +629,17 @@
 
           <p class="sr-only" id="status" aria-live="polite"></p>
 
+          <div class="ended-banner" id="endedBanner" hidden>
+            <h3 class="subhead">Conversation complete</h3>
+            <p>Three turns or a farewell ends this session. Start fresh anytime.</p>
+            <button type="button" class="btn-primary" id="newConvoBtn">New conversation</button>
+          </div>
+
           <div class="chat" id="chat" aria-live="polite"></div>
           <div class="audio-panel" id="audioPanel" hidden>
             <p class="label">Voice reply (TTS)</p>
             <audio id="ttsPlayer" controls preload="metadata"></audio>
+            <audio id="fillerPlayer" preload="auto" hidden></audio>
           </div>
         </section>
 
@@ -531,13 +666,48 @@
       const sendBtn = document.getElementById("sendBtn");
       const micBtn = document.getElementById("micBtn");
       const stopBtn = document.getElementById("stopBtn");
-      const sessionId = crypto.randomUUID();
+      const turnMeter = document.getElementById("turnMeter");
+      const procChip = document.getElementById("procChip");
+      const endedChip = document.getElementById("endedChip");
+      const endedBanner = document.getElementById("endedBanner");
+      const newConvoBtn = document.getElementById("newConvoBtn");
+      const fillerPreview = document.getElementById("fillerPreview");
+      const fillerPlayer = document.getElementById("fillerPlayer");
+      const ttsPlayer = document.getElementById("ttsPlayer");
+
+      let sessionId = crypto.randomUUID();
       let recognition = null;
+      let turnBusy = false;
+      let sessionEnded = false;
+      let fillerManifest = { clips: [] };
+      let ws = null;
+      const audioQueue = [];
+      let playingAnswer = false;
 
       function setStatus(text, kind) {
-        // Status is screen-reader only (READY chip removed from UI)
         statusEl.textContent = text || "";
         statusEl.dataset.kind = kind || "info";
+      }
+
+      function updateTurnMeter(count, maxTurns) {
+        const c = count == null ? 0 : count;
+        const m = maxTurns || 3;
+        turnMeter.textContent = `Turn ${c} / ${m}`;
+      }
+
+      function setProcessing(on) {
+        procChip.hidden = !on;
+        if (on) procChip.classList.add("processing");
+        else procChip.classList.remove("processing");
+      }
+
+      function setEnded(ended) {
+        sessionEnded = !!ended;
+        endedChip.hidden = !ended;
+        endedBanner.hidden = !ended;
+        sendBtn.disabled = ended || turnBusy;
+        micBtn.disabled = ended;
+        if (ended) stopFiller();
       }
 
       function addBubble(text, who) {
@@ -560,23 +730,79 @@
           `turn_id: ${data.turn_id}`,
           `profile: ${data.profile?.name || ""}`,
           `providers: ${JSON.stringify(data.providers)}`,
+          `filler_id: ${data.filler_id || ""}`,
           `stt_finalize_ms: ${t.stt_finalize_ms}`,
           `rag_ms: ${t.rag_ms}`,
           `llm_ttft_ms: ${t.llm_ttft_ms}`,
           `tts_ttfb_ms: ${t.tts_ttfb_ms}`,
+          `perceived_ttfb_ms: ${t.perceived_ttfb_ms}`,
           `e2e_turn_ms: ${t.e2e_turn_ms}`,
           `retrieval_cache_hit: ${data.cache?.retrieval_cache_hit}`,
+          `spoken_cache_hit: ${data.cache?.spoken_cache_hit}`,
+          `session_ended: ${data.session_ended}`,
         ].join("\n");
       }
 
-      function playAudio(audio) {
+      function stopFiller() {
+        if (!fillerPlayer) return;
+        fillerPlayer.pause();
+        fillerPlayer.removeAttribute("src");
+        fillerPlayer.load();
+      }
+
+      function playFiller(id) {
+        const clip = (fillerManifest.clips || []).find((c) => c.id === id);
+        if (!clip || !fillerPlayer) return;
+        stopFiller();
+        fillerPlayer.src = clip.file;
+        fillerPlayer.play().catch(() => {});
+      }
+
+      function enqueueAnswerAudio(audio) {
+        if (!audio?.b64) return;
+        audioQueue.push(audio);
+        drainAudioQueue();
+      }
+
+      function drainAudioQueue() {
+        if (playingAnswer || !audioQueue.length) return;
+        playingAnswer = true;
+        stopFiller();
+        const audio = audioQueue.shift();
         const panel = document.getElementById("audioPanel");
-        const player = document.getElementById("ttsPlayer");
-        if (!audio?.b64 || !player || !panel) return;
         const src = `data:${audio.mime_type};base64,${audio.b64}`;
-        player.src = src;
+        ttsPlayer.onended = () => {
+          playingAnswer = false;
+          drainAudioQueue();
+        };
+        ttsPlayer.src = src;
         panel.hidden = false;
-        player.play().catch(() => {});
+        ttsPlayer.play().catch(() => {
+          playingAnswer = false;
+          drainAudioQueue();
+        });
+      }
+
+      function playAudio(audio) {
+        audioQueue.length = 0;
+        playingAnswer = false;
+        enqueueAnswerAudio(audio);
+      }
+
+      function ensureWs() {
+        return new Promise((resolve, reject) => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            resolve(ws);
+            return;
+          }
+          const proto = location.protocol === "https:" ? "wss" : "ws";
+          const socket = new WebSocket(`${proto}://${location.host}/ws/turn`);
+          socket.onopen = () => {
+            ws = socket;
+            resolve(socket);
+          };
+          socket.onerror = () => reject(new Error("WebSocket failed"));
+        });
       }
 
       async function runTurn(text) {
@@ -585,38 +811,139 @@
           setStatus("Enter a question or use Speak", "warning");
           return;
         }
+        if (sessionEnded) {
+          setStatus("Conversation ended — start a new one", "warning");
+          return;
+        }
+        if (turnBusy) return;
+        turnBusy = true;
         sendBtn.disabled = true;
-        setStatus("Running turn…", "info");
+        setProcessing(true);
+        setStatus("Processing…", "info");
         addBubble(q, "user");
+        audioQueue.length = 0;
+        playingAnswer = false;
+
+        // Optimistic local filler while WS connects / backend picks id
+        const localGuess = /\b(when|schedule|price|how much|what time)\b/i.test(q)
+          ? "checking"
+          : /\?|\b(what|where|how|why|which|who)\b/i.test(q)
+            ? "got_it"
+            : "thinking";
+        playFiller(localGuess);
+
         try {
-          const res = await fetch("/turn", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              text: q,
-              profile: profileEl.value,
-              session_id: sessionId,
-              use_cache: true,
-            }),
+          const socket = await ensureWs();
+          const final = await new Promise((resolve, reject) => {
+            let settled = false;
+            const onMessage = (ev) => {
+              let msg;
+              try {
+                msg = JSON.parse(ev.data);
+              } catch (e) {
+                return;
+              }
+              if (msg.type === "filler" && msg.filler_id) {
+                playFiller(msg.filler_id);
+                setStatus("Checking…", "info");
+              } else if (msg.type === "rag_done") {
+                setStatus("Drafting answer…", "info");
+              } else if (msg.type === "audio_chunk" && msg.audio) {
+                enqueueAnswerAudio(msg.audio);
+              } else if (msg.type === "session" && msg.session) {
+                updateTurnMeter(msg.session.turn_count, msg.session.max_turns);
+                if (msg.ended) setEnded(true);
+              } else if (msg.type === "error") {
+                if (!settled) {
+                  settled = true;
+                  socket.removeEventListener("message", onMessage);
+                  reject(new Error(msg.detail || "turn error"));
+                }
+              } else if (msg.type === "final") {
+                if (!settled) {
+                  settled = true;
+                  socket.removeEventListener("message", onMessage);
+                  resolve(msg);
+                }
+              }
+            };
+            socket.addEventListener("message", onMessage);
+            socket.send(
+              JSON.stringify({
+                text: q,
+                profile: profileEl.value,
+                session_id: sessionId,
+                use_cache: true,
+              })
+            );
           });
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.detail || res.statusText);
+
+          if (final.answer) addBubble(final.answer, "agent");
+          // If no streamed chunks arrived, play final audio
+          if (!audioQueue.length && !playingAnswer && final.audio?.b64) {
+            playAudio(final.audio);
           }
-          const data = await res.json();
-          addBubble(data.answer, "agent");
-          metricsEl.textContent = formatMetrics(data);
-          chunksEl.textContent = (data.chunks || [])
+          metricsEl.textContent = formatMetrics(final);
+          chunksEl.textContent = (final.chunks || [])
             .slice(0, 5)
             .map((c, i) => `${i + 1}. ${c.chunk_id} (${(c.sources || []).join("+")})`)
-            .join("\n");
-          playAudio(data.audio);
-          setStatus("Turn complete", "success");
+            .join("\n") || "—";
+          if (final.session) {
+            updateTurnMeter(final.session.turn_count, final.session.max_turns);
+          }
+          if (final.session_ended || final.ended) setEnded(true);
+          setStatus(final.session_ended ? "Conversation ended" : "Turn complete", "success");
         } catch (err) {
+          stopFiller();
           setStatus("Error: " + err.message, "error");
         } finally {
-          sendBtn.disabled = false;
+          turnBusy = false;
+          setProcessing(false);
+          if (!sessionEnded) sendBtn.disabled = false;
         }
+      }
+
+      async function loadFillers() {
+        try {
+          const res = await fetch("/static/audio/backchannels/manifest.json");
+          fillerManifest = await res.json();
+          fillerPreview.innerHTML = "";
+          (fillerManifest.clips || [])
+            .filter((c) => c.id !== "closing")
+            .forEach((clip) => {
+              const btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "filter-chip";
+              btn.textContent = clip.label;
+              btn.title = clip.when || clip.label;
+              btn.addEventListener("click", () => {
+                fillerPreview.querySelectorAll(".filter-chip").forEach((b) => b.classList.remove("selected"));
+                btn.classList.add("selected");
+                playFiller(clip.id);
+              });
+              fillerPreview.appendChild(btn);
+            });
+        } catch (e) {
+          fillerPreview.textContent = "Filler clips unavailable";
+        }
+      }
+
+      async function newConversation() {
+        sessionId = crypto.randomUUID();
+        chatEl.innerHTML = "";
+        metricsEl.textContent = "No turns yet.";
+        chunksEl.textContent = "—";
+        stopFiller();
+        audioQueue.length = 0;
+        playingAnswer = false;
+        ttsPlayer.removeAttribute("src");
+        document.getElementById("audioPanel").hidden = true;
+        setEnded(false);
+        updateTurnMeter(0, 3);
+        try {
+          await fetch(`/session/reset?session_id=${encodeURIComponent(sessionId)}`, { method: "POST" });
+        } catch (_) {}
+        setStatus("New conversation ready", "success");
       }
 
       document.querySelectorAll(".chip[data-profile]").forEach((chip) => {
@@ -628,6 +955,9 @@
       });
 
       sendBtn.addEventListener("click", () => runTurn(queryEl.value));
+      newConvoBtn.addEventListener("click", () => newConversation());
+      updateTurnMeter(0, 3);
+      loadFillers();
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
@@ -644,11 +974,11 @@
         recognition.onerror = (e) => {
           setStatus("Mic error: " + e.error, "error");
           stopBtn.disabled = true;
-          micBtn.disabled = false;
+          if (!sessionEnded) micBtn.disabled = false;
         };
         recognition.onend = () => {
           stopBtn.disabled = true;
-          micBtn.disabled = false;
+          if (!sessionEnded) micBtn.disabled = false;
         };
         recognition.onresult = (event) => {
           let finalText = "";
@@ -664,13 +994,20 @@
         };
 
         micBtn.addEventListener("click", () => {
+          if (sessionEnded) return;
           try {
             recognition.start();
           } catch (e) {
             setStatus(String(e), "error");
           }
         });
-        stopBtn.addEventListener("click", () => recognition.stop());
+        stopBtn.addEventListener("click", () => {
+          try {
+            recognition.stop();
+          } catch (_) {}
+          stopFiller();
+          ttsPlayer.pause();
+        });
       } else {
         micBtn.disabled = true;
         setStatus("Speech recognition unavailable — use text", "warning");

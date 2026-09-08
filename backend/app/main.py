@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from backend.app.config import get_settings
 from backend.app.metrics.spans import summarize_jsonl
 from backend.app.pipeline.orchestrator import Orchestrator
+from backend.app.pipeline.session import SessionStore
 from rag.cache import RagCache
 from rag.retrieve import DEFAULT_TOP_K, ask, hybrid_retrieve, warmup_retriever
 from rag.store import get_collection
@@ -26,9 +27,18 @@ def get_rag_cache() -> RagCache:
 
 
 @lru_cache
+def get_sessions() -> SessionStore:
+    return SessionStore()
+
+
+@lru_cache
 def get_orchestrator() -> Orchestrator:
     get_settings.cache_clear()
-    return Orchestrator(rag_cache=get_rag_cache(), settings=get_settings())
+    return Orchestrator(
+        rag_cache=get_rag_cache(),
+        settings=get_settings(),
+        sessions=get_sessions(),
+    )
 
 
 @asynccontextmanager
@@ -161,6 +171,12 @@ def rag_cache_clear() -> dict[str, Any]:
     return {"cleared": True, "cache": cache.snapshot()}
 
 
+@app.post("/session/reset")
+def session_reset(session_id: str = "default") -> dict[str, Any]:
+    state = get_sessions().reset(session_id)
+    return {"reset": True, "session": state.snapshot()}
+
+
 @app.post("/turn")
 async def turn(body: TurnRequest) -> dict[str, Any]:
     if not (body.text and body.text.strip()) and not body.audio_b64:
@@ -195,6 +211,10 @@ async def ws_turn(websocket: WebSocket) -> None:
             if not (text and str(text).strip()) and not audio_b64:
                 await websocket.send_json({"type": "error", "detail": "Provide text or audio_b64"})
                 continue
+
+            async def on_event(event: dict[str, Any]) -> None:
+                await websocket.send_json(event)
+
             await websocket.send_json({"type": "status", "stage": "started"})
             result = await get_orchestrator().run_turn(
                 text=text,
@@ -203,6 +223,7 @@ async def ws_turn(websocket: WebSocket) -> None:
                 session_id=str(payload.get("session_id") or "ws"),
                 use_cache=bool(payload.get("use_cache", True)),
                 top_k=int(payload.get("top_k") or DEFAULT_TOP_K),
+                on_event=on_event,
             )
             await websocket.send_json({"type": "final", **result})
     except WebSocketDisconnect:

@@ -144,6 +144,7 @@ class GeminiLLMClient:
             last_turn=last_turn,
         )
         queue: asyncio.Queue[str | None] = asyncio.Queue()
+        loop = asyncio.get_running_loop()
 
         def _produce() -> None:
             try:
@@ -171,19 +172,17 @@ class GeminiLLMClient:
                 for chunk in stream:
                     piece = (getattr(chunk, "text", None) or "").strip()
                     if piece:
-                        queue.put_nowait(piece)
+                        loop.call_soon_threadsafe(queue.put_nowait, piece)
             except Exception:
-                # Fallback: non-streaming
                 try:
                     full = self._generate_sync(prompt)
                     if full:
-                        queue.put_nowait(full)
+                        loop.call_soon_threadsafe(queue.put_nowait, full)
                 except Exception:
                     pass
             finally:
-                queue.put_nowait(None)
+                loop.call_soon_threadsafe(queue.put_nowait, None)
 
-        loop = asyncio.get_running_loop()
         loop.run_in_executor(None, _produce)
         while True:
             item = await queue.get()

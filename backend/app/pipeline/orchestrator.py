@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import inspect
 import re
 import time
 from collections.abc import Awaitable, Callable
@@ -59,8 +60,9 @@ async def _emit(on_event: EventCallback | None, payload: dict[str, Any]) -> None
     if on_event is None:
         return
     result = on_event(payload)
-    if asyncio.iscoroutine(result) or isinstance(result, Awaitable):
-        await result  # type: ignore[arg-type]
+    if inspect.isawaitable(result):
+        await result
+
 
 
 class Orchestrator:
@@ -324,8 +326,7 @@ class Orchestrator:
                     llm_ttft = round((time.perf_counter() - t_llm) * 1000, 3)
                     first_token = False
                 llm_text += piece
-            llm_provider = getattr(self.llm, "model", None) and "gemini" or "llm"
-            # Detect stub
+            llm_provider = "gemini"
             if getattr(self.llm, "simulated_ttft_ms", None) is not None:
                 llm_provider = "stub_llm"
         else:
