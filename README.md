@@ -10,7 +10,7 @@ Realtime Agent track: **AssemblyAI Realtime STT** + custom orchestration (local 
 | 1 JSON KB + ingest | done | No |
 | 2 Hybrid RAG + cache | done | No |
 | 3 Pipeline stubs + UI + metrics | done | No |
-| 4 Wire live clients | pending | Yes |
+| 4 Wire live clients | done | Yes |
 | 5 E2E test + reports | pending | Yes |
 
 ## Quick start (Phase 0)

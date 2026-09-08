@@ -21,7 +21,7 @@ FRONTEND_DIR = ROOT_DIR / "frontend"
 app = FastAPI(
     title="Da Nang Realtime Voice Agent",
     description="AssemblyAI Realtime STT + custom RAG/LLM/TTS orchestration",
-    version="0.3.0-phase3",
+    version="0.4.0-phase4",
 )
 
 if FRONTEND_DIR.is_dir():
@@ -35,7 +35,9 @@ def get_rag_cache() -> RagCache:
 
 @lru_cache
 def get_orchestrator() -> Orchestrator:
-    return Orchestrator(rag_cache=get_rag_cache())
+    # Rebuild settings from .env each process start
+    get_settings.cache_clear()
+    return Orchestrator(rag_cache=get_rag_cache(), settings=get_settings())
 
 
 class AskRequest(BaseModel):
@@ -66,10 +68,11 @@ def health() -> JSONResponse:
     return JSONResponse(
         {
             "status": "ok",
-            "phase": 3,
+            "phase": 4,
             "service": "danang-realtime-voice-agent",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "keys_configured": settings.keys_configured,
+            "client_mode": get_orchestrator().client_mode,
             "voice_profile": settings.voice_profile,
             "assemblyai_mode": settings.assemblyai_mode,
             "gemini_model": settings.gemini_model,

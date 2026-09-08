@@ -16,7 +16,7 @@ todos:
     status: completed
   - id: phase-4
     content: "Phase 4: Wire real AssemblyAI + Gemini + Cartesia clients (keys from user) + voice profiles"
-    status: pending
+    status: completed
   - id: phase-5
     content: "Phase 5: Live E2E test + cache hit/miss + latency waterfall + accuracy reports"
     status: pending

@@ -1,11 +1,12 @@
 profiles:
   friendly_guide:
-    cartesia_voice_id: ""  # set in Phase 4 / .env CARTESIA_VOICE_ID
+    # Default English voice from Cartesia docs; override via CARTESIA_VOICE_ID
+    cartesia_voice_id: "db6b0ed5-d5d3-463d-ae85-518a07d3c2b4"
     speaking_rate: 1.05
     style_prompt: "Warm, helpful travel guide. Clear and upbeat."
     answer_template: "Keep answers under 40 words. Prefer concrete place names and times."
   calm_concierge:
-    cartesia_voice_id: ""
+    cartesia_voice_id: "db6b0ed5-d5d3-463d-ae85-518a07d3c2b4"
     speaking_rate: 0.95
     style_prompt: "Calm hotel concierge. Soft and professional."
     answer_template: "Formal but brief. Offer one next step."

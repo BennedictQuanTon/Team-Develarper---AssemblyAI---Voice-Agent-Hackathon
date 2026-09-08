@@ -8,11 +8,9 @@ from typing import Any
 
 from backend.app.config import Settings, get_settings
 from backend.app.metrics.spans import MetricsWriter, TurnSpans, new_turn_id
-from backend.app.pipeline.asr import StubASRClient
 from backend.app.pipeline.base import ASRClient, LLMClient, TTSClient
-from backend.app.pipeline.llm import StubLLMClient
+from backend.app.pipeline.factory import build_clients
 from backend.app.pipeline.profiles import get_voice_profile
-from backend.app.pipeline.tts import StubTTSClient
 from rag.cache import RagCache
 from rag.retrieve import hybrid_retrieve
 
@@ -29,9 +27,11 @@ class Orchestrator:
         metrics_path: Path | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        self.asr = asr or StubASRClient()
-        self.llm = llm or StubLLMClient()
-        self.tts = tts or StubTTSClient()
+        built = build_clients(self.settings)
+        self.asr = asr or built["asr"]
+        self.llm = llm or built["llm"]
+        self.tts = tts or built["tts"]
+        self.client_mode = built["mode"]
         self.rag_cache = rag_cache if rag_cache is not None else RagCache()
         path = metrics_path or (self.settings.metrics_dir / "turns.jsonl")
         self.metrics = MetricsWriter(path)
@@ -50,7 +50,7 @@ class Orchestrator:
         profile = get_voice_profile(profile_name)
         turn_id = new_turn_id()
 
-        # 1) ASR (stub)
+        # 1) ASR — live only when audio is sent; typed text skips live ASR (saves cost)
         stt = await self.asr.transcribe_turn(
             audio_b64=audio_b64,
             mock_transcript=text,
@@ -69,7 +69,7 @@ class Orchestrator:
         )
         rag_ms = round((time.perf_counter() - t_rag) * 1000, 3)
 
-        # 3) LLM (stub grounded)
+        # 3) LLM (Gemini when key present)
         llm = await self.llm.generate(
             user_text=query,
             context_chunks=retrieval["chunks"],
@@ -77,7 +77,7 @@ class Orchestrator:
             answer_template=profile["answer_template"],
         )
 
-        # 4) TTS (stub beep)
+        # 4) TTS (Cartesia when key present)
         tts = await self.tts.synthesize(
             text=llm.text,
             voice_id=profile["cartesia_voice_id"],
@@ -141,6 +141,7 @@ class Orchestrator:
             },
             "timings_ms": timings,
             "providers": spans.provider,
+            "client_mode": self.client_mode,
             "cache": spans.cache,
             "metrics_file": str(self.metrics.path),
         }
