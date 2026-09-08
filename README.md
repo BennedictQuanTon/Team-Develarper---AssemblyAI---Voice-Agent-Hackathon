@@ -9,7 +9,7 @@ Realtime Agent track: **AssemblyAI Realtime STT** + custom orchestration (local 
 | 0 Scaffold | done | No |
 | 1 JSON KB + ingest | done | No |
 | 2 Hybrid RAG + cache | done | No |
-| 3 Pipeline stubs + UI + metrics | pending | No |
+| 3 Pipeline stubs + UI + metrics | done | No |
 | 4 Wire live clients | pending | Yes |
 | 5 E2E test + reports | pending | Yes |
 
@@ -51,6 +51,21 @@ curl -s -X POST http://127.0.0.1:8000/rag/ask \
   -H 'content-type: application/json' \
   -d '{"query":"Dragon Bridge fire show"}' | python3 -m json.tool
 ```
+
+## Orchestration UI (Phase 3)
+
+```bash
+PYTHONPATH=. uvicorn backend.app.main:app --reload --port 8000
+# open http://127.0.0.1:8000/
+# or:
+curl -s -X POST http://127.0.0.1:8000/turn \
+  -H 'content-type: application/json' \
+  -d '{"text":"When is the Dragon Bridge fire show?","profile":"friendly_guide"}' | python3 -m json.tool
+
+PYTHONPATH=. python -m eval.run_waterfall
+```
+
+Stub ASR/LLM/TTS (no vendor keys). Real hybrid RAG. Metrics → `reports/turns.jsonl`.
 
 ## Layout
 

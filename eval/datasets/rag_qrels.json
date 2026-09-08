@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "locale": "en",
+  "queries": [
+    {
+      "id": "q001",
+      "question": "What is Ba Na Hills and the Golden Bridge?",
+      "relevant_chunk_ids": ["attr_ba_na_hills", "attr_golden_bridge"]
+    },
+    {
+      "id": "q002",
+      "question": "When is the Dragon Bridge fire show?",
+      "relevant_chunk_ids": ["attr_dragon_bridge", "events_dragon_show"]
+    },
+    {
+      "id": "q003",
+      "question": "How do I get from Da Nang airport to the beach?",
+      "relevant_chunk_ids": ["transport_airport", "transport_grab", "beach_my_khe"]
+    },
+    {
+      "id": "q004",
+      "question": "Day trip ideas to Hoi An",
+      "relevant_chunk_ids": ["daytrip_hoi_an", "transport_bus"]
+    },
+    {
+      "id": "q005",
+      "question": "What local food should I try in Da Nang?",
+      "relevant_chunk_ids": ["food_mi_quang", "food_seafood"]
+    },
+    {
+      "id": "q006",
+      "question": "Is Da Nang good for families?",
+      "relevant_chunk_ids": ["faq_family", "hotel_beach"]
+    },
+    {
+      "id": "q007",
+      "question": "Best time to visit Da Nang weather",
+      "relevant_chunk_ids": ["weather_seasons", "weather_what_to_pack"]
+    },
+    {
+      "id": "q008",
+      "question": "Tell me about Marble Mountains",
+      "relevant_chunk_ids": ["attr_marble_mountains", "beach_non_nuoc"]
+    }
+  ]
+}

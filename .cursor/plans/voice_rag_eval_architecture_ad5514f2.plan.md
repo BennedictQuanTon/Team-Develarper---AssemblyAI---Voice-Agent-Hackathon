@@ -13,7 +13,7 @@ todos:
     status: completed
   - id: phase-3
     content: "Phase 3: Orchestration pipeline stubs (ASR/LLM/TTS interfaces) + mic UI + metrics JSONL"
-    status: pending
+    status: completed
   - id: phase-4
     content: "Phase 4: Wire real AssemblyAI + Gemini + Cartesia clients (keys from user) + voice profiles"
     status: pending

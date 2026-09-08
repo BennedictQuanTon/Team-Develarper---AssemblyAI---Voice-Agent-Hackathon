@@ -1,1 +1,3 @@
-# Metrics JSONL + waterfall helpers land in Phase 3+.
+from backend.app.metrics.spans import MetricsWriter, TurnSpans, summarize_jsonl
+
+__all__ = ["MetricsWriter", "TurnSpans", "summarize_jsonl"]

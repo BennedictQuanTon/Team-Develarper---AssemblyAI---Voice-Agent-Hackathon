@@ -3,50 +3,322 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Da Nang Voice Agent — Phase 0</title>
+    <title>Da Nang Voice Agent — Phase 3</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
-        --bg: #0f1c24;
-        --fg: #e8f1f5;
+        --bg: #0e1a22;
+        --panel: rgba(18, 36, 46, 0.82);
+        --fg: #e7f2f6;
+        --muted: #9db4bf;
         --accent: #3db8a8;
+        --accent-2: #f0b429;
+        --line: rgba(255, 255, 255, 0.08);
+      }
+      * {
+        box-sizing: border-box;
       }
       body {
         margin: 0;
         min-height: 100vh;
-        display: grid;
-        place-items: center;
-        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-        background:
-          radial-gradient(ellipse at 20% 10%, #1a3a44 0%, transparent 50%),
-          radial-gradient(ellipse at 80% 90%, #243048 0%, transparent 45%),
-          var(--bg);
+        font-family: "IBM Plex Sans", sans-serif;
         color: var(--fg);
+        background:
+          radial-gradient(ellipse at 15% 0%, #1c3d48 0%, transparent 45%),
+          radial-gradient(ellipse at 90% 100%, #2a3348 0%, transparent 40%),
+          var(--bg);
       }
       main {
-        max-width: 28rem;
-        padding: 2rem;
-        text-align: center;
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 3rem;
       }
       h1 {
         font-family: "Fraunces", Georgia, serif;
-        font-weight: 600;
+        font-size: clamp(1.8rem, 4vw, 2.6rem);
+        margin: 0 0 0.35rem;
         letter-spacing: -0.02em;
-        margin: 0 0 0.5rem;
       }
-      p {
-        opacity: 0.85;
+      .sub {
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+        max-width: 36rem;
         line-height: 1.5;
       }
-      code {
+      .grid {
+        display: grid;
+        gap: 1rem;
+      }
+      @media (min-width: 840px) {
+        .grid {
+          grid-template-columns: 1.2fr 0.8fr;
+        }
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 1.1rem 1.2rem;
+        backdrop-filter: blur(10px);
+      }
+      label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin-bottom: 0.35rem;
+      }
+      textarea,
+      select {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: rgba(0, 0, 0, 0.25);
+        color: var(--fg);
+        padding: 0.75rem 0.85rem;
+        font: inherit;
+      }
+      textarea {
+        min-height: 96px;
+        resize: vertical;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-top: 0.85rem;
+      }
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 0.7rem 1.1rem;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .primary {
+        background: var(--accent);
+        color: #04221f;
+      }
+      .secondary {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--fg);
+      }
+      .danger {
+        background: rgba(232, 93, 93, 0.2);
+        color: #ffc9c9;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .status {
+        margin-top: 0.85rem;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      .bubble {
+        border-left: 3px solid var(--accent);
+        padding: 0.55rem 0.75rem;
+        margin: 0.6rem 0;
+        background: rgba(0, 0, 0, 0.18);
+        border-radius: 0 10px 10px 0;
+      }
+      .bubble.user {
+        border-left-color: var(--accent-2);
+      }
+      .metrics {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.78rem;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        color: #cfe7ef;
+      }
+      .pill {
+        display: inline-block;
+        padding: 0.15rem 0.55rem;
+        border-radius: 999px;
+        background: rgba(61, 184, 168, 0.18);
         color: var(--accent);
+        font-size: 0.75rem;
+        margin-right: 0.35rem;
       }
     </style>
   </head>
   <body>
     <main>
+      <p class="pill">Phase 3 · stub ASR/LLM/TTS · real RAG</p>
       <h1>Da Nang Voice Agent</h1>
-      <p>Phase 0 scaffold. Mic UI arrives in Phase 3.</p>
-      <p>API health: <code>/health</code></p>
+      <p class="sub">
+        Speak (browser speech recognition) or type a question. Orchestration runs stub STT →
+        local hybrid RAG → stub LLM → stub TTS beep. No API keys required yet.
+      </p>
+
+      <div class="grid">
+        <section class="card">
+          <label for="profile">Voice profile</label>
+          <select id="profile">
+            <option value="friendly_guide">friendly_guide</option>
+            <option value="calm_concierge">calm_concierge</option>
+          </select>
+
+          <label for="query" style="margin-top: 0.9rem">Your question (English)</label>
+          <textarea id="query" placeholder="When is the Dragon Bridge fire show?"></textarea>
+
+          <div class="row">
+            <button class="primary" id="sendBtn" type="button">Send turn</button>
+            <button class="secondary" id="micBtn" type="button">Speak</button>
+            <button class="danger" id="stopBtn" type="button" disabled>Stop</button>
+          </div>
+          <p class="status" id="status">Ready.</p>
+
+          <h3 style="margin: 1.2rem 0 0.4rem; font-size: 1rem">Transcript / answer</h3>
+          <div id="chat"></div>
+        </section>
+
+        <section class="card">
+          <h3 style="margin: 0 0 0.5rem; font-size: 1rem">Turn metrics</h3>
+          <div class="metrics" id="metrics">No turns yet.</div>
+          <h3 style="margin: 1.1rem 0 0.4rem; font-size: 1rem">Top chunks</h3>
+          <div id="chunks" class="metrics">—</div>
+        </section>
+      </div>
     </main>
+
+    <script>
+      const queryEl = document.getElementById("query");
+      const statusEl = document.getElementById("status");
+      const chatEl = document.getElementById("chat");
+      const metricsEl = document.getElementById("metrics");
+      const chunksEl = document.getElementById("chunks");
+      const profileEl = document.getElementById("profile");
+      const sendBtn = document.getElementById("sendBtn");
+      const micBtn = document.getElementById("micBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const sessionId = crypto.randomUUID();
+      let recognition = null;
+
+      function addBubble(text, who) {
+        const div = document.createElement("div");
+        div.className = "bubble " + who;
+        div.textContent = text;
+        chatEl.prepend(div);
+      }
+
+      function formatMetrics(data) {
+        const t = data.timings_ms || {};
+        return [
+          `turn_id: ${data.turn_id}`,
+          `profile: ${data.profile?.name || ""}`,
+          `providers: ${JSON.stringify(data.providers)}`,
+          `stt_finalize_ms: ${t.stt_finalize_ms}`,
+          `rag_ms: ${t.rag_ms}`,
+          `llm_ttft_ms: ${t.llm_ttft_ms}`,
+          `tts_ttfb_ms: ${t.tts_ttfb_ms}`,
+          `e2e_turn_ms: ${t.e2e_turn_ms}`,
+          `retrieval_cache_hit: ${data.cache?.retrieval_cache_hit}`,
+        ].join("\n");
+      }
+
+      function playAudio(audio) {
+        if (!audio?.b64) return;
+        const src = `data:${audio.mime_type};base64,${audio.b64}`;
+        const a = new Audio(src);
+        a.play().catch(() => {});
+      }
+
+      async function runTurn(text) {
+        const q = (text || "").trim();
+        if (!q) {
+          statusEl.textContent = "Enter a question or use the mic.";
+          return;
+        }
+        sendBtn.disabled = true;
+        statusEl.textContent = "Running orchestration turn…";
+        addBubble(q, "user");
+        try {
+          const res = await fetch("/turn", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              text: q,
+              profile: profileEl.value,
+              session_id: sessionId,
+              use_cache: true,
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || res.statusText);
+          }
+          const data = await res.json();
+          addBubble(data.answer, "agent");
+          metricsEl.textContent = formatMetrics(data);
+          chunksEl.textContent = (data.chunks || [])
+            .slice(0, 5)
+            .map((c, i) => `${i + 1}. ${c.chunk_id} (${(c.sources || []).join("+")})`)
+            .join("\n");
+          playAudio(data.audio);
+          statusEl.textContent = "Turn complete. Metrics appended to reports/turns.jsonl";
+        } catch (err) {
+          statusEl.textContent = "Error: " + err.message;
+        } finally {
+          sendBtn.disabled = false;
+        }
+      }
+
+      sendBtn.addEventListener("click", () => runTurn(queryEl.value));
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = "en-US";
+        recognition.interimResults = true;
+        recognition.continuous = false;
+
+        recognition.onstart = () => {
+          statusEl.textContent = "Listening…";
+          stopBtn.disabled = false;
+          micBtn.disabled = true;
+        };
+        recognition.onerror = (e) => {
+          statusEl.textContent = "Mic error: " + e.error;
+          stopBtn.disabled = true;
+          micBtn.disabled = false;
+        };
+        recognition.onend = () => {
+          stopBtn.disabled = true;
+          micBtn.disabled = false;
+        };
+        recognition.onresult = (event) => {
+          let finalText = "";
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const piece = event.results[i][0].transcript;
+            if (event.results[i].isFinal) finalText += piece;
+            else queryEl.value = piece;
+          }
+          if (finalText.trim()) {
+            queryEl.value = finalText.trim();
+            runTurn(finalText.trim());
+          }
+        };
+
+        micBtn.addEventListener("click", () => {
+          try {
+            recognition.start();
+          } catch (e) {
+            statusEl.textContent = String(e);
+          }
+        });
+        stopBtn.addEventListener("click", () => recognition.stop());
+      } else {
+        micBtn.disabled = true;
+        statusEl.textContent = "Browser speech recognition unavailable — use text input.";
+      }
+    </script>
   </body>
 </html>
