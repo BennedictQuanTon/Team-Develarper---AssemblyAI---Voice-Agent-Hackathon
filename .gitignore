@@ -9,6 +9,7 @@ build/
 .venv/
 venv/
 .env
+.run/
 
 # Local data / indexes
 data/chroma/

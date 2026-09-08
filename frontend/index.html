@@ -3,191 +3,523 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Da Nang Voice Agent — Phase 3</title>
+    <title>ThoughtStream — Da Nang Voice Agent</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Libre+Baskerville:wght@400;700&family=Source+Code+Pro:wght@400&display=swap"
       rel="stylesheet"
     />
     <style>
       :root {
-        --bg: #0e1a22;
-        --panel: rgba(18, 36, 46, 0.82);
-        --fg: #e7f2f6;
-        --muted: #9db4bf;
-        --accent: #3db8a8;
-        --accent-2: #f0b429;
-        --line: rgba(255, 255, 255, 0.08);
+        --primary: #78716c;
+        --secondary: #a8a29e;
+        --tertiary: #1c1917;
+        --bg: #fafaf9;
+        --surface: #f5f5f4;
+        --surface-raised: #efedeb;
+        --text-primary: #1c1917;
+        --text-secondary: #57534e;
+        --text-tertiary: #a8a29e;
+        --border-subtle: #e7e5e4;
+        --border-medium: #d6d3d1;
+        --border-strong: #a8a29e;
+        --success: #65a30d;
+        --warning: #ca8a04;
+        --error: #dc2626;
+        --info: #78716c;
+        --space-1: 12px;
+        --space-2: 24px;
+        --space-3: 36px;
+        --space-4: 48px;
+        --space-5: 60px;
+        --font-display: "Libre Baskerville", Georgia, "Times New Roman", serif;
+        --font-body: Inter, -apple-system, "Segoe UI", Helvetica, sans-serif;
+        --font-mono: "Source Code Pro", "Fira Code", Consolas, monospace;
+        --radius: 0px;
+        --shadow: none;
+        --measure: 680px;
+        --focus-ring: 0 0 0 2px #fafaf9, 0 0 0 4px #78716c;
       }
+
       * {
         box-sizing: border-box;
       }
+
+      html,
       body {
         margin: 0;
-        min-height: 100vh;
-        font-family: "IBM Plex Sans", sans-serif;
-        color: var(--fg);
-        background:
-          radial-gradient(ellipse at 15% 0%, #1c3d48 0%, transparent 45%),
-          radial-gradient(ellipse at 90% 100%, #2a3348 0%, transparent 40%),
-          var(--bg);
+        padding: 0;
       }
-      main {
+
+      body {
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text-primary);
+        font-family: var(--font-body);
+        font-size: 17px;
+        font-weight: 400;
+        line-height: 1.8;
+      }
+
+      a {
+        color: var(--primary);
+      }
+
+      /* Layout — generous ThoughtStream rhythm */
+      .page {
         max-width: 960px;
         margin: 0 auto;
-        padding: 2rem 1.25rem 3rem;
+        padding: var(--space-5) var(--space-2) 120px;
       }
-      h1 {
-        font-family: "Fraunces", Georgia, serif;
-        font-size: clamp(1.8rem, 4vw, 2.6rem);
-        margin: 0 0 0.35rem;
-        letter-spacing: -0.02em;
-      }
-      .sub {
-        color: var(--muted);
-        margin: 0 0 1.5rem;
-        max-width: 36rem;
-        line-height: 1.5;
-      }
-      .grid {
-        display: grid;
-        gap: 1rem;
-      }
+
       @media (min-width: 840px) {
-        .grid {
-          grid-template-columns: 1.2fr 0.8fr;
+        .page {
+          padding: 120px var(--space-4) 120px;
         }
       }
+
+      .overline {
+        margin: 0 0 var(--space-1);
+        font-family: var(--font-body);
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.4;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+      }
+
+      .display {
+        margin: 0 0 var(--space-1);
+        max-width: var(--measure);
+        font-family: var(--font-display);
+        font-size: 40px;
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        color: var(--tertiary);
+      }
+
+      .lede {
+        margin: 0 0 var(--space-4);
+        max-width: var(--measure);
+        font-size: 20px;
+        line-height: 1.75;
+        color: var(--text-secondary);
+      }
+
+      .divider {
+        border: 0;
+        border-top: 1px solid var(--border-subtle);
+        margin: 0 0 var(--space-4);
+      }
+
+      .layout {
+        display: grid;
+        gap: var(--space-4);
+      }
+
+      @media (min-width: 840px) {
+        .layout {
+          grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr);
+          gap: var(--space-5);
+          align-items: start;
+        }
+      }
+
+      /* Cards — sharp, flat */
       .card {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 18px;
-        padding: 1.1rem 1.2rem;
-        backdrop-filter: blur(10px);
+        background: var(--bg);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius);
+        padding: var(--space-3);
+        box-shadow: var(--shadow);
       }
-      label {
+
+      .card:hover {
+        border-color: var(--border-medium);
+      }
+
+      .card-elevated {
+        background: var(--surface);
+        border: 1px solid var(--border-medium);
+      }
+
+      .subhead {
+        margin: 0 0 var(--space-2);
+        font-family: var(--font-display);
+        font-size: 22px;
+        font-weight: 400;
+        line-height: 1.4;
+        letter-spacing: -0.01em;
+        color: var(--tertiary);
+      }
+
+      .label {
         display: block;
-        font-size: 0.85rem;
-        color: var(--muted);
-        margin-bottom: 0.35rem;
+        margin: 0 0 8px;
+        font-family: var(--font-body);
+        font-size: 17px;
+        font-weight: 600;
+        line-height: 1.5;
+        color: var(--text-secondary);
       }
-      textarea,
-      select {
-        width: 100%;
-        border-radius: 12px;
-        border: 1px solid var(--line);
-        background: rgba(0, 0, 0, 0.25);
-        color: var(--fg);
-        padding: 0.75rem 0.85rem;
-        font: inherit;
+
+      .helper {
+        margin: 6px 0 0;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--text-tertiary);
       }
+
+      .helper.error {
+        color: var(--error);
+      }
+
+      .field + .field {
+        margin-top: var(--space-2);
+      }
+
+      select,
       textarea {
-        min-height: 96px;
-        resize: vertical;
+        width: 100%;
+        border-radius: var(--radius);
+        border: 1px solid var(--border-medium);
+        background: var(--bg);
+        color: var(--text-primary);
+        font-family: var(--font-body);
+        font-size: 15px;
+        font-weight: 400;
+        line-height: 1.7;
+        padding: 12px 16px;
+        box-shadow: none;
+        outline: none;
+        appearance: none;
       }
-      .row {
+
+      select {
+        height: 48px;
+      }
+
+      textarea {
+        min-height: 144px;
+        resize: vertical;
+        font-size: 17px;
+        line-height: 1.75;
+      }
+
+      select::placeholder,
+      textarea::placeholder {
+        color: var(--text-tertiary);
+        font-size: 17px;
+      }
+
+      select:focus,
+      textarea:focus,
+      button:focus-visible {
+        border-color: var(--primary);
+        box-shadow: var(--focus-ring);
+      }
+
+      .actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.6rem;
-        margin-top: 0.85rem;
+        justify-content: center;
+        gap: var(--space-1);
+        margin-top: var(--space-2);
       }
+
       button {
-        border: 0;
-        border-radius: 999px;
-        padding: 0.7rem 1.1rem;
-        font: inherit;
+        border-radius: var(--radius);
+        font-family: var(--font-body);
+        font-size: 15px;
         font-weight: 600;
+        line-height: 1;
+        padding: 12px 24px;
         cursor: pointer;
+        box-shadow: none;
+        transition: background-color 120ms ease, border-color 120ms ease;
       }
-      .primary {
-        background: var(--accent);
-        color: #04221f;
-      }
-      .secondary {
-        background: rgba(255, 255, 255, 0.08);
-        color: var(--fg);
-      }
-      .danger {
-        background: rgba(232, 93, 93, 0.2);
-        color: #ffc9c9;
-      }
+
       button:disabled {
-        opacity: 0.5;
+        opacity: 0.4;
         cursor: not-allowed;
       }
-      .status {
-        margin-top: 0.85rem;
-        color: var(--muted);
-        font-size: 0.9rem;
+
+      .btn-primary {
+        background: var(--primary);
+        color: var(--bg);
+        border: 1px solid var(--primary);
       }
-      .bubble {
-        border-left: 3px solid var(--accent);
-        padding: 0.55rem 0.75rem;
-        margin: 0.6rem 0;
-        background: rgba(0, 0, 0, 0.18);
-        border-radius: 0 10px 10px 0;
+
+      .btn-primary:hover:not(:disabled) {
+        background: #57534e;
+        border-color: #57534e;
       }
-      .bubble.user {
-        border-left-color: var(--accent-2);
+
+      .btn-primary:active:not(:disabled) {
+        background: #44403c;
+        border-color: #44403c;
       }
-      .metrics {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 0.78rem;
-        line-height: 1.55;
+
+      .btn-secondary {
+        background: transparent;
+        color: var(--primary);
+        border: 1px solid var(--border-medium);
+      }
+
+      .btn-secondary:hover:not(:disabled) {
+        background: var(--surface);
+      }
+
+      .btn-secondary:active:not(:disabled) {
+        background: #e7e5e4;
+      }
+
+      .btn-ghost {
+        background: transparent;
+        color: var(--primary);
+        border: none;
+      }
+
+      .btn-ghost:hover:not(:disabled) {
+        background: var(--surface);
+      }
+
+      .btn-destructive {
+        background: var(--error);
+        color: var(--bg);
+        border: 1px solid var(--error);
+      }
+
+      .btn-destructive:hover:not(:disabled) {
+        background: #b91c1c;
+        border-color: #b91c1c;
+      }
+
+      .btn-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 48px;
+        min-height: 48px;
+        padding: 12px 24px;
+      }
+
+      .btn-icon svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        stroke-linecap: square;
+        stroke-linejoin: miter;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .chat {
+        margin-top: var(--space-3);
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      .chat-item {
+        padding: 16px 0;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .chat-item:hover {
+        background: var(--surface);
+        margin-left: -12px;
+        margin-right: -12px;
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+
+      .chat-meta {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--text-tertiary);
+      }
+
+      .chat-text {
+        margin: 0;
+        max-width: var(--measure);
+        font-size: 17px;
+        line-height: 1.8;
+        color: var(--text-primary);
+      }
+
+      .panel-title {
+        margin: 0 0 var(--space-1);
+        font-family: var(--font-display);
+        font-size: 22px;
+        font-weight: 400;
+        line-height: 1.4;
+        letter-spacing: -0.01em;
+      }
+
+      .panel-block + .panel-block {
+        margin-top: var(--space-3);
+        padding-top: var(--space-3);
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      .mono {
+        margin: 0;
+        font-family: var(--font-mono);
+        font-size: 15px;
+        font-weight: 400;
+        line-height: 1.7;
+        color: var(--text-secondary);
         white-space: pre-wrap;
-        color: #cfe7ef;
+        word-break: break-word;
       }
-      .pill {
-        display: inline-block;
-        padding: 0.15rem 0.55rem;
-        border-radius: 999px;
-        background: rgba(61, 184, 168, 0.18);
-        color: var(--accent);
-        font-size: 0.75rem;
-        margin-right: 0.35rem;
+
+      .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: var(--space-1);
+        margin-bottom: 0;
       }
+
+      .chip {
+        border: 1px solid var(--border-medium);
+        background: transparent;
+        color: var(--primary);
+        border-radius: var(--radius);
+        padding: 12px 24px;
+        min-height: 48px;
+        font-family: var(--font-body);
+        font-size: 15px;
+        font-weight: 600;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .chip.selected {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: var(--bg);
+      }
+
+      .chip:hover:not(.selected) {
+        background: var(--surface);
+      }
+
+      .audio-panel {
+        margin-top: var(--space-3);
+        padding-top: var(--space-2);
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      .audio-panel[hidden] {
+        display: none;
+      }
+
+      .audio-panel audio {
+        width: 100%;
+        height: 40px;
+        margin-top: 8px;
+      }
+
     </style>
   </head>
   <body>
-    <main>
-      <p class="pill">Phase 3 · stub ASR/LLM/TTS · real RAG</p>
-      <h1>Da Nang Voice Agent</h1>
-      <p class="sub">
-        Speak (browser speech recognition) or type a question. Orchestration runs stub STT →
-        local hybrid RAG → stub LLM → stub TTS beep. No API keys required yet.
+    <div class="page">
+      <p class="overline">ThoughtStream · Da Nang travel voice</p>
+      <h1 class="display">Ask quietly. Listen clearly.</h1>
+      <p class="lede">
+        A contemplative voice agent for Da Nang travel questions. Type or speak in English.
+        Answers stay short, grounded, and unhurried.
       </p>
+      <hr class="divider" />
 
-      <div class="grid">
-        <section class="card">
-          <label for="profile">Voice profile</label>
-          <select id="profile">
-            <option value="friendly_guide">friendly_guide</option>
-            <option value="calm_concierge">calm_concierge</option>
-          </select>
+      <div class="layout">
+        <section class="card" aria-labelledby="compose-title">
+          <h2 class="subhead" id="compose-title">Compose a turn</h2>
 
-          <label for="query" style="margin-top: 0.9rem">Your question (English)</label>
-          <textarea id="query" placeholder="When is the Dragon Bridge fire show?"></textarea>
-
-          <div class="row">
-            <button class="primary" id="sendBtn" type="button">Send turn</button>
-            <button class="secondary" id="micBtn" type="button">Speak</button>
-            <button class="danger" id="stopBtn" type="button" disabled>Stop</button>
+          <div class="field">
+            <div class="filter-row" role="group" aria-label="Voice profile">
+              <button type="button" class="chip selected" data-profile="friendly_guide">
+                Friendly guide
+              </button>
+              <button type="button" class="chip" data-profile="calm_concierge">
+                Calm concierge
+              </button>
+            </div>
+            <select id="profile" hidden>
+              <option value="friendly_guide" selected>friendly_guide</option>
+              <option value="calm_concierge">calm_concierge</option>
+            </select>
           </div>
-          <p class="status" id="status">Ready.</p>
 
-          <h3 style="margin: 1.2rem 0 0.4rem; font-size: 1rem">Transcript / answer</h3>
-          <div id="chat"></div>
+          <div class="field">
+            <label class="label" for="query">Your question</label>
+            <textarea
+              id="query"
+              placeholder="When is the Dragon Bridge fire show?"
+            ></textarea>
+          </div>
+
+          <div class="actions">
+            <button class="btn-primary btn-icon" id="sendBtn" type="button" aria-label="Send turn" title="Send turn">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 12h14" />
+                <path d="M12 5l7 7-7 7" />
+              </svg>
+            </button>
+            <button class="btn-secondary btn-icon" id="micBtn" type="button" aria-label="Speak" title="Speak">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="9" y="3" width="6" height="11" />
+                <path d="M6 11a6 6 0 0 0 12 0" />
+                <path d="M12 17v4" />
+                <path d="M8 21h8" />
+              </svg>
+            </button>
+            <button class="btn-ghost btn-icon" id="stopBtn" type="button" aria-label="Stop" title="Stop" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="6" y="6" width="12" height="12" />
+              </svg>
+            </button>
+          </div>
+
+          <p class="sr-only" id="status" aria-live="polite"></p>
+
+          <div class="chat" id="chat" aria-live="polite"></div>
+          <div class="audio-panel" id="audioPanel" hidden>
+            <p class="label">Voice reply (TTS)</p>
+            <audio id="ttsPlayer" controls preload="metadata"></audio>
+          </div>
         </section>
 
-        <section class="card">
-          <h3 style="margin: 0 0 0.5rem; font-size: 1rem">Turn metrics</h3>
-          <div class="metrics" id="metrics">No turns yet.</div>
-          <h3 style="margin: 1.1rem 0 0.4rem; font-size: 1rem">Top chunks</h3>
-          <div id="chunks" class="metrics">—</div>
-        </section>
+        <aside class="card card-elevated" aria-labelledby="metrics-title">
+          <div class="panel-block">
+            <h2 class="panel-title" id="metrics-title">Turn metrics</h2>
+            <pre class="mono" id="metrics">No turns yet.</pre>
+          </div>
+          <div class="panel-block">
+            <h2 class="panel-title">Top chunks</h2>
+            <pre class="mono" id="chunks">—</pre>
+          </div>
+        </aside>
       </div>
-    </main>
+    </div>
 
     <script>
       const queryEl = document.getElementById("query");
@@ -202,11 +534,24 @@
       const sessionId = crypto.randomUUID();
       let recognition = null;
 
+      function setStatus(text, kind) {
+        // Status is screen-reader only (READY chip removed from UI)
+        statusEl.textContent = text || "";
+        statusEl.dataset.kind = kind || "info";
+      }
+
       function addBubble(text, who) {
-        const div = document.createElement("div");
-        div.className = "bubble " + who;
-        div.textContent = text;
-        chatEl.prepend(div);
+        const item = document.createElement("article");
+        item.className = "chat-item";
+        const meta = document.createElement("span");
+        meta.className = "chat-meta";
+        meta.textContent = who === "user" ? "You" : "Agent";
+        const body = document.createElement("p");
+        body.className = "chat-text";
+        body.textContent = text;
+        item.appendChild(meta);
+        item.appendChild(body);
+        chatEl.prepend(item);
       }
 
       function formatMetrics(data) {
@@ -225,20 +570,23 @@
       }
 
       function playAudio(audio) {
-        if (!audio?.b64) return;
+        const panel = document.getElementById("audioPanel");
+        const player = document.getElementById("ttsPlayer");
+        if (!audio?.b64 || !player || !panel) return;
         const src = `data:${audio.mime_type};base64,${audio.b64}`;
-        const a = new Audio(src);
-        a.play().catch(() => {});
+        player.src = src;
+        panel.hidden = false;
+        player.play().catch(() => {});
       }
 
       async function runTurn(text) {
         const q = (text || "").trim();
         if (!q) {
-          statusEl.textContent = "Enter a question or use the mic.";
+          setStatus("Enter a question or use Speak", "warning");
           return;
         }
         sendBtn.disabled = true;
-        statusEl.textContent = "Running orchestration turn…";
+        setStatus("Running turn…", "info");
         addBubble(q, "user");
         try {
           const res = await fetch("/turn", {
@@ -263,13 +611,21 @@
             .map((c, i) => `${i + 1}. ${c.chunk_id} (${(c.sources || []).join("+")})`)
             .join("\n");
           playAudio(data.audio);
-          statusEl.textContent = "Turn complete. Metrics appended to reports/turns.jsonl";
+          setStatus("Turn complete", "success");
         } catch (err) {
-          statusEl.textContent = "Error: " + err.message;
+          setStatus("Error: " + err.message, "error");
         } finally {
           sendBtn.disabled = false;
         }
       }
+
+      document.querySelectorAll(".chip[data-profile]").forEach((chip) => {
+        chip.addEventListener("click", () => {
+          document.querySelectorAll(".chip[data-profile]").forEach((c) => c.classList.remove("selected"));
+          chip.classList.add("selected");
+          profileEl.value = chip.getAttribute("data-profile");
+        });
+      });
 
       sendBtn.addEventListener("click", () => runTurn(queryEl.value));
 
@@ -281,12 +637,12 @@
         recognition.continuous = false;
 
         recognition.onstart = () => {
-          statusEl.textContent = "Listening…";
+          setStatus("Listening…", "info");
           stopBtn.disabled = false;
           micBtn.disabled = true;
         };
         recognition.onerror = (e) => {
-          statusEl.textContent = "Mic error: " + e.error;
+          setStatus("Mic error: " + e.error, "error");
           stopBtn.disabled = true;
           micBtn.disabled = false;
         };
@@ -311,13 +667,13 @@
           try {
             recognition.start();
           } catch (e) {
-            statusEl.textContent = String(e);
+            setStatus(String(e), "error");
           }
         });
         stopBtn.addEventListener("click", () => recognition.stop());
       } else {
         micBtn.disabled = true;
-        statusEl.textContent = "Browser speech recognition unavailable — use text input.";
+        setStatus("Speech recognition unavailable — use text", "warning");
       }
     </script>
   </body>

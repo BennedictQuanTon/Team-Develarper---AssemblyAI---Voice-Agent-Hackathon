@@ -13,17 +13,27 @@ Realtime Agent track: **AssemblyAI Realtime STT** + custom orchestration (local 
 | 4 Wire live clients | done | Yes |
 | 5 E2E test + reports | pending | Yes |
 
-## Quick start (Phase 0)
+## Run the project
+
+```bash
+./scripts/start.sh    # bật server + UI
+./scripts/status.sh   # kiểm tra đang chạy không
+./scripts/stop.sh     # tắt server
+```
+
+- UI: http://127.0.0.1:8000/
+- Health: http://127.0.0.1:8000/health
+- Logs: `.run/uvicorn.log`
+
+## Quick start (first time only)
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # fill keys only from Phase 4 onward
-uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+./scripts/start.sh
 ```
-
-Health check: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
 
 ## Ingest knowledge base (Phase 1)
 
