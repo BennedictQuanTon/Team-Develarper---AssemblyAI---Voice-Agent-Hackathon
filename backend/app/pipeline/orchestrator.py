@@ -1,7 +1,8 @@
-"""Turn orchestrator: stub ASR → real RAG → stub LLM → stub TTS + metrics."""
+"""Turn orchestrator: ASR → hybrid RAG → LLM → TTS + metrics."""
 
 from __future__ import annotations
 
+import asyncio
 import time
 from pathlib import Path
 from typing import Any
@@ -11,8 +12,8 @@ from backend.app.metrics.spans import MetricsWriter, TurnSpans, new_turn_id
 from backend.app.pipeline.base import ASRClient, LLMClient, TTSClient
 from backend.app.pipeline.factory import build_clients
 from backend.app.pipeline.profiles import get_voice_profile
-from rag.cache import RagCache
-from rag.retrieve import hybrid_retrieve
+from rag.cache import RagCache, cache_key, normalize_query
+from rag.retrieve import DEFAULT_TOP_K, hybrid_retrieve
 
 
 class Orchestrator:
@@ -44,7 +45,7 @@ class Orchestrator:
         profile_name: str | None = None,
         session_id: str = "default",
         use_cache: bool = True,
-        top_k: int = 5,
+        top_k: int = DEFAULT_TOP_K,
     ) -> dict[str, Any]:
         t_e2e = time.perf_counter()
         profile = get_voice_profile(profile_name)
@@ -57,9 +58,57 @@ class Orchestrator:
         )
         query = stt.text
 
-        # 2) RAG (real local hybrid)
+        # Spoken-response cache: skip Gemini + Cartesia on exact (query, profile) repeats
+        spoken_key = cache_key("spoken", normalize_query(query), profile["name"], str(top_k))
+        if use_cache:
+            cached_spoken = self.rag_cache.spoken.get(spoken_key)
+            if cached_spoken is not None:
+                e2e_ms = round((time.perf_counter() - t_e2e) * 1000, 3)
+                result = dict(cached_spoken)
+                result["turn_id"] = turn_id
+                result["session_id"] = session_id
+                timings = dict(result.get("timings_ms") or {})
+                timings["stt_finalize_ms"] = stt.latency_ms
+                timings["e2e_turn_ms"] = e2e_ms
+                timings["spoken_cache_hit"] = True
+                result["timings_ms"] = timings
+                result["cache"] = {
+                    "retrieval_cache_hit": True,
+                    "spoken_cache_hit": True,
+                    "stats": self.rag_cache.snapshot(),
+                }
+                spans = TurnSpans(
+                    turn_id=turn_id,
+                    session_id=session_id,
+                    query=query,
+                    transcript=query,
+                    answer=result.get("answer") or "",
+                    profile=profile["name"],
+                    provider={
+                        "asr": stt.provider,
+                        "llm": "spoken_cache",
+                        "tts": "spoken_cache",
+                    },
+                    timings_ms={
+                        "stt_finalize_ms": timings["stt_finalize_ms"],
+                        "rag_ms": timings.get("rag_ms", 0.0),
+                        "llm_ttft_ms": 0.0,
+                        "llm_total_ms": 0.0,
+                        "tts_ttfb_ms": 0.0,
+                        "tts_total_ms": 0.0,
+                        "e2e_turn_ms": e2e_ms,
+                    },
+                    cache=result["cache"],
+                    chunk_ids=[c["chunk_id"] for c in result.get("chunks") or []],
+                )
+                self.metrics.write_turn(spans)
+                result["providers"] = spans.provider
+                return result
+
+        # 2) RAG (local hybrid) — off event loop so ONNX/BM25 do not block WS
         t_rag = time.perf_counter()
-        retrieval = hybrid_retrieve(
+        retrieval = await asyncio.to_thread(
+            hybrid_retrieve,
             query,
             chroma_dir=self.settings.chroma_persist_dir,
             bm25_path=self.settings.bm25_index_path,
@@ -95,6 +144,7 @@ class Orchestrator:
             "tts_ttfb_ms": tts.ttfb_ms,
             "tts_total_ms": tts.latency_ms,
             "e2e_turn_ms": e2e_ms,
+            "spoken_cache_hit": False,
         }
 
         spans = TurnSpans(
@@ -120,16 +170,17 @@ class Orchestrator:
             },
             cache={
                 "retrieval_cache_hit": bool(retrieval.get("cache_hit")),
+                "spoken_cache_hit": False,
                 "stats": self.rag_cache.snapshot(),
             },
             chunk_ids=[c["chunk_id"] for c in retrieval["chunks"]],
         )
         self.metrics.write_turn(spans)
 
-        return {
+        result = {
             "turn_id": turn_id,
             "session_id": session_id,
-            "phase": 3,
+            "phase": 4,
             "profile": profile,
             "transcript": query,
             "answer": llm.text,
@@ -145,3 +196,24 @@ class Orchestrator:
             "cache": spans.cache,
             "metrics_file": str(self.metrics.path),
         }
+
+        if use_cache:
+            # Store a lean copy for spoken replay (no turn_id / session_id)
+            to_store = {
+                "phase": result["phase"],
+                "profile": result["profile"],
+                "transcript": result["transcript"],
+                "answer": result["answer"],
+                "chunks": result["chunks"],
+                "audio": result["audio"],
+                "timings_ms": {
+                    "rag_ms": rag_ms,
+                    "rag_internal_ms": timings.get("rag_internal_ms", {}),
+                },
+                "providers": spans.provider,
+                "client_mode": self.client_mode,
+                "metrics_file": str(self.metrics.path),
+            }
+            self.rag_cache.spoken.set(spoken_key, to_store)
+
+        return result

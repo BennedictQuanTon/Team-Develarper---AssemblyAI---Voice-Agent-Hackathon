@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -12,20 +13,11 @@ from backend.app.config import get_settings
 from backend.app.metrics.spans import summarize_jsonl
 from backend.app.pipeline.orchestrator import Orchestrator
 from rag.cache import RagCache
-from rag.retrieve import ask, hybrid_retrieve
+from rag.retrieve import DEFAULT_TOP_K, ask, hybrid_retrieve, warmup_retriever
 from rag.store import get_collection
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 FRONTEND_DIR = ROOT_DIR / "frontend"
-
-app = FastAPI(
-    title="Da Nang Realtime Voice Agent",
-    description="AssemblyAI Realtime STT + custom RAG/LLM/TTS orchestration",
-    version="0.4.0-phase4",
-)
-
-if FRONTEND_DIR.is_dir():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 
 @lru_cache
@@ -35,14 +27,39 @@ def get_rag_cache() -> RagCache:
 
 @lru_cache
 def get_orchestrator() -> Orchestrator:
-    # Rebuild settings from .env each process start
     get_settings.cache_clear()
     return Orchestrator(rag_cache=get_rag_cache(), settings=get_settings())
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    settings = get_settings()
+    try:
+        warm = warmup_retriever(
+            chroma_dir=settings.chroma_persist_dir,
+            bm25_path=settings.bm25_index_path,
+        )
+        print(f"[startup] RAG warmup ok: {warm}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[startup] RAG warmup skipped: {exc}")
+    get_orchestrator()
+    yield
+
+
+app = FastAPI(
+    title="Da Nang Realtime Voice Agent",
+    description="AssemblyAI Realtime STT + custom RAG/LLM/TTS orchestration",
+    version="0.5.0-realtime",
+    lifespan=lifespan,
+)
+
+if FRONTEND_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
+
 class AskRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
-    top_k: int = Field(default=5, ge=1, le=20)
+    top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=20)
     use_cache: bool = True
 
 
@@ -52,7 +69,7 @@ class TurnRequest(BaseModel):
     profile: str | None = None
     session_id: str = "default"
     use_cache: bool = True
-    top_k: int = Field(default=5, ge=1, le=20)
+    top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=20)
 
 
 @app.get("/health")
@@ -68,7 +85,7 @@ def health() -> JSONResponse:
     return JSONResponse(
         {
             "status": "ok",
-            "phase": 4,
+            "phase": 5,
             "service": "danang-realtime-voice-agent",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "keys_configured": settings.keys_configured,
@@ -95,7 +112,7 @@ def root_page() -> FileResponse:
 @app.get("/api")
 def api_root() -> dict[str, str]:
     return {
-        "message": "Da Nang Realtime Voice Agent — Phase 3 orchestration stubs",
+        "message": "Da Nang Realtime Voice Agent — realtime latency + fillers",
         "health": "/health",
         "ui": "/",
         "turn": "POST /turn",
@@ -185,7 +202,7 @@ async def ws_turn(websocket: WebSocket) -> None:
                 profile_name=payload.get("profile"),
                 session_id=str(payload.get("session_id") or "ws"),
                 use_cache=bool(payload.get("use_cache", True)),
-                top_k=int(payload.get("top_k") or 5),
+                top_k=int(payload.get("top_k") or DEFAULT_TOP_K),
             )
             await websocket.send_json({"type": "final", **result})
     except WebSocketDisconnect:

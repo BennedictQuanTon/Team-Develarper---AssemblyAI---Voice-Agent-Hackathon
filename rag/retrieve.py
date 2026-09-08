@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,10 @@ from typing import Any
 from rag.bm25_store import BM25Index
 from rag.cache import RagCache, cache_key, normalize_query, timed_ms
 from rag.store import get_bm25, get_collection
+
+# Tuned for voice turns: smaller candidate set → faster embed+fuse + shorter LLM context
+DEFAULT_TOP_N = 8
+DEFAULT_TOP_K = 3
 
 
 @dataclass(frozen=True)
@@ -67,8 +72,8 @@ def hybrid_retrieve(
     *,
     chroma_dir: Path,
     bm25_path: Path,
-    top_n: int = 20,
-    top_k: int = 5,
+    top_n: int = DEFAULT_TOP_N,
+    top_k: int = DEFAULT_TOP_K,
     dense_weight: float = 0.7,
     bm25_weight: float = 0.3,
     rrf_k: int = 60,
@@ -96,13 +101,17 @@ def hybrid_retrieve(
     collection = get_collection(chroma_dir)
     bm25_index = get_bm25(bm25_path)
 
-    t_dense = time.perf_counter()
-    dense_rows = _dense_search(collection, query, top_n)
-    dense_ms = timed_ms(t_dense)
-
-    t_bm25 = time.perf_counter()
-    bm25_rows = _bm25_search(bm25_index, query, top_n)
-    bm25_ms = timed_ms(t_bm25)
+    # Dense (ONNX embed) and BM25 run in parallel — both are CPU-bound and independent
+    t_parallel = time.perf_counter()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        dense_fut = pool.submit(_dense_search, collection, query, top_n)
+        bm25_fut = pool.submit(_bm25_search, bm25_index, query, top_n)
+        dense_rows = dense_fut.result()
+        bm25_rows = bm25_fut.result()
+    parallel_ms = timed_ms(t_parallel)
+    # Approximate split for metrics (wall clock is parallel_ms; report both under same wall)
+    dense_ms = parallel_ms
+    bm25_ms = parallel_ms
 
     t_fuse = time.perf_counter()
     dense_ids = [row[0] for row in dense_rows]
@@ -195,6 +204,16 @@ def extractive_answer(chunks: list[dict[str, Any]], *, max_chars: int = 420) -> 
     return joined
 
 
+def warmup_retriever(*, chroma_dir: Path, bm25_path: Path) -> dict[str, float]:
+    """Load Chroma/ONNX + BM25 and run one dummy query to avoid cold first-turn latency."""
+    t0 = time.perf_counter()
+    collection = get_collection(chroma_dir)
+    get_bm25(bm25_path)
+    # Force embedding model load
+    _ = collection.query(query_texts=["Da Nang travel"], n_results=1, include=["documents"])
+    return {"warmup_ms": timed_ms(t0)}
+
+
 def ask(
     query: str,
     *,
@@ -202,7 +221,7 @@ def ask(
     bm25_path: Path,
     cache: RagCache | None = None,
     use_cache: bool = True,
-    top_k: int = 5,
+    top_k: int = DEFAULT_TOP_K,
 ) -> dict[str, Any]:
     """Retrieve + extractive answer with answer-level cache."""
     q_norm = normalize_query(query)
