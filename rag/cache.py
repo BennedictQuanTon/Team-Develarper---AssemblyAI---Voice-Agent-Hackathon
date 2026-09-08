@@ -74,15 +74,17 @@ class TimedResult:
 
 
 class RagCache:
-    """Three layers: retrieval results, extractive answers, optional raw keys."""
+    """Layers: retrieval results, extractive answers, spoken turn payloads."""
 
     def __init__(self, maxsize: int = 256) -> None:
         self.retrieval = LRUCache[dict[str, Any]](maxsize=maxsize)
         self.answer = LRUCache[dict[str, Any]](maxsize=maxsize)
+        self.spoken = LRUCache[dict[str, Any]](maxsize=maxsize)
 
     def clear(self) -> None:
         self.retrieval.clear()
         self.answer.clear()
+        self.spoken.clear()
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -95,6 +97,11 @@ class RagCache:
                 "hits": self.answer.stats.hits,
                 "misses": self.answer.stats.misses,
                 "hit_rate": round(self.answer.stats.hit_rate, 4),
+            },
+            "spoken": {
+                "hits": self.spoken.stats.hits,
+                "misses": self.spoken.stats.misses,
+                "hit_rate": round(self.spoken.stats.hit_rate, 4),
             },
         }
 

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "sample_rate": 16000,
+  "clips": [
+    {
+      "id": "ack",
+      "file": "/static/audio/backchannels/ack.wav",
+      "label": "mm-hmm",
+      "when": "acks / short confirmations",
+      "duration_s": 0.507
+    },
+    {
+      "id": "thinking",
+      "file": "/static/audio/backchannels/thinking.wav",
+      "label": "uh, let me see",
+      "when": "open questions needing lookup",
+      "duration_s": 1.294
+    },
+    {
+      "id": "got_it",
+      "file": "/static/audio/backchannels/got_it.wav",
+      "label": "got it",
+      "when": "clear factual questions",
+      "duration_s": 0.437
+    },
+    {
+      "id": "checking",
+      "file": "/static/audio/backchannels/checking.wav",
+      "label": "let me check",
+      "when": "time / price / schedule questions",
+      "duration_s": 0.817
+    },
+    {
+      "id": "closing",
+      "file": "/static/audio/backchannels/closing.wav",
+      "label": "Anytime. Enjoy Da Nang.",
+      "when": "session farewell",
+      "duration_s": 1.982
+    }
+  ]
+}
