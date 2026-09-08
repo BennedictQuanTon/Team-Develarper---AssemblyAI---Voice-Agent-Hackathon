@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: phase-1
     content: "Phase 1: Rich Da Nang English JSON KB + chunk/ingest into local Chroma + BM25"
-    status: pending
+    status: completed
   - id: phase-2
     content: "Phase 2: Hybrid RRF retrieve + multi-layer cache + text-only RAG demo + latency spans"
     status: pending

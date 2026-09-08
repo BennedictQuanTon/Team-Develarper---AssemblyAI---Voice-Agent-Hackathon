@@ -7,7 +7,7 @@ Realtime Agent track: **AssemblyAI Realtime STT** + custom orchestration (local 
 | Phase | Status | Needs API keys |
 |-------|--------|----------------|
 | 0 Scaffold | done | No |
-| 1 JSON KB + ingest | pending | No |
+| 1 JSON KB + ingest | done | No |
 | 2 Hybrid RAG + cache | pending | No |
 | 3 Pipeline stubs + UI + metrics | pending | No |
 | 4 Wire live clients | pending | Yes |
@@ -24,6 +24,17 @@ uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Health check: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+
+## Ingest knowledge base (Phase 1)
+
+```bash
+source .venv/bin/activate
+pip install -r requirements.txt
+PYTHONPATH=. python -m rag.ingest_json
+PYTHONPATH=. python -m rag.ingest_json --peek-only
+```
+
+Writes local Chroma to `data/chroma/` and BM25 to `data/bm25/index.pkl`.
 
 ## Layout
 
