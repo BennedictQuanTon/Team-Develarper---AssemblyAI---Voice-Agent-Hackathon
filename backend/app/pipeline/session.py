@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-MAX_TURNS = 3
+MAX_TURNS = 10
 
 
 @dataclass

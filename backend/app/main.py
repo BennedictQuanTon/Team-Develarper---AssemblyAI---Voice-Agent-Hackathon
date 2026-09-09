@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from backend.app.config import get_settings
 from backend.app.metrics.spans import summarize_jsonl
 from backend.app.pipeline.orchestrator import Orchestrator
+from backend.app.pipeline.realtime_session import RealtimeSessionController
 from backend.app.pipeline.session import SessionStore
 from rag.cache import RagCache
 from rag.retrieve import DEFAULT_TOP_K, ask, hybrid_retrieve, warmup_retriever
@@ -182,8 +183,9 @@ async def turn(body: TurnRequest) -> dict[str, Any]:
     if not (body.text and body.text.strip()) and not body.audio_b64:
         raise HTTPException(status_code=400, detail="Provide text or audio_b64")
     try:
+        turn_text = None if body.audio_b64 else body.text
         return await get_orchestrator().run_turn(
-            text=body.text,
+            text=turn_text,
             audio_b64=body.audio_b64,
             profile_name=body.profile,
             session_id=body.session_id,
@@ -216,8 +218,10 @@ async def ws_turn(websocket: WebSocket) -> None:
                 await websocket.send_json(event)
 
             await websocket.send_json({"type": "status", "stage": "started"})
+            # Prefer audio when both are present — text may be a stale caption.
+            turn_text = None if audio_b64 else text
             result = await get_orchestrator().run_turn(
-                text=text,
+                text=turn_text,
                 audio_b64=audio_b64,
                 profile_name=payload.get("profile"),
                 session_id=str(payload.get("session_id") or "ws"),
@@ -233,3 +237,35 @@ async def ws_turn(websocket: WebSocket) -> None:
             await websocket.send_json({"type": "error", "detail": str(exc)})
         except Exception:
             return
+
+
+@app.websocket("/ws/realtime")
+async def ws_realtime(websocket: WebSocket) -> None:
+    """Full-duplex real-time streaming endpoint: bi-directional audio + live barge-in."""
+    await websocket.accept()
+    controller = RealtimeSessionController(
+        websocket,
+        settings=get_settings(),
+        rag_cache=get_rag_cache(),
+        sessions=get_sessions(),
+    )
+    try:
+        await controller.start()
+        while True:
+            message = await websocket.receive()
+            if "bytes" in message and message["bytes"]:
+                await controller.handle_pcm_audio(message["bytes"])
+            elif "text" in message and message["text"]:
+                try:
+                    import json
+                    payload = json.loads(message["text"])
+                    if isinstance(payload, dict):
+                        await controller.handle_text_command(payload)
+                except Exception:
+                    pass
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:  # noqa: BLE001
+        print(f"[ws/realtime error] {exc}")
+    finally:
+        await controller.close()
