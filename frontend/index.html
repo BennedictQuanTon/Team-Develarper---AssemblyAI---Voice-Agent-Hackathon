@@ -932,6 +932,243 @@
         return audioCtx;
       }
 
+      class PCMStreamPlayer {
+        constructor(ctx, analyser) {
+          this.ctx = ctx;
+          this.analyser = analyser;
+          this.nextTime = 0;
+          this.sources = [];
+          this.isPlaying = false;
+        }
+
+        playChunk(pcmBytes, sampleRate = 16000) {
+          if (!pcmBytes || !pcmBytes.length) return;
+          const float32 = new Float32Array(pcmBytes.length);
+          for (let i = 0; i < pcmBytes.length; i++) {
+            float32[i] = pcmBytes[i] / 32768.0;
+          }
+          const buf = this.ctx.createBuffer(1, float32.length, sampleRate);
+          buf.getChannelData(0).set(float32);
+
+          const src = this.ctx.createBufferSource();
+          src.buffer = buf;
+          if (this.analyser) src.connect(this.analyser);
+          else src.connect(this.ctx.destination);
+
+          const now = this.ctx.currentTime;
+          if (this.nextTime < now) {
+            this.nextTime = now;
+          }
+          src.start(this.nextTime);
+          this.nextTime += buf.duration;
+          this.sources.push(src);
+          this.isPlaying = true;
+
+          src.onended = () => {
+            const idx = this.sources.indexOf(src);
+            if (idx !== -1) this.sources.splice(idx, 1);
+            if (this.sources.length === 0) {
+              this.isPlaying = false;
+              if (orbMode === "speak") orbMode = "listen";
+            }
+          };
+        }
+
+        stop() {
+          for (const s of this.sources) {
+            try {
+              s.stop();
+              s.disconnect();
+            } catch (_) {}
+          }
+          this.sources = [];
+          this.nextTime = 0;
+          this.isPlaying = false;
+        }
+      }
+
+      function downsampleTo16k(inputData, inputRate) {
+        if (inputRate === 16000) {
+          const out = new Int16Array(inputData.length);
+          for (let i = 0; i < inputData.length; i++) {
+            let s = Math.max(-1, Math.min(1, inputData[i]));
+            out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+          }
+          return out;
+        }
+        const ratio = inputRate / 16000;
+        const newLen = Math.round(inputData.length / ratio);
+        const out = new Int16Array(newLen);
+        for (let i = 0; i < newLen; i++) {
+          const idx = Math.round(i * ratio);
+          let s = Math.max(-1, Math.min(1, inputData[idx] || 0));
+          out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+        return out;
+      }
+
+      let realtimeWs = null;
+      let pcmPlayer = null;
+      let pcmProcessor = null;
+      let isRealtimeActive = false;
+
+      async function startRealtimeStreaming() {
+        if (sessionEnded) return;
+        ensureAudioCtx();
+        if (!pcmPlayer) {
+          if (!ttsAnalyser) {
+            ttsAnalyser = audioCtx.createAnalyser();
+            ttsAnalyser.fftSize = 256;
+            ttsAnalyser.connect(audioCtx.destination);
+          }
+          pcmPlayer = new PCMStreamPlayer(audioCtx, ttsAnalyser);
+        }
+
+        if (!realtimeWs || realtimeWs.readyState !== WebSocket.OPEN) {
+          const proto = location.protocol === "https:" ? "wss" : "ws";
+          realtimeWs = new WebSocket(`${proto}://${location.host}/ws/realtime`);
+          realtimeWs.binaryType = "arraybuffer";
+
+          realtimeWs.onmessage = (ev) => {
+            let msg;
+            try {
+              msg = JSON.parse(ev.data);
+            } catch (_) {
+              return;
+            }
+            if (msg.type === "session_ready") {
+              setStatus("Connected: AssemblyAI Realtime STT", "success");
+              setAgentLine("I’m listening live… What’s on your mind?");
+              orbMode = "listen";
+            } else if (msg.type === "speech_started") {
+              orbMode = "listen";
+              setStatus("Speech detected…", "info");
+            } else if (msg.type === "interim_transcript") {
+              setAgentLive(msg.text);
+              queryEl.value = msg.text;
+            } else if (msg.type === "final_transcript") {
+              addBubble(msg.text, "user");
+              setAgentLive(msg.text);
+              queryEl.value = "";
+              orbMode = "think";
+              setStatus("Thinking…", "info");
+            } else if (msg.type === "barge_in") {
+              // ⚡ Barge-in: immediately stop playback
+              if (pcmPlayer) pcmPlayer.stop();
+              orbMode = "listen";
+              setStatus("Interrupted — listening to you…", "info");
+              setAgentLine("I’m listening…");
+            } else if (msg.type === "audio_chunk" && msg.pcm_b64) {
+              const binStr = atob(msg.pcm_b64);
+              const len = binStr.length;
+              const bytes = new Uint8Array(len);
+              for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
+              const pcm16 = new Int16Array(bytes.buffer);
+              pcmPlayer.playChunk(pcm16, 16000);
+              orbMode = "speak";
+              setAgentLine("Speaking…");
+            } else if (msg.type === "turn_complete") {
+              if (msg.answer) {
+                addBubble(msg.answer, "agent");
+                setAgentLine(msg.answer);
+              }
+              if (msg.turn_count != null) {
+                updateTurnMeter(msg.turn_count, 3);
+              }
+              if (msg.session_ended) {
+                setEnded(true);
+              } else {
+                orbMode = "listen";
+              }
+              if (msg.ttfb_ms) {
+                metricsEl.textContent = [
+                  `session_id: ${sessionId}`,
+                  `mode: True Realtime Full-Duplex`,
+                  `providers: AssemblyAI v3 Stream + Gemini 3.5 + Cartesia WS`,
+                  `ttfb_ms: ${msg.ttfb_ms} ms (Voice-to-Voice)`,
+                  `e2e_turn_ms: ${msg.e2e_turn_ms} ms`,
+                ].join("\n");
+              }
+            } else if (msg.type === "error") {
+              setStatus("Error: " + (msg.message || "Unknown error"), "error");
+            }
+          };
+
+          realtimeWs.onerror = () => {
+            setStatus("Realtime WebSocket error", "error");
+          };
+          realtimeWs.onclose = () => {
+            isRealtimeActive = false;
+            orbMicBtn.classList.remove("active");
+          };
+
+          await new Promise((resolve) => {
+            realtimeWs.onopen = resolve;
+          });
+        }
+
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              channelCount: 1,
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+            video: false,
+          });
+
+          micSourceNode = audioCtx.createMediaStreamSource(micStream);
+          micAnalyser = audioCtx.createAnalyser();
+          micAnalyser.fftSize = 256;
+          micSourceNode.connect(micAnalyser);
+
+          pcmProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
+          pcmProcessor.onaudioprocess = (e) => {
+            if (!realtimeWs || realtimeWs.readyState !== WebSocket.OPEN) return;
+            const inputFloat = e.inputBuffer.getChannelData(0);
+            const pcm16 = downsampleTo16k(inputFloat, audioCtx.sampleRate);
+            realtimeWs.send(pcm16.buffer);
+          };
+          micSourceNode.connect(pcmProcessor);
+          pcmProcessor.connect(audioCtx.destination);
+
+          isRealtimeActive = true;
+          orbMode = "listen";
+          orbMicBtn.classList.add("active");
+          stopBtn.disabled = false;
+          agentHint.textContent = "⚡ Real-time Full-Duplex: speak naturally. Cut in (barge-in) anytime.";
+          setStatus("Real-time live mic connected", "success");
+        } catch (err) {
+          setStatus("Mic permission denied", "error");
+        }
+      }
+
+      function stopRealtimeStreaming() {
+        isRealtimeActive = false;
+        orbMicBtn.classList.remove("active");
+        if (pcmPlayer) pcmPlayer.stop();
+        if (pcmProcessor) {
+          try {
+            pcmProcessor.disconnect();
+          } catch (_) {}
+          pcmProcessor = null;
+        }
+        if (micStream) {
+          micStream.getTracks().forEach((t) => t.stop());
+          micStream = null;
+        }
+        if (realtimeWs) {
+          try {
+            realtimeWs.close();
+          } catch (_) {}
+          realtimeWs = null;
+        }
+        orbMode = "idle";
+        stopBtn.disabled = true;
+        setAgentLine('<span class="muted">Tap the mic — I’m here when you’re ready.</span>');
+      }
+
       function drawOrb() {
         const ctx = orbCanvas.getContext("2d");
         const w = orbCanvas.width;
@@ -1651,28 +1888,38 @@
       sendBtn.addEventListener("click", () => runTurn({ text: queryEl.value }));
       newConvoBtn.addEventListener("click", () => newConversation());
       orbMicBtn.addEventListener("click", () => {
-        if (orbMicBtn.classList.contains("active")) {
-          if (speechSeen || (utteranceText || "").trim()) finishUtterance("mic_toggle");
-          else stopListening({ discard: true });
-        } else startListening();
+        if (isRealtimeActive) {
+          stopRealtimeStreaming();
+        } else {
+          startRealtimeStreaming();
+        }
       });
       orbStopBtn.addEventListener("click", () => {
-        // Stop = cancel listening without sending
-        handsFree = false;
-        stopListening({ discard: true });
-        stopFiller();
-        ttsPlayer.pause();
-        playingAnswer = false;
-        audioQueue.length = 0;
-        orbMode = "idle";
-        setAgentLine('<span class="muted">Stopped. Tap mic to ask again.</span>');
+        if (pcmPlayer && pcmPlayer.isPlaying) {
+          if (realtimeWs && realtimeWs.readyState === WebSocket.OPEN) {
+            realtimeWs.send(JSON.stringify({ command: "barge_in" }));
+          }
+          pcmPlayer.stop();
+          orbMode = "listen";
+          setStatus("Interrupted — listening", "info");
+        } else {
+          stopRealtimeStreaming();
+        }
       });
-      micBtn.addEventListener("click", () => startListening());
+      micBtn.addEventListener("click", () => {
+        if (isRealtimeActive) stopRealtimeStreaming();
+        else startRealtimeStreaming();
+      });
       stopBtn.addEventListener("click", () => {
-        handsFree = false;
-        stopListening({ discard: true });
-        stopFiller();
-        ttsPlayer.pause();
+        if (pcmPlayer && pcmPlayer.isPlaying) {
+          if (realtimeWs && realtimeWs.readyState === WebSocket.OPEN) {
+            realtimeWs.send(JSON.stringify({ command: "barge_in" }));
+          }
+          pcmPlayer.stop();
+          orbMode = "listen";
+        } else {
+          stopRealtimeStreaming();
+        }
       });
 
       if (hasSpeechRecognition) {
