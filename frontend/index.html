@@ -691,11 +691,7 @@
       }
 
       .agent-hint {
-        position: relative;
-        z-index: 1;
-        margin: 0;
-        font-size: 13px;
-        color: var(--secondary);
+        display: none !important;
       }
 
     </style>
@@ -729,7 +725,6 @@
             <svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" /></svg>
           </button>
         </div>
-        <p class="agent-hint" id="agentHint">Safari: mic drives the orb · type your question below · Send</p>
       </section>
 
       <hr class="divider" />
@@ -1011,6 +1006,8 @@
       let pcmPlayer = null;
       let pcmProcessor = null;
       let isRealtimeActive = false;
+      let clientSilenceTimer = null;
+      let lastInterimText = "";
 
       async function startRealtimeStreaming() {
         if (sessionEnded) return;
@@ -1046,13 +1043,24 @@
             } else if (msg.type === "interim_transcript") {
               setAgentLive(msg.text);
               queryEl.value = msg.text;
+              lastInterimText = msg.text;
+              if (clientSilenceTimer) clearTimeout(clientSilenceTimer);
+              clientSilenceTimer = setTimeout(() => {
+                if (isRealtimeActive && lastInterimText && realtimeWs && realtimeWs.readyState === WebSocket.OPEN) {
+                  realtimeWs.send(JSON.stringify({ command: "endpoint" }));
+                }
+              }, 1000);
             } else if (msg.type === "final_transcript") {
+              if (clientSilenceTimer) clearTimeout(clientSilenceTimer);
+              lastInterimText = "";
               addBubble(msg.text, "user");
               setAgentLive(msg.text);
               queryEl.value = "";
               orbMode = "think";
               setStatus("Thinking…", "info");
             } else if (msg.type === "barge_in") {
+              if (clientSilenceTimer) clearTimeout(clientSilenceTimer);
+              lastInterimText = "";
               // ⚡ Barge-in: immediately stop playback
               if (pcmPlayer) pcmPlayer.stop();
               orbMode = "listen";
@@ -1131,13 +1139,16 @@
             realtimeWs.send(pcm16.buffer);
           };
           micSourceNode.connect(pcmProcessor);
-          pcmProcessor.connect(audioCtx.destination);
+          const muteGain = audioCtx.createGain();
+          muteGain.gain.value = 0;
+          pcmProcessor.connect(muteGain);
+          muteGain.connect(audioCtx.destination);
 
           isRealtimeActive = true;
           orbMode = "listen";
           orbMicBtn.classList.add("active");
           stopBtn.disabled = false;
-          agentHint.textContent = "⚡ Real-time Full-Duplex: speak naturally. Cut in (barge-in) anytime.";
+          if (agentHint) agentHint.textContent = "";
           setStatus("Real-time live mic connected", "success");
         } catch (err) {
           setStatus("Mic permission denied", "error");
@@ -1958,12 +1969,9 @@
           orbMicBtn.classList.remove("active");
         };
         recognition.onend = () => {};
-        agentHint.textContent =
-          "Hands-free up to 3 turns: speak → pause → answer → mic again. Stop cancels.";
+        if (agentHint) agentHint.textContent = "";
       } else {
-        agentHint.textContent = isSafari
-          ? "Safari: speak → pause 1s (or tap mic again) to send · AssemblyAI STT · auto next turn"
-          : "Speak → pause to send audio · auto next turn up to 3";
+        if (agentHint) agentHint.textContent = "";
         setStatus("Voice mode ready (browser STT unavailable — using recorded audio)", "info");
       }
 

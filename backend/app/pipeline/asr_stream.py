@@ -83,6 +83,9 @@ class AssemblyAIRealtimeStream:
                 sample_rate=self.sample_rate,
                 format_turns=True,
                 include_partial_turns=True,
+                min_turn_silence=400,
+                max_turn_silence=1000,
+                end_of_turn_confidence_threshold=0.4,
                 keyterms_prompt=DANANG_KEYTERMS,
             )
 

@@ -65,6 +65,9 @@ class RealtimeSessionController:
         self._speech_frames_while_speaking = 0
         self.current_generation_task: asyncio.Task | None = None
         self.cancel_event = asyncio.Event()
+        self._last_interim_text = ""
+        self._last_interim_time = 0.0
+        self._watchdog_task: asyncio.Task | None = None
 
         # AssemblyAI stream
         if self.has_aai:
@@ -95,6 +98,7 @@ class RealtimeSessionController:
 
     async def start(self) -> None:
         await self.asr.connect()
+        self._watchdog_task = asyncio.create_task(self._silence_watchdog())
         await self._send_json(
             {
                 "type": "session_ready",
@@ -104,6 +108,26 @@ class RealtimeSessionController:
                 "has_cartesia": self.has_cartesia,
             }
         )
+
+    async def _silence_watchdog(self) -> None:
+        """Watchdog to force endpoint if user spoke a sentence and stopped speaking for > 900ms."""
+        while True:
+            try:
+                await asyncio.sleep(0.15)
+                if (
+                    not self.is_agent_speaking
+                    and self._last_interim_text
+                    and (time.perf_counter() - self._last_interim_time) > 0.9
+                ):
+                    txt = self._last_interim_text
+                    self._last_interim_text = ""
+                    logger.info("⏱️ Watchdog auto-endpointing after silence on text: %s", txt)
+                    if hasattr(self.asr, "force_endpoint"):
+                        await self.asr.force_endpoint()
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Watchdog error: %s", exc)
 
     async def handle_pcm_audio(self, pcm_data: bytes) -> None:
         """Receive 16kHz s16le PCM audio from user's microphone and stream to AssemblyAI."""
@@ -127,13 +151,17 @@ class RealtimeSessionController:
         if cmd == "interrupt" or cmd == "barge_in":
             await self._trigger_barge_in("client_button")
         elif cmd == "endpoint" or cmd == "force_endpoint":
+            self._last_interim_text = ""
             if hasattr(self.asr, "force_endpoint"):
                 await self.asr.force_endpoint()
         elif cmd == "reset":
+            self._last_interim_text = ""
             self.sessions.reset(self.session_id)
             await self._send_json({"type": "session_reset", "session_id": self.session_id})
 
     async def close(self) -> None:
+        if self._watchdog_task and not self._watchdog_task.done():
+            self._watchdog_task.cancel()
         await self._cancel_current_turn()
         await self.asr.close()
 
@@ -172,11 +200,14 @@ class RealtimeSessionController:
             await self._trigger_barge_in("asr_turn")
 
         if not is_final:
+            self._last_interim_text = transcript
+            self._last_interim_time = time.perf_counter()
             # Live interim captioning to user
             await self._send_json({"type": "interim_transcript", "text": transcript})
             return
 
         # Final turn received!
+        self._last_interim_text = ""
         await self._send_json({"type": "final_transcript", "text": transcript})
         # Schedule turn execution
         await self._cancel_current_turn()

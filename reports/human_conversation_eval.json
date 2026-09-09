@@ -1,0 +1,63 @@
+{
+  "status": "PASS",
+  "benchmark_summary": {
+    "total_turns": 3,
+    "all_turns_passed": true,
+    "voice_to_voice_ttfb_ms": {
+      "p50": 5019.0,
+      "p95": 15976.35,
+      "mean": 7867.92,
+      "min": 2608.42,
+      "max": 15976.35,
+      "count": 3
+    },
+    "e2e_turn_ms": {
+      "p50": 16826.4,
+      "p95": 17246.15,
+      "mean": 12612.91,
+      "min": 3766.19,
+      "max": 17246.15,
+      "count": 3
+    },
+    "barge_in_interruption": {
+      "success": true,
+      "latency_ms": 626.21
+    },
+    "silence_endpointing_hung": false
+  },
+  "turns": [
+    {
+      "turn": 1,
+      "query": "What are the must-see attractions in Da Nang, such as the Dragon Bridge?",
+      "asr_transcript": "What are the must-see attractions in Da Nang, such as the Dragon Bridge?",
+      "agent_answer": "Must-sees include Dragon Bridge, Ba Na Hills with the Golden Bridge, Son Tra,Lady Buddha, and Hoi An Ancient Town!",
+      "audio_chunks_received": 32,
+      "voice_to_voice_ttfb_ms": 2608.42,
+      "e2e_turn_ms": 3766.19,
+      "rag_ms": 83.55,
+      "passed_knowledge_check": true
+    },
+    {
+      "turn": 2,
+      "query": "How can I travel from the airport to the city center?",
+      "asr_transcript": "Wait, can I use Grab at the airport?",
+      "agent_answer": "Yes,Grab rides are available right outside arrivals at Da Nang International Airport. It is very convenient!",
+      "audio_chunks_received": 34,
+      "voice_to_voice_ttfb_ms": 5019.0,
+      "e2e_turn_ms": 17246.15,
+      "rag_ms": 93.55,
+      "passed_knowledge_check": true
+    },
+    {
+      "turn": 3,
+      "query": "Thank you so much for the helpful tips, that is all for now!",
+      "asr_transcript": "Thank you so much for the helpful tips. That is all for now.",
+      "agent_answer": "You arevery welcome. Enjoy your wonderful time exploring beautiful Da Nang!",
+      "audio_chunks_received": 22,
+      "voice_to_voice_ttfb_ms": 15976.35,
+      "e2e_turn_ms": 16826.4,
+      "rag_ms": 105.08,
+      "passed_knowledge_check": true
+    }
+  ]
+}
