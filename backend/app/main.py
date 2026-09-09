@@ -182,8 +182,9 @@ async def turn(body: TurnRequest) -> dict[str, Any]:
     if not (body.text and body.text.strip()) and not body.audio_b64:
         raise HTTPException(status_code=400, detail="Provide text or audio_b64")
     try:
+        turn_text = None if body.audio_b64 else body.text
         return await get_orchestrator().run_turn(
-            text=body.text,
+            text=turn_text,
             audio_b64=body.audio_b64,
             profile_name=body.profile,
             session_id=body.session_id,
@@ -216,8 +217,10 @@ async def ws_turn(websocket: WebSocket) -> None:
                 await websocket.send_json(event)
 
             await websocket.send_json({"type": "status", "stage": "started"})
+            # Prefer audio when both are present — text may be a stale caption.
+            turn_text = None if audio_b64 else text
             result = await get_orchestrator().run_turn(
-                text=text,
+                text=turn_text,
                 audio_b64=audio_b64,
                 profile_name=payload.get("profile"),
                 session_id=str(payload.get("session_id") or "ws"),

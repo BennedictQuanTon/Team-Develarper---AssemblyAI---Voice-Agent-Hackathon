@@ -866,6 +866,20 @@
       let level = 0;
       const hasSpeechRecognition = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      let mediaRecorder = null;
+      let recordedChunks = [];
+      let speechSeen = false;
+      let quietMs = 0;
+      let vadTimer = null;
+      let handsFree = true; // after agent speaks, auto-listen for next turn
+      let pendingSend = false;
+      let micSourceNode = null;
+      let utteranceText = ""; // live caption for THIS listen window only (not auto-submit alone)
+      let listenEpoch = 0;
+      let postTtsTimer = null;
+      let listenArmedUntil = 0; // ignore mic energy until then (TTS echo guard)
+      let lastSubmittedNorm = "";
+      let streamAudioPlayed = false; // avoid playing final.audio twice after audio_chunk
 
       function setAgentLine(html) {
         agentLine.innerHTML = html;
@@ -901,7 +915,7 @@
         micBtn.disabled = ended;
         orbMicBtn.disabled = ended;
         if (ended) {
-          stopListening();
+          stopListening({ discard: true });
           stopFiller();
           setAgentLine("Conversation ended. Start a new one anytime.");
           setAgentLive("");
@@ -997,7 +1011,18 @@
       }
 
       async function startListening() {
-        if (sessionEnded || turnBusy) return;
+        if (sessionEnded || turnBusy || pendingSend) return;
+        handsFree = true;
+        listenEpoch += 1;
+        const epoch = listenEpoch;
+        // Critical: clear previous turn text so silence/VAD cannot resubmit Q1
+        utteranceText = "";
+        queryEl.value = "";
+        setAgentLive("");
+        speechSeen = false;
+        quietMs = 0;
+        // Ignore mic energy briefly so TTS echo does not fake a new utterance
+        listenArmedUntil = Date.now() + 900;
         try {
           ensureAudioCtx();
           if (!micStream) {
@@ -1005,26 +1030,31 @@
               audio: { echoCancellation: true, noiseSuppression: true },
               video: false,
             });
-            const src = audioCtx.createMediaStreamSource(micStream);
+            micSourceNode = audioCtx.createMediaStreamSource(micStream);
             micAnalyser = audioCtx.createAnalyser();
             micAnalyser.fftSize = 256;
             micAnalyser.smoothingTimeConstant = 0.75;
-            src.connect(micAnalyser);
+            micSourceNode.connect(micAnalyser);
           }
+          if (epoch !== listenEpoch) return;
           orbMode = "listen";
           orbMicBtn.classList.add("active");
           stopBtn.disabled = false;
           setAgentLine("I’m listening… What’s on your mind?");
           setStatus("Listening…", "info");
+          startRecorder();
+          startVadWatch();
 
           if (hasSpeechRecognition && recognition) {
             try {
               recognition.start();
             } catch (_) {}
-            agentHint.textContent = "Live transcript below · auto-sends when you finish";
+            agentHint.textContent =
+              "Hands-free: speak → pause → answer → mic opens again (up to 3 turns). Stop ends listening.";
           } else {
-            setAgentLive("(Safari) Speak to move the orb — type your question, then Send");
-            agentHint.textContent = "Safari has no free speech-to-text — type + Send while mic is open";
+            agentHint.textContent =
+              "Safari: speak then pause (~1.2s) or tap mic again — each turn is a new question.";
+            setAgentLive("Listening for your question…");
           }
         } catch (err) {
           setStatus("Mic permission denied — allow mic for this site", "error");
@@ -1033,23 +1063,253 @@
         }
       }
 
-      function stopListening() {
+      function pickRecorderMime() {
+        const candidates = [
+          "audio/webm;codecs=opus",
+          "audio/webm",
+          "audio/mp4",
+          "audio/ogg;codecs=opus",
+        ];
+        for (const m of candidates) {
+          if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
+        }
+        return "";
+      }
+
+      function startRecorder() {
+        recordedChunks = [];
+        if (!micStream || typeof MediaRecorder === "undefined") return;
+        try {
+          if (mediaRecorder && mediaRecorder.state !== "inactive") {
+            try {
+              mediaRecorder.stop();
+            } catch (_) {}
+          }
+          const mime = pickRecorderMime();
+          mediaRecorder = mime
+            ? new MediaRecorder(micStream, { mimeType: mime })
+            : new MediaRecorder(micStream);
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+          };
+          mediaRecorder.start(250);
+        } catch (e) {
+          console.warn("MediaRecorder failed", e);
+          mediaRecorder = null;
+        }
+      }
+
+      function startVadWatch() {
+        clearInterval(vadTimer);
+        vadTimer = setInterval(() => {
+          if (orbMode !== "listen" || !micAnalyser || turnBusy || pendingSend) return;
+          if (Date.now() < listenArmedUntil) return;
+          const buf = new Uint8Array(micAnalyser.frequencyBinCount);
+          micAnalyser.getByteFrequencyData(buf);
+          let sum = 0;
+          for (let i = 0; i < buf.length; i++) sum += buf[i];
+          const energy = sum / (buf.length * 255);
+          if (energy > 0.08) {
+            speechSeen = true;
+            quietMs = 0;
+          } else if (speechSeen) {
+            quietMs += 100;
+            // After speech, ~1.2s silence → end utterance
+            if (quietMs >= 1200) {
+              quietMs = 0;
+              finishUtterance("silence");
+            }
+          }
+        }, 100);
+      }
+
+      function stopVadWatch() {
+        clearInterval(vadTimer);
+        vadTimer = null;
+      }
+
+      function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const s = String(reader.result || "");
+            const i = s.indexOf(",");
+            resolve(i >= 0 ? s.slice(i + 1) : s);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      function floatTo16BitWav(pcm, sampleRate) {
+        const dataLength = pcm.length * 2;
+        const wav = new ArrayBuffer(44 + dataLength);
+        const view = new DataView(wav);
+        const writeStr = (offset, str) => {
+          for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+        };
+        writeStr(0, "RIFF");
+        view.setUint32(4, 36 + dataLength, true);
+        writeStr(8, "WAVE");
+        writeStr(12, "fmt ");
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeStr(36, "data");
+        view.setUint32(40, dataLength, true);
+        let offset = 44;
+        for (let i = 0; i < pcm.length; i++, offset += 2) {
+          const s = Math.max(-1, Math.min(1, pcm[i]));
+          view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        }
+        return new Blob([wav], { type: "audio/wav" });
+      }
+
+      async function blobToWavBlob(blob) {
+        ensureAudioCtx();
+        const arr = await blob.arrayBuffer();
+        const decoded = await audioCtx.decodeAudioData(arr.slice(0));
+        const targetRate = 16000;
+        const ratio = decoded.sampleRate / targetRate;
+        const newLen = Math.max(1, Math.floor(decoded.length / ratio));
+        const pcm = new Float32Array(newLen);
+        const ch0 = decoded.getChannelData(0);
+        const ch1 = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : null;
+        for (let i = 0; i < newLen; i++) {
+          const idx = Math.min(decoded.length - 1, Math.floor(i * ratio));
+          let s = ch0[idx] || 0;
+          if (ch1) s = (s + (ch1[idx] || 0)) * 0.5;
+          pcm[i] = s;
+        }
+        return floatTo16BitWav(pcm, targetRate);
+      }
+
+      async function stopRecorderBlob() {
+        if (!mediaRecorder || mediaRecorder.state === "inactive") {
+          return recordedChunks.length
+            ? new Blob(recordedChunks, { type: recordedChunks[0]?.type || "audio/webm" })
+            : null;
+        }
+        return new Promise((resolve) => {
+          mediaRecorder.onstop = () => {
+            const type = mediaRecorder.mimeType || recordedChunks[0]?.type || "audio/webm";
+            resolve(recordedChunks.length ? new Blob(recordedChunks, { type }) : null);
+          };
+          try {
+            mediaRecorder.stop();
+          } catch (_) {
+            resolve(null);
+          }
+        });
+      }
+
+      /** Stop mic UI; optionally discard recording without sending. */
+      function stopListening({ discard = true } = {}) {
         orbMicBtn.classList.remove("active");
+        stopVadWatch();
         if (recognition) {
           try {
             recognition.stop();
           } catch (_) {}
         }
+        if (discard && mediaRecorder && mediaRecorder.state !== "inactive") {
+          try {
+            mediaRecorder.onstop = null;
+            mediaRecorder.stop();
+          } catch (_) {}
+        }
+        if (discard) {
+          recordedChunks = [];
+          mediaRecorder = null;
+          if (micStream) {
+            micStream.getTracks().forEach((t) => t.stop());
+            micStream = null;
+            micAnalyser = null;
+            micSourceNode = null;
+          }
+        }
+        if (orbMode === "listen") orbMode = "idle";
+        stopBtn.disabled = true;
+        if (!sessionEnded && !turnBusy && discard) {
+          setAgentLine('<span class="muted">Tap the mic — I’m here when you’re ready.</span>');
+        }
+      }
+
+      async function finishUtterance(reason) {
+        if (pendingSend || turnBusy || sessionEnded) return;
+        const epochAtStart = listenEpoch;
+        const caption = (utteranceText || "").trim();
+        // Need real speech in THIS window (not leftover Q1 text / TTS echo)
+        if (!speechSeen && !caption && reason !== "speech_final") {
+          return;
+        }
+        pendingSend = true;
+        stopVadWatch();
+        orbMicBtn.classList.remove("active");
+        if (recognition) {
+          try {
+            recognition.abort();
+          } catch (_) {
+            try {
+              recognition.stop();
+            } catch (__) {}
+          }
+        }
+
+        setAgentLine("Got it — sending your question…");
+        const blob = await stopRecorderBlob();
         if (micStream) {
           micStream.getTracks().forEach((t) => t.stop());
           micStream = null;
           micAnalyser = null;
+          micSourceNode = null;
         }
-        if (orbMode === "listen") orbMode = "idle";
+        mediaRecorder = null;
+        recordedChunks = [];
+        orbMode = "think";
         stopBtn.disabled = true;
-        if (!sessionEnded && !turnBusy) {
-          setAgentLine('<span class="muted">Tap the mic — I’m here when you’re ready.</span>');
+        utteranceText = "";
+
+        if (epochAtStart !== listenEpoch) {
+          pendingSend = false;
+          return;
         }
+
+        // Prefer recorded audio every voice turn — never resubmit caption-only text
+        // (that caused spoken_cache to replay the previous answer forever).
+        if (blob && blob.size >= 2000) {
+          try {
+            const wavBlob = await blobToWavBlob(blob);
+            const b64 = await blobToBase64(wavBlob);
+            pendingSend = false;
+            await runTurn({
+              audio_b64: b64,
+              placeholder: caption || "Transcribing…",
+            });
+          } catch (e) {
+            pendingSend = false;
+            setStatus("Record error: " + e.message, "error");
+            setAgentLine('<span class="muted">Could not send audio — try typing below, then Send.</span>');
+            setAgentLive("");
+          }
+          return;
+        }
+
+        // Fallback: Web Speech caption only if recorder produced nothing usable
+        if (caption && caption.toLowerCase() !== lastSubmittedNorm) {
+          pendingSend = false;
+          await runTurn({ text: caption });
+          return;
+        }
+
+        pendingSend = false;
+        setAgentLine('<span class="muted">Didn’t catch that — tap mic and try again.</span>');
+        setAgentLive("");
+        setStatus("No speech captured", "warning");
       }
 
       function hookMediaElement(el, kind) {
@@ -1132,6 +1392,7 @@
 
       function enqueueAnswerAudio(audio) {
         if (!audio?.b64) return;
+        streamAudioPlayed = true;
         audioQueue.push(audio);
         drainAudioQueue();
       }
@@ -1140,17 +1401,28 @@
         if (playingAnswer || !audioQueue.length) return;
         playingAnswer = true;
         stopFiller();
-        stopListening();
+        stopListening({ discard: true });
         const audio = audioQueue.shift();
         const panel = document.getElementById("audioPanel");
         const src = `data:${audio.mime_type};base64,${audio.b64}`;
         hookMediaElement(ttsPlayer, "tts");
         ttsPlayer.onended = () => {
           playingAnswer = false;
-          orbMode = sessionEnded ? "idle" : "idle";
+          orbMode = "idle";
           if (!audioQueue.length) {
-            setAgentLine('<span class="muted">Your turn — tap mic or type below.</span>');
             setAgentLive("");
+            queryEl.value = "";
+            utteranceText = "";
+            if (!sessionEnded && handsFree) {
+              setAgentLine('<span class="muted">Your turn — listening again…</span>');
+              // Longer delay so TTS echo / room reverb is not captured as the next question
+              clearTimeout(postTtsTimer);
+              postTtsTimer = setTimeout(() => {
+                if (!sessionEnded && !turnBusy && handsFree) startListening();
+              }, 1400);
+            } else {
+              setAgentLine('<span class="muted">Your turn — tap mic or type below.</span>');
+            }
           }
           drainAudioQueue();
         };
@@ -1186,9 +1458,9 @@
         });
       }
 
-      async function runTurn(text) {
+      async function runTurn({ text = null, audio_b64 = null, placeholder = "" } = {}) {
         const q = (text || "").trim();
-        if (!q) {
+        if (!q && !audio_b64) {
           setStatus("Enter a question or use Speak", "warning");
           return;
         }
@@ -1199,17 +1471,25 @@
         if (turnBusy) return;
         turnBusy = true;
         sendBtn.disabled = true;
-        stopListening();
+        stopListening({ discard: true });
         setProcessing(true);
         setStatus("Processing…", "info");
-        setAgentLive(q);
-        addBubble(q, "user");
+        if (q) {
+          setAgentLive(q);
+          addBubble(q, "user");
+          queryEl.value = q;
+        } else {
+          setAgentLive(placeholder || "Transcribing your question…");
+          addBubble("…", "user");
+        }
         audioQueue.length = 0;
         playingAnswer = false;
+        streamAudioPlayed = false;
 
-        const localGuess = /\b(when|schedule|price|how much|what time)\b/i.test(q)
+        const guessSrc = q || placeholder || "";
+        const localGuess = /\b(when|schedule|price|how much|what time)\b/i.test(guessSrc)
           ? "checking"
-          : /\?|\b(what|where|how|why|which|who)\b/i.test(q)
+          : /\?|\b(what|where|how|why|which|who)\b/i.test(guessSrc)
             ? "got_it"
             : "thinking";
         playFiller(localGuess);
@@ -1252,22 +1532,40 @@
               }
             };
             socket.addEventListener("message", onMessage);
-            socket.send(
-              JSON.stringify({
-                text: q,
-                profile: profileEl.value,
-                session_id: sessionId,
-                use_cache: true,
-              })
-            );
+            const payload = {
+              profile: profileEl.value,
+              session_id: sessionId,
+              use_cache: true,
+            };
+            // Voice: send audio only. Typed Send: text only. Never both.
+            if (audio_b64) payload.audio_b64 = audio_b64;
+            else if (q) payload.text = q;
+            socket.send(JSON.stringify(payload));
           });
+
+          if (final.transcript) {
+            lastSubmittedNorm = String(final.transcript).trim().toLowerCase();
+            if (!q) {
+              const first = chatEl.querySelector(".chat-item .chat-text");
+              if (first && first.textContent === "…") first.textContent = final.transcript;
+              setAgentLive(final.transcript);
+            }
+            // Do not leave transcript in the text box — that caused re-submit loops
+            queryEl.value = "";
+          }
 
           if (final.answer) {
             addBubble(final.answer, "agent");
             setAgentLine(final.answer);
           }
-          if (!audioQueue.length && !playingAnswer && final.audio?.b64) {
+          // Only play final.audio if stream did not already deliver it
+          if (!streamAudioPlayed && !audioQueue.length && !playingAnswer && final.audio?.b64) {
             playAudio(final.audio);
+          } else if (!final.audio?.b64 && !audioQueue.length && !playingAnswer && !sessionEnded && handsFree) {
+            // text-only farewell etc.
+            setTimeout(() => {
+              if (!sessionEnded && !turnBusy) startListening();
+            }, 400);
           }
           metricsEl.textContent = formatMetrics(final);
           chunksEl.textContent =
@@ -1281,8 +1579,10 @@
         } catch (err) {
           stopFiller();
           orbMode = "idle";
-          setStatus("Error: " + err.message, "error");
-          setAgentLine('<span class="muted">Something went wrong — try again.</span>');
+          const detail = err && err.message ? err.message : String(err);
+          setStatus("Error: " + detail, "error");
+          setAgentLine("Something went wrong — try again.");
+          setAgentLive(detail.slice(0, 140));
         } finally {
           turnBusy = false;
           setProcessing(false);
@@ -1321,9 +1621,13 @@
         metricsEl.textContent = "No turns yet.";
         chunksEl.textContent = "—";
         stopFiller();
-        stopListening();
+        stopListening({ discard: true });
         audioQueue.length = 0;
         playingAnswer = false;
+        streamAudioPlayed = false;
+        lastSubmittedNorm = "";
+        utteranceText = "";
+        queryEl.value = "";
         ttsPlayer.removeAttribute("src");
         document.getElementById("audioPanel").hidden = true;
         setEnded(false);
@@ -1344,23 +1648,29 @@
         });
       });
 
-      sendBtn.addEventListener("click", () => runTurn(queryEl.value));
+      sendBtn.addEventListener("click", () => runTurn({ text: queryEl.value }));
       newConvoBtn.addEventListener("click", () => newConversation());
       orbMicBtn.addEventListener("click", () => {
-        if (orbMicBtn.classList.contains("active")) stopListening();
-        else startListening();
+        if (orbMicBtn.classList.contains("active")) {
+          if (speechSeen || (utteranceText || "").trim()) finishUtterance("mic_toggle");
+          else stopListening({ discard: true });
+        } else startListening();
       });
       orbStopBtn.addEventListener("click", () => {
-        stopListening();
+        // Stop = cancel listening without sending
+        handsFree = false;
+        stopListening({ discard: true });
         stopFiller();
         ttsPlayer.pause();
         playingAnswer = false;
         audioQueue.length = 0;
         orbMode = "idle";
+        setAgentLine('<span class="muted">Stopped. Tap mic to ask again.</span>');
       });
       micBtn.addEventListener("click", () => startListening());
       stopBtn.addEventListener("click", () => {
-        stopListening();
+        handsFree = false;
+        stopListening({ discard: true });
         stopFiller();
         ttsPlayer.pause();
       });
@@ -1372,6 +1682,8 @@
         recognition.interimResults = true;
         recognition.continuous = false;
         recognition.onresult = (event) => {
+          // Ignore late results from a previous listen window
+          if (orbMode !== "listen" || turnBusy || pendingSend) return;
           let interim = "";
           let finalText = "";
           for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -1380,31 +1692,32 @@
             else interim += piece;
           }
           if (interim) {
+            speechSeen = true;
+            utteranceText = interim;
             setAgentLive(interim);
-            queryEl.value = interim;
           }
           if (finalText.trim()) {
-            queryEl.value = finalText.trim();
-            setAgentLive(finalText.trim());
-            stopListening();
-            runTurn(finalText.trim());
+            speechSeen = true;
+            utteranceText = finalText.trim();
+            setAgentLive(utteranceText);
+            // Submit via MediaRecorder audio (not caption text) to avoid cache loops
+            finishUtterance("speech_final");
           }
         };
         recognition.onerror = (e) => {
-          if (e.error !== "aborted") setStatus("Mic error: " + e.error, "error");
+          if (e.error !== "aborted" && e.error !== "no-speech") {
+            setStatus("Mic error: " + e.error, "error");
+          }
           orbMicBtn.classList.remove("active");
         };
-        recognition.onend = () => {
-          if (orbMode === "listen" && !turnBusy) {
-            // keep analyser if stream still open; Safari SR may end early
-          }
-        };
-        agentHint.textContent = "Chrome: live transcript free · auto-send when you pause";
+        recognition.onend = () => {};
+        agentHint.textContent =
+          "Hands-free up to 3 turns: speak → pause → answer → mic again. Stop cancels.";
       } else {
         agentHint.textContent = isSafari
-          ? "Safari: allow mic → orb reacts · type question → Send (no free live STT)"
-          : "Speech-to-text unavailable — type + Send. Mic still drives the orb.";
-        setStatus("Type your question (live STT unavailable in this browser)", "warning");
+          ? "Safari: speak → pause 1s (or tap mic again) to send · AssemblyAI STT · auto next turn"
+          : "Speak → pause to send audio · auto next turn up to 3";
+        setStatus("Voice mode ready (browser STT unavailable — using recorded audio)", "info");
       }
 
       updateTurnMeter(0, 3);
