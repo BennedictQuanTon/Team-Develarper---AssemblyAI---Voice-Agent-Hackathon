@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from backend.app.config import get_settings
+from backend.app.domain.lantern import get_lantern_store
 from backend.app.metrics.spans import summarize_jsonl
 from backend.app.pipeline.orchestrator import Orchestrator
 from backend.app.pipeline.realtime_session import RealtimeSessionController
@@ -123,14 +124,68 @@ def root_page() -> FileResponse:
 @app.get("/api")
 def api_root() -> dict[str, str]:
     return {
-        "message": "Da Nang Realtime Voice Agent — realtime latency + fillers",
+        "message": "The Lantern — voice waiter (realtime ordering + recommendations)",
         "health": "/health",
         "ui": "/",
-        "turn": "POST /turn",
-        "ws": "WS /ws/turn",
-        "ask": "POST /rag/ask",
+        "guest": "/r/lantern",
+        "menu": "GET /menu",
+        "floor": "GET /floor",
+        "ws": "WS /ws/realtime",
         "docs": "/docs",
     }
+
+
+class MenuItemOut(BaseModel):
+    sku: str
+    name: str
+    category: str
+    price: float
+    spicy_level: int
+    available: bool
+    description: str
+    allergens: list[str]
+
+
+@app.get("/menu")
+def menu_list() -> dict[str, Any]:
+    store = get_lantern_store()
+    items = store.list_menu(available_only=False)
+    return {
+        "restaurant": "The Lantern",
+        "count": len(items),
+        "items": [i.as_dict() for i in items],
+    }
+
+
+@app.get("/menu/available")
+def menu_available() -> dict[str, Any]:
+    store = get_lantern_store()
+    items = store.list_menu(available_only=True)
+    return {"count": len(items), "items": [i.as_dict() for i in items]}
+
+
+@app.get("/floor")
+def floor() -> dict[str, Any]:
+    store = get_lantern_store()
+    tables = store.list_tables()
+    return {
+        "tables": [{"id": t.id, "name": t.name, "seats": t.seats, "status": t.status} for t in tables],
+        "status_counts": store.free_table_statuses(),
+    }
+
+
+class SetAvailableRequest(BaseModel):
+    sku: str
+    available: bool
+
+
+@app.post("/menu/set-available")
+def menu_set_available(body: SetAvailableRequest) -> dict[str, Any]:
+    store = get_lantern_store()
+    item = store.set_available(body.sku, body.available)
+    if item is None:
+        raise HTTPException(status_code=404, detail=f"Unknown SKU {body.sku}")
+    return item.as_dict()
 
 
 @app.post("/rag/ask")

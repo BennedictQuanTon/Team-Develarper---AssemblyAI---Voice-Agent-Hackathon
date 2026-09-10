@@ -1,0 +1,16 @@
+{
+  "restaurant": "The Lantern",
+  "updated_at": "2026-09-10",
+  "tables": [
+    { "id": "T1", "name": "1", "seats": 2, "status": "free" },
+    { "id": "T2", "name": "2", "seats": 2, "status": "free" },
+    { "id": "T3", "name": "3", "seats": 4, "status": "free" },
+    { "id": "T4", "name": "4", "seats": 4, "status": "free" },
+    { "id": "T5", "name": "5", "seats": 4, "status": "free" },
+    { "id": "T6", "name": "6", "seats": 6, "status": "free" },
+    { "id": "T7", "name": "7", "seats": 6, "status": "free" },
+    { "id": "T8", "name": "8", "seats": 8, "status": "free" },
+    { "id": "T9", "name": "9", "seats": 8, "status": "free" },
+    { "id": "T10", "name": "10", "seats": 10, "status": "free" }
+  ]
+}

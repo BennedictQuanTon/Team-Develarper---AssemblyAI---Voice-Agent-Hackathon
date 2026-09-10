@@ -24,6 +24,16 @@ DANANG_KEYTERMS = [
     "Han River",
 ]
 
+
+def get_lantern_keyterms(limit: int = 100) -> list[str]:
+    """Menu + modifier vocabulary from The Lantern store (falls back to empty)."""
+    try:
+        from backend.app.domain.lantern import get_lantern_store
+
+        return get_lantern_store().keyterms(limit=limit)
+    except Exception:  # noqa: BLE001
+        return []
+
 SpeechCallback = Callable[[], Awaitable[None] | None]
 TurnCallback = Callable[[str, bool], Awaitable[None] | None]  # (transcript, is_final)
 ErrorCallback = Callable[[str], Awaitable[None] | None]
@@ -86,7 +96,7 @@ class AssemblyAIRealtimeStream:
                 min_turn_silence=400,
                 max_turn_silence=1000,
                 end_of_turn_confidence_threshold=0.4,
-                keyterms_prompt=DANANG_KEYTERMS,
+                keyterms_prompt=get_lantern_keyterms() or DANANG_KEYTERMS,
             )
 
             await self._transcriber.connect(params)
