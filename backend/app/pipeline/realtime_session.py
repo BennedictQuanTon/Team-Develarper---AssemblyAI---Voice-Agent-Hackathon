@@ -20,6 +20,9 @@ from backend.app.pipeline.llm_live import GeminiLLMClient
 from backend.app.pipeline.profiles import get_voice_profile
 from backend.app.pipeline.session import MAX_TURNS, SessionStore
 from backend.app.pipeline.tts_stream import CartesiaStreamingTTS, StubStreamingTTS
+from backend.app.pipeline.waiter_agent import build_waiter_agent
+from backend.app.domain.lantern import get_lantern_store
+from backend.app.domain.waiter import WaiterSession
 from rag.cache import RagCache
 from rag.retrieve import DEFAULT_TOP_K, hybrid_retrieve
 
@@ -58,6 +61,11 @@ class RealtimeSessionController:
             if self.has_cartesia
             else StubStreamingTTS(sample_rate=16000)
         )
+
+        # Waiter agent (voice-ordering mode) with its own per-session basket
+        self.waiter_agent = build_waiter_agent()
+        self.waiter_session = WaiterSession(get_lantern_store(), session_id=self.session_id)
+        self.agent_mode = self.settings.agent_mode
 
         self.metrics = MetricsWriter(self.settings.metrics_dir / "turns.jsonl")
 
@@ -233,6 +241,11 @@ class RealtimeSessionController:
             )
             return
 
+        # Waiter mode: run the voice waiter (RAG-independent ordering path)
+        if self.agent_mode == "waiter":
+            await self._execute_waiter_turn(query, cancel_ev)
+            return
+
         # 1) Farewell Fast-Path (Zero API cost & Instant closing)
         if is_farewell(query):
             self.sessions.end(self.session_id)
@@ -406,6 +419,116 @@ class RealtimeSessionController:
 
     async def _on_asr_error(self, error_msg: str) -> None:
         await self._send_json({"type": "error", "message": error_msg})
+
+    async def _execute_waiter_turn(self, query: str, cancel_ev: asyncio.Event) -> None:
+        """Voice-waiter turn: Gemini tool loop over deterministic menu/floor state,
+        then stream the spoken reply through Cartesia with barge-in support."""
+        t_start = time.perf_counter()
+        session = self.sessions.get(self.session_id)
+        turn_id = new_turn_id()
+
+        # Run the agent (may take a few hundred ms; network-bound)
+        try:
+            result = await self.waiter_agent.respond(self.waiter_session, query)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Waiter agent error: %s", exc)
+            result = {
+                "reply": "Sorry, I didn't catch that. Could you say it again?",
+                "tool_calls": [],
+                "basket": self.waiter_session.snapshot(),
+            }
+
+        reply = (result.get("reply") or "").strip()
+        tool_calls = result.get("tool_calls") or []
+
+        # Emit live basket state for the ops view (after tools mutated state)
+        await self._send_json(
+            {
+                "type": "basket_update",
+                "basket": self.waiter_session.snapshot(),
+                "tool_calls": [{"tool": t["tool"], "args": t["args"]} for t in tool_calls],
+            }
+        )
+
+        if cancel_ev.is_set():
+            return
+
+        if not reply:
+            reply = "One moment."
+
+        # Stream reply -> TTS with barge-in
+        self.is_agent_speaking = True
+        first_chunk_sent = False
+        t_first_audio = 0.0
+
+        async def _reply_stream():
+            for word in reply.split(" "):
+                yield word + " "
+
+        try:
+            async for pcm_chunk in self.tts.stream_utterance(
+                _reply_stream(),
+                context_id=turn_id,
+                voice_id=self.profile["cartesia_voice_id"],
+                speaking_rate=self.profile["speaking_rate"],
+                cancel_event=cancel_ev,
+            ):
+                if cancel_ev.is_set():
+                    break
+                if not first_chunk_sent:
+                    first_chunk_sent = True
+                    t_first_audio = round((time.perf_counter() - t_start) * 1000, 2)
+                    logger.info("⚡ WAITER VOICE TTFB: %.1f ms", t_first_audio)
+                await self._send_json(
+                    {
+                        "type": "audio_chunk",
+                        "pcm_b64": base64.b64encode(pcm_chunk).decode("ascii"),
+                        "ttfb_ms": t_first_audio,
+                    }
+                )
+        finally:
+            self.is_agent_speaking = False
+
+        if cancel_ev.is_set():
+            logger.info("Waiter turn %s cancelled by barge-in (basket preserved)", turn_id)
+            return
+
+        e2e_turn_ms = round((time.perf_counter() - t_start) * 1000, 2)
+        session = self.sessions.append_turn(self.session_id, query, reply)
+
+        spans = TurnSpans(
+            turn_id=turn_id,
+            session_id=self.session_id,
+            query=query,
+            transcript=query,
+            answer=reply,
+            profile=self.profile["name"],
+            provider={
+                "asr": "assemblyai_realtime" if self.has_aai else "stub_realtime",
+                "llm": "gemini_tools" if self.has_gemini else "rulebased",
+                "tts": "cartesia_websocket" if self.has_cartesia else "stub_tts",
+            },
+            timings_ms={
+                "ttfb_ms": t_first_audio,
+                "e2e_turn_ms": e2e_turn_ms,
+            },
+            cache={"n_tool_calls": len(tool_calls)},
+            chunk_ids=[],
+            phase=6,
+        )
+        self.metrics.write_turn(spans)
+
+        await self._send_json(
+            {
+                "type": "turn_complete",
+                "answer": reply,
+                "ttfb_ms": t_first_audio,
+                "e2e_turn_ms": e2e_turn_ms,
+                "session_ended": session.ended,
+                "turn_count": session.turn_count,
+                "basket": self.waiter_session.snapshot(),
+            }
+        )
 
     async def _send_json(self, data: dict[str, Any]) -> None:
         try:
