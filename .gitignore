@@ -33,3 +33,7 @@ logs/
 # Model caches (local embeddings)
 .cache/
 sentence-transformers/
+
+# SQLite runtime artifacts
+:memory:.ses
+*.ses

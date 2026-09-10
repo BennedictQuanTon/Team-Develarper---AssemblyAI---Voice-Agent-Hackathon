@@ -284,10 +284,30 @@ class WaiterSession:
             "ticket_type": self.ticket_type,
             "table_id": self.table_id,
             "party_size": self.party_size,
-            "guest_tags": self.guest_tags,
-            "mentioned": self.mentioned[-4:],
+            "guest_tags": list(self.guest_tags),
+            "mentioned": [dict(m) for m in self.mentioned[-6:]],
             "placed": self.placed,
         }
+
+    def restore(self, state: dict[str, Any]) -> None:
+        """Roll back to a prior snapshot (used when a turn is cancelled mid-way by
+        barge-in so no half-applied tool mutations leak into the kept basket)."""
+        self.basket = [
+            BasketLine(
+                sku=l["sku"],
+                name=l["name"],
+                price=l["price"],
+                qty=l["qty"],
+                modifiers=list(l.get("modifiers") or []),
+            )
+            for l in state.get("basket", [])
+        ]
+        self.ticket_type = state.get("ticket_type", "dine_in")
+        self.table_id = state.get("table_id")
+        self.party_size = state.get("party_size", 2)
+        self.guest_tags = list(state.get("guest_tags") or [])
+        self.mentioned = [dict(m) for m in state.get("mentioned", [])]
+        self.placed = bool(state.get("placed", False))
 
 
 def setup_party(session: WaiterSession, ticket_type: str | None, party_size: int | None, tags: list[str] | None) -> None:

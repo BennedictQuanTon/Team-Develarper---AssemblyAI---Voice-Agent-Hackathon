@@ -14,7 +14,7 @@ from fastapi import WebSocket
 from backend.app.config import Settings, get_settings
 from backend.app.metrics.spans import MetricsWriter, TurnSpans, new_turn_id
 from backend.app.pipeline.asr_stream import AssemblyAIRealtimeStream, StubRealtimeStream
-from backend.app.pipeline.filler import CLOSING_TEXT, is_farewell
+from backend.app.pipeline.filler import CLOSING_TEXT, is_backchannel, is_farewell
 from backend.app.pipeline.llm import StubLLMClient
 from backend.app.pipeline.llm_live import GeminiLLMClient
 from backend.app.pipeline.profiles import get_voice_profile
@@ -204,6 +204,12 @@ class RealtimeSessionController:
             return
 
         if self.is_agent_speaking:
+            # Backchannels (short "ok/yeah/mhm") while the waiter is mid-sentence
+            # must NOT cut off TTS — the user is listening, not taking the turn.
+            if is_backchannel(transcript):
+                logger.info("🙊 Backchannel ignored (agent speaking): %s", transcript)
+                await self._send_json({"type": "backchannel", "text": transcript})
+                return
             logger.info("⚡ ASR Turn Barge-In on transcript: %s", transcript)
             await self._trigger_barge_in("asr_turn")
 
@@ -422,10 +428,23 @@ class RealtimeSessionController:
 
     async def _execute_waiter_turn(self, query: str, cancel_ev: asyncio.Event) -> None:
         """Voice-waiter turn: Gemini tool loop over deterministic menu/floor state,
-        then stream the spoken reply through Cartesia with barge-in support."""
+        then stream the spoken reply through Cartesia with barge-in support.
+
+        Barge-in semantics (P3):
+        - Backchannel is filtered upstream, so anything that reaches here is a real turn.
+        - We snapshot basket state BEFORE running tools. If the guest barges in while
+          the tool loop is still computing (before any audio is spoken), we roll back
+          the half-applied mutations — the interrupted intent never leaked into the order.
+        - Once audio starts, the confirmed commit point is reached: the basket stays
+          (no reset), the guest reserves the right to change it on the next turn.
+        """
         t_start = time.perf_counter()
         session = self.sessions.get(self.session_id)
         turn_id = new_turn_id()
+
+        # --- Snapshot for rollback on mid-compute barge-in (do NOT reset the basket) ---
+        pre_state = self.waiter_session.snapshot()
+        committed_audio = False
 
         # Run the agent (may take a few hundred ms; network-bound)
         try:
@@ -440,6 +459,21 @@ class RealtimeSessionController:
 
         reply = (result.get("reply") or "").strip()
         tool_calls = result.get("tool_calls") or []
+
+        # If the guest interrupted during the tool loop, discard the half-finished
+        # mutation (flush stale tool effects) and hand control back to the user.
+        if cancel_ev.is_set():
+            self.waiter_session.restore(pre_state)
+            logger.info("Waiter turn %s: tool loop barge-in — rolled back stale mutation", turn_id)
+            await self._send_json(
+                {
+                    "type": "basket_update",
+                    "basket": self.waiter_session.snapshot(),
+                    "tool_calls": [],
+                    "rolled_back": True,
+                }
+            )
+            return
 
         # Emit live basket state for the ops view (after tools mutated state)
         await self._send_json(
@@ -456,7 +490,7 @@ class RealtimeSessionController:
         if not reply:
             reply = "One moment."
 
-        # Stream reply -> TTS with barge-in
+        # Stream reply -> TTS with barge-in. First audio chunk = commit point.
         self.is_agent_speaking = True
         first_chunk_sent = False
         t_first_audio = 0.0
@@ -477,6 +511,7 @@ class RealtimeSessionController:
                     break
                 if not first_chunk_sent:
                     first_chunk_sent = True
+                    committed_audio = True
                     t_first_audio = round((time.perf_counter() - t_start) * 1000, 2)
                     logger.info("⚡ WAITER VOICE TTFB: %.1f ms", t_first_audio)
                 await self._send_json(
@@ -491,6 +526,10 @@ class RealtimeSessionController:
 
         if cancel_ev.is_set():
             logger.info("Waiter turn %s cancelled by barge-in (basket preserved)", turn_id)
+            # Re-emit basket so ops UI stays live despite the interrupted turn
+            await self._send_json(
+                {"type": "basket_update", "basket": self.waiter_session.snapshot(), "tool_calls": []}
+            )
             return
 
         e2e_turn_ms = round((time.perf_counter() - t_start) * 1000, 2)

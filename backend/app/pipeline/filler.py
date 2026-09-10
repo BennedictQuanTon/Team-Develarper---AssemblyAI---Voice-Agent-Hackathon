@@ -16,6 +16,25 @@ _FAREWELL = re.compile(
 )
 
 
+def is_backchannel(text: str) -> bool:
+    """True for short utterances that should NOT interrupt an agent mid-speech.
+
+    Backchannels (affirmations, minimal acknowledgements, fillers) are the opposite
+    of a barge-in: the user is agreeing/listening, not taking the turn. Cutting TTS
+    on these is exactly the UX bug we must avoid.
+    """
+    t = (text or "").strip().lower()
+    if not t or len(t.split()) > 3:
+        return False
+    if _FAREWELL.search(t) and len(t.split()) <= 2:
+        # "no / yes" politeness shorthand while the waiter confirms — let it finish
+        return True
+    if _ACK.search(t) and not re.search(r"\b(add|remove|change|no[,.]?\b)", t):
+        return True
+    return t in {"uh", "uh-huh", "mm", "mhm", "right", "cool", "nice", "okay"}
+
+
+
 def is_farewell(text: str) -> bool:
     t = (text or "").strip()
     if not t:
