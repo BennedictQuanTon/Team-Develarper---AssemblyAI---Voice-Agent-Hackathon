@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+import asyncio
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
@@ -21,6 +22,7 @@ from rag.store import get_collection
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 FRONTEND_DIR = ROOT_DIR / "frontend"
+DIST_DIR = FRONTEND_DIR / "dist"
 
 
 @lru_cache
@@ -65,6 +67,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+if (DIST_DIR / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="assets")
 if FRONTEND_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
@@ -115,6 +119,9 @@ def health() -> JSONResponse:
 
 @app.get("/")
 def root_page() -> FileResponse:
+    dist_index = DIST_DIR / "index.html"
+    if dist_index.exists():
+        return FileResponse(dist_index)
     index = FRONTEND_DIR / "index.html"
     if not index.exists():
         raise HTTPException(status_code=404, detail="frontend/index.html missing")
@@ -324,3 +331,84 @@ async def ws_realtime(websocket: WebSocket) -> None:
         print(f"[ws/realtime error] {exc}")
     finally:
         await controller.close()
+
+
+@app.websocket("/ws/ops")
+async def ws_ops(websocket: WebSocket) -> None:
+    """Ops monitor: pushes a floor/menu/metrics snapshot to watchers on a cadence,
+    and applies control actions (toggle 86, seat/clear a table) as commands come in.
+    Read-only display, plus small operational controls. Snapshot cadence ~1.5s."""
+    await websocket.accept()
+    store = get_lantern_store()
+
+    async def send_snapshot():
+        await websocket.send_json(
+            {
+                "type": "ops_snapshot",
+                "floor": {
+                    "tables": [
+                        {"id": t.id, "name": t.name, "seats": t.seats, "status": t.status}
+                        for t in store.list_tables()
+                    ],
+                    "counts": store.free_table_statuses(),
+                },
+                "menu": {
+                    "items": [
+                        {
+                            "sku": m.sku,
+                            "name": m.name,
+                            "price": m.price,
+                            "available": m.available,
+                            "category": m.category,
+                            "fits": m.fits,
+                        }
+                        for m in store.list_menu()
+                    ]
+                },
+                "metrics": summarize_jsonl(get_settings().metrics_dir / "spans.jsonl"),
+                "ts": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+
+    try:
+        # Send initial snapshot immediately upon connection
+        await send_snapshot()
+
+        while True:
+            try:
+                msg = await asyncio.wait_for(websocket.receive(), timeout=1.5)
+                if "text" in msg and msg["text"]:
+                    try:
+                        payload = json.loads(msg["text"])
+                        cmd = payload.get("command")
+                        if cmd == "set-available":
+                            item = store.set_available(
+                                str(payload.get("sku") or ""),
+                                bool(payload.get("available")),
+                            )
+                            await websocket.send_json(
+                                {"type": "action_result", "ok": item is not None, "sku": payload.get("sku")}
+                            )
+                        elif cmd == "seat":
+                            if store.seat_party(str(payload.get("table_id") or ""), int(payload.get("party_size") or 2)):
+                                await websocket.send_json({"type": "action_result", "ok": True})
+                        elif cmd == "clear":
+                            if store.set_table_status(str(payload.get("table_id") or ""), "free"):
+                                await websocket.send_json({"type": "action_result", "ok": True})
+                    except Exception:  # noqa: BLE001
+                        pass
+            except asyncio.TimeoutError:
+                pass  # Cadence heartbeat tick
+
+            # Send fresh snapshot on cadence or after action
+            await send_snapshot()
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:  # noqa: BLE001
+        print(f"[ws/ops error] {exc}")
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass

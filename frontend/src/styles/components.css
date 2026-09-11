@@ -1,0 +1,454 @@
+/**
+ * Component styles adhering to Apple Human Interface Guidelines.
+ */
+
+/* ============================================================
+   1. Segmented Navigation Control (Apple Segmented Bar)
+   ============================================================ */
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--fill-select);
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  user-select: none;
+}
+
+.segment-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  min-width: 90px;
+  padding: 0 16px;
+  border: none;
+  background: transparent;
+  color: var(--content-secondary);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+  outline: none;
+}
+
+.segment-btn:hover {
+  color: var(--content-primary);
+}
+
+.segment-btn[aria-selected="true"] {
+  background-color: var(--surface-card);
+  color: var(--content-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0.5px 1px rgba(0, 0, 0, 0.08);
+}
+
+.segment-btn:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* ============================================================
+   2. Guest Voice Stage (Minimalist Siri-style Voice Experience)
+   ============================================================ */
+.guest-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 0;
+  gap: 24px;
+}
+
+.orb-container {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orb-canvas {
+  width: 140px;
+  height: 140px;
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+}
+
+/* Floating Central Mic Action Button (56x56 pt) */
+.apple-mic-btn {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--liquid-glass-border);
+  background: var(--liquid-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--content-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+}
+
+.apple-mic-btn:hover {
+  transform: scale(1.04);
+  background: var(--surface-card);
+}
+
+.apple-mic-btn:active {
+  transform: scale(0.96);
+}
+
+.apple-mic-btn.active {
+  background-color: var(--signal-red);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 0 20px rgba(255, 59, 48, 0.4);
+}
+
+.apple-mic-btn:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.apple-mic-btn svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+/* Primary Spoken Text / Stage Transcript */
+.stage-caption-box {
+  max-width: 600px;
+  width: 100%;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.stage-role-tag {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--content-tertiary);
+}
+
+.stage-transcript {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--content-primary);
+  letter-spacing: -0.015em;
+  word-break: break-word;
+}
+
+.stage-transcript.empty {
+  font-size: 17px;
+  color: var(--content-secondary);
+  font-weight: 400;
+}
+
+.stage-transcript.interim {
+  color: var(--accent);
+}
+
+/* Secondary Action Hint / Controls */
+.stage-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+/* ============================================================
+   3. Guest Live Basket Card (Progressive Disclosure)
+   ============================================================ */
+.basket-sheet {
+  width: 100%;
+  max-width: 580px;
+  margin: 16px auto 0;
+  background-color: var(--surface-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-card);
+  padding: 24px;
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.basket-sheet.visible {
+  display: flex;
+}
+
+.basket-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--separator);
+  padding-bottom: 12px;
+}
+
+.basket-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--content-primary);
+}
+
+.basket-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--signal-green-subtle);
+  color: var(--signal-green);
+}
+
+.basket-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.basket-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+}
+
+.basket-row-name {
+  color: var(--content-primary);
+  font-weight: 500;
+}
+
+.basket-row-price {
+  color: var(--content-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.basket-footer {
+  border-top: 1px solid var(--separator);
+  padding-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 17px;
+}
+
+/* ============================================================
+   4. Ops View (Floor Tables & Menu Availability)
+   ============================================================ */
+.ops-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Section Header */
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--content-primary);
+  letter-spacing: -0.015em;
+}
+
+/* Metric Counter Pills */
+.metric-summary-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.metric-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: var(--surface-card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  color: var(--content-secondary);
+}
+
+.metric-pill strong {
+  color: var(--content-primary);
+  font-weight: 600;
+}
+
+/* Floor Tables Grid */
+.floor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.table-card {
+  background-color: var(--surface-card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.table-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.table-number {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--content-primary);
+}
+
+.table-seats {
+  font-size: 12px;
+  color: var(--content-tertiary);
+}
+
+.table-status-pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  margin-top: 4px;
+}
+
+.table-status-pill.free {
+  background-color: var(--signal-green-subtle);
+  color: var(--signal-green);
+}
+
+.table-status-pill.seated {
+  background-color: var(--signal-red-subtle);
+  color: var(--signal-red);
+}
+
+.table-status-pill.reserved {
+  background-color: var(--signal-amber-subtle);
+  color: var(--signal-amber);
+}
+
+/* Menu Inventory Management List */
+.menu-inventory-card {
+  background-color: var(--surface-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.menu-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--separator);
+  transition: background-color 0.12s ease;
+}
+
+.menu-item-row:last-child {
+  border-bottom: none;
+}
+
+.menu-item-row:hover {
+  background-color: var(--fill-hover);
+}
+
+.menu-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-item-name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--content-primary);
+}
+
+.menu-item-meta {
+  font-size: 13px;
+  color: var(--content-tertiary);
+}
+
+.menu-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menu-price {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--content-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 86 Toggle Button (Apple Tinted Button) */
+.btn-86 {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.btn-86.active {
+  background-color: var(--signal-green-subtle);
+  color: var(--signal-green);
+  border-color: rgba(52, 199, 89, 0.25);
+}
+
+.btn-86.off {
+  background-color: var(--signal-red-subtle);
+  color: var(--signal-red);
+  border-color: rgba(255, 59, 48, 0.25);
+}
+
+.btn-86:hover {
+  opacity: 0.85;
+}
+
+.btn-86:focus-visible {
+  box-shadow: var(--focus-ring);
+}

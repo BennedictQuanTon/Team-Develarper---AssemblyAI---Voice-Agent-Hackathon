@@ -1,0 +1,100 @@
+/**
+ * Apple Human Interface Guidelines (HIG) Semantic Design Tokens
+ * Strictly following Apple_Design_Skill.md
+ */
+
+:root {
+  /* Surfaces & Backgrounds */
+  --surface-bg: #f5f5f7;
+  --surface-card: #ffffff;
+  --surface-secondary: #fbfbfd;
+  --surface-tertiary: #e5e5ea;
+  --surface-overlay: rgba(255, 255, 255, 0.85);
+
+  /* Content / Typography (High Contrast > 4.5:1 WCAG AA) */
+  --content-primary: #1d1d1f;
+  --content-secondary: #6e6e73;
+  --content-tertiary: #86868b;
+
+  /* Accent: Apple System Blue */
+  --accent: #0071e3;
+  --accent-hover: #0077ed;
+  --accent-subtle: rgba(0, 113, 227, 0.08);
+  --accent-contrast: #ffffff;
+
+  /* Semantic Signals */
+  --signal-green: #34c759;
+  --signal-green-subtle: rgba(52, 199, 89, 0.12);
+  --signal-amber: #ff9f0a;
+  --signal-amber-subtle: rgba(255, 159, 10, 0.12);
+  --signal-red: #ff3b30;
+  --signal-red-subtle: rgba(255, 59, 48, 0.12);
+
+  /* Materials & Liquid Glass (Floating Bars & Sheets only) */
+  --liquid-glass: rgba(255, 255, 255, 0.72);
+  --liquid-glass-border: rgba(255, 255, 255, 0.6);
+  --liquid-glass-blur: saturate(180%) blur(20px);
+  --hairline: rgba(0, 0, 0, 0.08);
+  --separator: rgba(0, 0, 0, 0.12);
+
+  /* Fills & Selection */
+  --fill-select: rgba(120, 120, 128, 0.16);
+  --fill-hover: rgba(120, 120, 128, 0.08);
+
+  /* Focus & Radii */
+  --focus-ring: 0 0 0 3.5px rgba(0, 113, 227, 0.35);
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.08);
+
+  /* Typography Stack */
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Touch Targets */
+  --target-min: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-bg: #000000;
+    --surface-card: #1c1c1e;
+    --surface-secondary: #2c2c2e;
+    --surface-tertiary: #3a3a3c;
+    --surface-overlay: rgba(28, 28, 30, 0.88);
+
+    --content-primary: #f5f5f7;
+    --content-secondary: #98989d;
+    --content-tertiary: #6e6e73;
+
+    --accent: #2997ff;
+    --accent-hover: #409cff;
+    --accent-subtle: rgba(41, 151, 255, 0.15);
+    --accent-contrast: #ffffff;
+
+    --signal-green: #30d158;
+    --signal-green-subtle: rgba(48, 209, 88, 0.16);
+    --signal-amber: #ff9f0a;
+    --signal-amber-subtle: rgba(255, 159, 10, 0.16);
+    --signal-red: #ff453a;
+    --signal-red-subtle: rgba(255, 69, 58, 0.16);
+
+    --liquid-glass: rgba(28, 28, 30, 0.76);
+    --liquid-glass-border: rgba(255, 255, 255, 0.12);
+    --hairline: rgba(255, 255, 255, 0.08);
+    --separator: rgba(255, 255, 255, 0.14);
+
+    --fill-select: rgba(120, 120, 128, 0.28);
+    --fill-hover: rgba(120, 120, 128, 0.16);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+    --shadow-float: 0 12px 36px rgba(0, 0, 0, 0.65);
+  }
+}
