@@ -10,6 +10,61 @@ from backend.app.config import get_settings
 from backend.app.pipeline.base import LLMResult
 
 
+class AsyncTokenBucket:
+    """Async token-bucket rate limiter (e.g. a Gemini RPM quota).
+
+    Acquire can only do *one* call at a time (serializes concurrent calls),
+    spacing them so the sustained rate never exceeds `rate` per `window_seconds`.
+    """
+
+    def __init__(self, rate: int, window_seconds: int = 60) -> None:
+        self.rate = max(1, int(rate))
+        self.window = max(1, int(window_seconds))
+        self.interval = self.window / self.rate
+        self._lock = asyncio.Lock()
+        self._next_at = time.monotonic()
+        self.acquired_count = 0
+        self._slot_times: list[float] = []
+
+    async def acquire(self) -> None:
+        async with self._lock:
+            now = time.monotonic()
+            if now < self._next_at:
+                await asyncio.sleep(self._next_at - now)
+                now = time.monotonic()
+            self._next_at = max(now, self._next_at) + self.interval
+            self.acquired_count += 1
+            self._slot_times.append(now)
+
+    def rate_per_minute(self, window_seconds: float = 60.0) -> float:
+        """Observed sustained request rate (requests/min) over the last window."""
+        if not self._slot_times:
+            return 0.0
+        now = time.monotonic()
+        cutoff = now - window_seconds
+        recent = [t for t in self._slot_times if t >= cutoff]
+        if not recent:
+            return 0.0
+        return round(len(recent) / (min(window_seconds, now - recent[0]) / 60.0), 3)
+
+
+def _gemini_rpm() -> int:
+    try:
+        return int(get_settings().gemini_rpm or 0)
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def _gemini_limiter() -> AsyncTokenBucket | None:
+    rpm = _gemini_rpm()
+    if rpm <= 0:
+        return None
+    # Singleton shared across all client instances so the whole process stays under quota.
+    if not hasattr(_gemini_limiter, "_bucket"):
+        _gemini_limiter._bucket = AsyncTokenBucket(rate=rpm)
+    return _gemini_limiter._bucket
+
+
 class GeminiLLMClient:
     def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
         settings = get_settings()
@@ -78,6 +133,9 @@ class GeminiLLMClient:
         history: list[dict[str, str]] | None = None,
         last_turn: bool = False,
     ) -> LLMResult:
+        lim = _gemini_limiter()
+        if lim is not None:
+            await lim.acquire()
         prompt = self._build_prompt(
             user_text=user_text,
             context_chunks=context_chunks,
@@ -114,15 +172,28 @@ class GeminiLLMClient:
         except Exception:
             config = types.GenerateContentConfig(**config_kwargs)
 
-        response = client.models.generate_content(
-            model=self.model,
-            contents=prompt,
-            config=config,
-        )
-        text = (getattr(response, "text", None) or "").strip()
-        if not text:
-            raise RuntimeError("Gemini returned empty text")
-        return text
+        # Retry a sporadic rate-limit (429/RESOURCE_EXHAUSTED) with backoff; the
+        # token-bucket normally keeps us under the RPM quota so this is just a safety net.
+        import time as _t
+
+        deadline = _t.monotonic() + 90.0
+        while True:
+            try:
+                response = client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=config,
+                )
+                text = (getattr(response, "text", None) or "").strip()
+                if not text:
+                    raise RuntimeError("Gemini returned empty text")
+                return text
+            except Exception as exc:  # noqa: BLE001
+                err = str(exc)
+                is_ratelimit = ("429" in err) or ("RESOURCE_EXHAUSTED" in err) or ("quota" in err.lower())
+                if not is_ratelimit or _t.monotonic() >= deadline:
+                    raise
+                _t.sleep(4.0)
 
     async def stream(
         self,
@@ -135,6 +206,9 @@ class GeminiLLMClient:
         last_turn: bool = False,
     ) -> AsyncIterator[str]:
         """Yield text chunks from Gemini streaming when available; else one full string."""
+        lim = _gemini_limiter()
+        if lim is not None:
+            await lim.acquire()
         prompt = self._build_prompt(
             user_text=user_text,
             context_chunks=context_chunks,

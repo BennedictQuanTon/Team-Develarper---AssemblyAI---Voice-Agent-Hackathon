@@ -53,6 +53,16 @@ class WaiterSession:
         self.guest_tags: list[str] = []
         self.mentioned: list[dict[str, Any]] = []  # sku/name surfaced in the convo
         self.placed = False
+        # recommend cache keyed by (tags, party, limit, availability_fingerprint);
+        # invalidated implicitly when the availability of the surfaced top items changes.
+        self._rec_cache: dict[str, dict[str, Any]] = {}
+        self._rec_cache_hits = 0
+        self._rec_cache_misses = 0
+
+    @staticmethod
+    def _availability_fingerprint(store: LanternStore) -> str:
+        """Stable string of (available) for ALL menu items, in order."""
+        return "|".join("1" if it.available else "0" for it in store.list_menu())
 
     # ---- helpers -----------------------------------------------------------
     def _record_mentions(self, items: list[MenuItem] | list[dict[str, Any]]) -> None:
@@ -99,6 +109,21 @@ class WaiterSession:
         if isinstance(tags, str):
             tags = [t.strip() for t in tags.split(",") if t.strip()]
         tags = [t.lower() for t in (tags or [])]
+
+        # Cache hit path: same tags/party/limit + same menu availability => return stored
+        key = (
+            ",".join(sorted(tags)),
+            int(party_size or 2),
+            int(limit or 2),
+            self._availability_fingerprint(self.store),
+        )
+        cached = self._rec_cache.get(key)
+        if cached is not None:
+            self._rec_cache_hits += 1
+            self._record_mentions(cached["_items"])
+            return cached["payload"]
+
+        self._rec_cache_misses += 1
         available = [it for it in self.store.list_menu() if it.available]
         scored: list[tuple[int, MenuItem]] = []
         for it in available:
@@ -116,7 +141,9 @@ class WaiterSession:
         top = [it for _, it in scored[:limit]]
         self._record_mentions(top)
         reasons = [self._reason(it, tags, party_size) for it in top]
-        return {"items": [self._item_view(it) for it in top], "reasons": reasons}
+        payload = {"items": [self._item_view(it) for it in top], "reasons": reasons}
+        self._rec_cache[key] = {"payload": payload, "_items": top}
+        return payload
 
     def _reason(self, it: MenuItem, tags: list[str], party_size: int) -> str:
         reasons: list[str] = []

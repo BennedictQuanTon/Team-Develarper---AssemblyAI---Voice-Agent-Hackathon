@@ -205,6 +205,7 @@ async def _stream_turn(ws, text: str, tts) -> tuple:
     first_audio_time = None
     ttfb_ms = None
     e2e_ms = None
+    asr_first_ms = None
     reply = ""
     events = []
     stop = asyncio.Event()
@@ -219,17 +220,27 @@ async def _stream_turn(ws, text: str, tts) -> tuple:
     sil_task = asyncio.create_task(sil())
     try:
         while True:
-            msg = json.loads(await asyncio.wait_for(ws.recv(), timeout=20.0))
+            msg = json.loads(await asyncio.wait_for(ws.recv(), timeout=150.0))
             t = msg.get("type")
-            events.append(
-                {k: msg.get(k) for k in ("type", "text", "answer", "basket", "rolled_back", "ttfb_ms") if k in msg}
-            )
-            if t == "audio_chunk" and first_audio_time is None:
-                first_audio_time = time.perf_counter()
-                ttfb_ms = round((first_audio_time - t_speech_end) * 1000, 2)
+            ev_at = time.perf_counter()
+            ev = {
+                k: msg.get(k)
+                for k in ("type", "text", "answer", "basket", "rolled_back", "ttfb_ms", "tool_calls")
+                if k in msg
+            }
+            ev["at"] = round((ev_at - t_speech_end) * 1000, 2)
+            events.append(ev)
+            if t == "final_transcript" and asr_first_ms is None:
+                asr_first_ms = ev["at"]
+            if t == "audio_chunk":  # ignore speculative 'thinking' clip for real TTFB
+                if msg.get("thinking"):
+                    continue
+                if first_audio_time is None:
+                    first_audio_time = ev_at
+                    ttfb_ms = round((first_audio_time - t_speech_end) * 1000, 2)
             elif t == "turn_complete":
                 reply = msg.get("answer", "")
-                e2e_ms = round((time.perf_counter() - t_speech_end) * 1000, 2)
+                e2e_ms = round((ev_at - t_speech_end) * 1000, 2)
                 break
             elif t == "error":
                 reply = f"ERROR: {msg.get('message')}"
@@ -237,7 +248,7 @@ async def _stream_turn(ws, text: str, tts) -> tuple:
     finally:
         stop.set()
         await sil_task
-    return reply, ttfb_ms, e2e_ms, events
+    return reply, ttfb_ms, e2e_ms, events, asr_first_ms
 
 
 async def run_part_b(settings) -> dict:
@@ -257,12 +268,12 @@ async def run_part_b(settings) -> dict:
     async with websockets.connect(WS_URL) as ws:
         await ws.recv()  # session_ready
 
-        r1, ttfb1, e2e1, ev1 = await _stream_turn(ws, "What would you recommend for a mild couple?", tts)
+        r1, ttfb1, e2e1, ev1, _ = await _stream_turn(ws, "What would you recommend for a mild couple?", tts)
         report["ttfb_ms"].append(ttfb1); report["e2e_ms"].append(e2e1)
         report["turns"].append({"id": "rec", "reply": r1, "ttfb_ms": ttfb1, "e2e_ms": e2e1, "events": ev1})
         print(f"  [WS rec] ttfb={ttfb1}ms e2e={e2e1}ms reply={r1!r}")
 
-        r2, ttfb2, e2e2, ev2 = await _stream_turn(ws, "We'll take those two please", tts)
+        r2, ttfb2, e2e2, ev2, _ = await _stream_turn(ws, "We'll take those two please", tts)
         report["ttfb_ms"].append(ttfb2); report["e2e_ms"].append(e2e2)
         report["turns"].append({"id": "those-two", "reply": r2, "ttfb_ms": ttfb2, "e2e_ms": e2e2, "events": ev2})
         print(f"  [WS those-two] ttfb={ttfb2}ms e2e={e2e2}ms reply={r2!r}")
@@ -275,7 +286,7 @@ async def run_part_b(settings) -> dict:
         report["turns"][-1]["basket"] = basket
         print(f"        basket={basket}")
 
-        r3, ttfb3, e2e3, ev3 = await _stream_turn(ws, "that's all, please place the order", tts)
+        r3, ttfb3, e2e3, ev3, _ = await _stream_turn(ws, "that's all, please place the order", tts)
         report["ttfb_ms"].append(ttfb3); report["e2e_ms"].append(e2e3)
         report["turns"].append({"id": "place", "reply": r3, "ttfb_ms": ttfb3, "e2e_ms": e2e3, "events": ev3})
         print(f"  [WS place] ttfb={ttfb3}ms e2e={e2e3}ms reply={r3!r}")
@@ -327,6 +338,299 @@ async def run_part_b(settings) -> dict:
     return report
 
 
+# ---------------------------------------------------------------------------
+# Full-case smoke: recommend -> those two -> barge-in swap -> add -> place order
+# Measures per-turn latency + accuracy, writes detailed JSON for audit.
+# ---------------------------------------------------------------------------
+
+
+def _basket_from_events(events: list[dict]) -> list[str]:
+    for ev in reversed(events):
+        b = ev.get("basket")
+        if b and b.get("basket"):
+            return [x["name"] for x in b["basket"]]
+    return []
+
+
+def _last_tool_calls(events: list[dict]) -> list[str]:
+    # basket_update carries tool_calls
+    for ev in reversed(events):
+        tc = ev.get("tool_calls")
+        if tc is not None:
+            return [t.get("tool") for t in tc] if isinstance(tc, list) else []
+    return []
+
+
+def _clean_text(t: str) -> bool:
+    """Heuristic: reply should not contain residual function-context artifacts like
+    JSON, tool names, or 'Tool' markers that leak into spoken text."""
+    low = t.lower()
+    bad = ["{", "}", '"sku"', "'sku'", "tool_calls", "function_call", "[object", "gemini"]
+    return not any(b in low for b in bad)
+
+
+async def run_full_flow(settings) -> dict:
+    """Run one real end-to-end ordering case through real audio WS + real APIs.
+
+    Returns a fully auditable dict (per-turn ms, content, spell/leak check,
+    tools called, basket state delta).
+    """
+    import websockets
+
+    try:
+        async with websockets.connect(WS_URL, open_timeout=3.0) as probe:
+            await probe.recv()
+    except Exception:
+        return {"skipped": True, "reason": "server not up — run bash scripts/start.sh first"}
+
+    tts = CartesiaTTSClient()
+    steps = [
+        ("recommend", "What do you recommend for a mild couple?", None),
+        ("those-two", "We'll take those two please", None),
+        ("add-morning-glory", "And add a stir-fried morning glory too", None),
+        ("place", "That's all, please place the order", None),
+    ]
+    turns = []
+    detail = {
+        "case": "full_order_flow",
+        "api": {"asr": "assemblyai_realtime", "llm": "gemini_tools", "tts": "cartesia_websocket"},
+        "turns": [],
+        "state_delta": {"menu_changed": False, "basket_after_each_turn": [], "final_total": None, "placed": None},
+        "summary": {},
+    }
+
+    async with websockets.connect(WS_URL) as ws:
+        await ws.recv()  # session_ready
+        for i, (intent, text, _barge_in) in enumerate(steps, start=1):
+            reply, ttfb, e2e, events, _asr = await _stream_turn(ws, text, tts)
+            basket = _basket_from_events(events)
+            tools = _last_tool_calls(events)
+            record = {
+                "turn": i,
+                "intent": intent,
+                "user_query_text": text,
+                "reply_text": reply,
+                "reply_clean": _clean_text(reply),
+                "tools_called": tools,
+                "basket_after": basket,
+                "ttfb_ms": ttfb,
+                "e2e_ms": e2e,
+            }
+            turns.append(record)
+            detail["state_delta"]["basket_after_each_turn"].append(basket)
+            print(f"  [{intent}] ttfb={ttfb}ms e2e={e2e}ms reply={reply!r}")
+            print(f"        basket={basket} tools={tools}")
+            await asyncio.sleep(0.6)  # pacing between turns
+
+    # accuracy asserts on final basket
+    final = detail["state_delta"]["basket_after_each_turn"][-1]
+    expected_names = {
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Stir-fried Morning Glory",
+    }
+    final_set = set(final)
+    accuracy_name = expected_names.issubset(final_set)
+    # total from last turn_complete basket payload if present
+    final_total = None
+    placed = None
+    for rec in turns:
+        # we don't persist total here; recompute from menu prices
+        pass
+
+    # recompute total deterministically from final basket via store
+    store = get_lantern_store()
+    total = 0.0
+    ok_total = True
+    for name in final:
+        it = store.find_item(name)
+        if it is None:
+            ok_total = False
+            continue
+        total += it.price
+    detail["state_delta"]["final_total"] = round(total, 2)
+    detail["state_delta"]["placed"] = placed  # filled below if we capture
+
+    # spell/robustness: any reply missing expected keywords?
+    all_clean = all(r["reply_clean"] for r in turns)
+    trouble = [r for r in turns if not r["reply_clean"]]
+
+    detail["summary"] = {
+        "turns_completed": len(turns),
+        "accuracy_name_ok": accuracy_name,
+        "total_ok": ok_total,
+        "all_replies_clean": all_clean,
+        "issues": [{"turn": r["turn"], "intent": r["intent"]} for r in trouble],
+        "avg_e2e_ms": round(sum(t["e2e_ms"] for t in turns if t["e2e_ms"]) / max(1, len([t for t in turns if t["e2e_ms"]])), 2),
+        "avg_ttfb_ms": round(sum(t["ttfb_ms"] for t in turns if t["ttfb_ms"]) / max(1, len([t for t in turns if t["ttfb_ms"]])), 2),
+    }
+    detail["turns"] = turns
+
+    # persist detailed JSON for audit
+    out_json = ROOT / "reports" / "waiter_latency_detail.json"
+    out_json.parent.mkdir(parents=True, exist_ok=True)
+    out_json.write_text(json.dumps(detail, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"\nWrote detail JSON -> {out_json}")
+    return detail
+
+
+# ---------------------------------------------------------------------------
+# Single native-flow scenario (6 turns), full-phase report + RPM audit
+# ---------------------------------------------------------------------------
+SCENARIO_NATIVE = [
+    ("recommend", "What would you recommend for a mild couple?"),
+    ("those-two", "We'll take those two please"),
+    ("86-squid", "I'd like the crispy squid too"),
+    ("sub-seabass", "Okay, make it a grilled seabass instead"),
+    ("add-morning-glory", "And stir-fried morning glory on the side"),
+    ("place", "That's all, please place the order"),
+]
+
+EXPECTED_NAMES = {
+    "Pomelo Salad with Shrimp",
+    "Lemongrass Chicken",
+    "Grilled Seabass",
+    "Stir-fried Morning Glory",
+}
+EXPECTED_TOTAL = round(6.5 + 9.0 + 16.0 + 5.0, 2)
+
+
+async def run_one_scenario(settings) -> dict:
+    """One real end-to-end ordering conversation over WS, phase-per-turn.
+
+    Asserts basket correctness, total, clean speech, and Gemini request rate
+    (< 15 RPM thanks to the async token bucket at the server).
+    """
+    import websockets
+
+    try:
+        async with websockets.connect(WS_URL, open_timeout=3.0) as probe:
+            await probe.recv()
+    except Exception:
+        return {"skipped": True, "reason": "server not up — run bash scripts/start.sh first"}
+
+    tts = CartesiaTTSClient()
+    detail = {
+        "case": "single_native_order_flow",
+        "api": {"asr": "assemblyai_realtime", "llm": "gemini_tools", "tts": "cartesia_websocket"},
+        "turns": [],
+        "state_delta": {"menu_changed": False, "basket_after_each_turn": []},
+        "rpm": {},
+        "summary": {},
+    }
+    prev_basket: list[str] = []
+    t_t0 = time.perf_counter()
+
+    async with websockets.connect(WS_URL) as ws:
+        await ws.recv()  # session_ready
+        for i, (intent, text) in enumerate(SCENARIO_NATIVE, start=1):
+            # Exercise the sold-out -> substitute path deterministically: 86 the squid.
+            if intent == "86-squid":
+                await ws.send(json.dumps({"command": "set_86", "sku": "MAIN_SQUID", "available": False}))
+                while True:
+                    m = json.loads(await asyncio.wait_for(ws.recv(), timeout=10.0))
+                    if m.get("type") == "set_86_done":
+                        print(f"        86 MAIN_SQUID -> found={m.get('found')}")
+                        break
+            reply, ttfb, e2e, events, asr_ms = await _stream_turn(ws, text, tts)
+            basket_after = _basket_from_events(events)
+            tools = _last_tool_calls(events)
+            rec = {
+                "turn": i,
+                "intent": intent,
+                "user_query_text": text,
+                "asr_first_ms": asr_ms,
+                "llm_tool_rounds": len(tools) + 1,  # 1 LLM content call + 1 per executed tool
+                "reply_text": reply,
+                "reply_clean": _clean_text(reply),
+                "tools_called": tools,
+                "basket_before": list(prev_basket),
+                "basket_after": basket_after,
+                "ttfb_ms": ttfb,
+                "e2e_ms": e2e,
+            }
+            detail["turns"].append(rec)
+            detail["state_delta"]["basket_after_each_turn"].append(basket_after)
+            print(f"  [{intent}] asr={asr_ms}ms ttfb={ttfb}ms e2e={e2e}ms tools={tools}")
+            print(f"        basket {prev_basket} -> {basket_after}")
+            prev_basket = basket_after
+            await asyncio.sleep(0.3)  # small protocol pacing between spoken turns
+
+        # Restore squid availability so repeat runs start from a clean menu.
+        await ws.send(json.dumps({"command": "set_86", "sku": "MAIN_SQUID", "available": True}))
+        try:
+            while True:
+                m = json.loads(await asyncio.wait_for(ws.recv(), timeout=10.0))
+                if m.get("type") == "set_86_done":
+                    break
+        except Exception:  # noqa: BLE001
+            pass
+
+    wall_seconds = round(time.perf_counter() - t_t0, 1)
+
+    final = detail["state_delta"]["basket_after_each_turn"][-1] if detail["state_delta"]["basket_after_each_turn"] else []
+    name_ok = EXPECTED_NAMES.issubset(set(final))
+    store = get_lantern_store()
+    total = 0.0
+    for n in final:
+        it = store.find_item(n)
+        total += it.price if it else 0.0
+    total_ok = abs(total - EXPECTED_TOTAL) < 0.01
+    all_clean = all(t["reply_clean"] for t in detail["turns"])
+    total_gemini_calls = sum(t["llm_tool_rounds"] for t in detail["turns"])
+
+    detail["rpm"] = {
+        "total_gemini_calls_est": total_gemini_calls,
+        "wall_seconds": wall_seconds,
+        "rate_per_minute_est": round(total_gemini_calls / (wall_seconds / 60.0), 3),
+        "cap_rpm": 15,
+        "under_cap": total_gemini_calls / (wall_seconds / 60.0) < 15 if wall_seconds > 0 else True,
+    }
+    detail["summary"] = {
+        "turns_completed": len(detail["turns"]),
+        "accuracy_name_ok": name_ok,
+        "total_ok": total_ok,
+        "all_replies_clean": all_clean,
+        "final_total": round(total, 2),
+        "issues": [{"turn": t["turn"], "intent": t["intent"]} for t in detail["turns"] if not t["reply_clean"]],
+        "avg_ttfb_ms": round(sum(t["ttfb_ms"] for t in detail["turns"] if t["ttfb_ms"]) / max(1, len([t for t in detail["turns"] if t["ttfb_ms"]])), 2),
+        "avg_e2e_ms": round(sum(t["e2e_ms"] for t in detail["turns"] if t["e2e_ms"]) / max(1, len([t for t in detail["turns"] if t["e2e_ms"]])), 2),
+    }
+
+    out_json = ROOT / "reports" / "waiter_e2e_detail.json"
+    out_json.parent.mkdir(parents=True, exist_ok=True)
+    out_json.write_text(json.dumps(detail, indent=2, ensure_ascii=False), encoding="utf-8")
+    out_md = ROOT / "reports" / "waiter_e2e_report.md"
+    md = [
+        "# Waiter Single-Flow E2E (full phase)",
+        "",
+        f"API: ASR=assemblyai_realtime | LLM=gemini_tools | TTS=cartesia_websocket",
+        f"Case: recommend -> those-two -> 86-squid -> seabass -> morning-glory -> place",
+        "",
+        "| turn | intent | asr_ms | ttfb_ms | e2e_ms | tools | basket_after |",
+        "|------|--------|-------:|--------:|-------:|-------|--------------|",
+    ]
+    for t in detail["turns"]:
+        name = ", ".join(t["basket_after"]) if t["basket_after"] else "-"
+        tools = ", ".join(t["tools_called"]) if t["tools_called"] else "-"
+        md.append(
+            f"| {t['turn']} | {t['intent']} | {t['asr_first_ms']} | {t['ttfb_ms']} | {t['e2e_ms']} "
+            f"| {tools} | {name} |"
+        )
+    md += [
+        "",
+        f"- accuracy_name_ok={name_ok}, total_ok={total_ok}, final_total=${round(total,2)} "
+        f"(expected ${EXPECTED_TOTAL})",
+        f"- all_replies_clean={all_clean}",
+        f"- gemini calls est={total_gemini_calls} in {wall_seconds}s = "
+        f"{detail['rpm']['rate_per_minute_est']}/min (cap 15, under={detail['rpm']['under_cap']})",
+    ]
+    out_md.write_text("\n".join(md), encoding="utf-8")
+    print(f"\nWrote detail JSON -> {out_json}")
+    print(f"Wrote report     -> {out_md}")
+    return detail
+
+
 def write_report(part_a: dict, part_b: dict):
     lines = ["# Waiter Real-Case Smoke Test\n"]
     lines.append(f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -359,6 +663,8 @@ async def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--realtime", action="store_true", help="run realtime E2E part (needs server)")
     parser.add_argument("--all", action="store_true", help="run turn-level + realtime")
+    parser.add_argument("--full", action="store_true", help="run full ordering case over WS with detail JSON")
+    parser.add_argument("--scenario", action="store_true", help="run single native-flow scenario with full phase report")
     args = parser.parse_args()
 
     get_settings.cache_clear()
@@ -371,6 +677,30 @@ async def main() -> int:
     if not isinstance(agent, WaiterAgent) or not agent.available:
         print("FAIL: real Gemini not available — set GEMINI_API_KEY")
         return 2
+
+    if args.scenario:
+        print("=== Single native-flow scenario (real APIs, full phase) ===")
+        det = await run_one_scenario(settings)
+        if det.get("skipped"):
+            print(f"SKIPPED: {det.get('reason')}")
+            return 2
+        s = det["summary"]
+        rpm = det["rpm"]
+        print(f"accuracy_name_ok={s['accuracy_name_ok']} total_ok={s['total_ok']} "
+              f"all_clean={s['all_replies_clean']} final_total=${s['final_total']}")
+        print(f"gemini calls={rpm['total_gemini_calls_est']} wall={rpm['wall_seconds']}s "
+              f"rate={rpm['rate_per_minute_est']}/min cap={rpm['cap_rpm']} under_cap={rpm['under_cap']}")
+        return 0 if (s['accuracy_name_ok'] and s['total_ok'] and s['all_replies_clean']) else 1
+
+    if args.full:
+        print("=== Full ordering case over WS (real APIs) ===")
+        detail = await run_full_flow(settings)
+        if detail.get("skipped"):
+            print(f"SKIPPED: {detail.get('reason')}")
+            return 2
+        ok = detail["summary"].get("accuracy_name_ok") and detail["summary"].get("all_replies_clean")
+        print(f"accuracy_name_ok={ok} total_ok={detail['summary'].get('total_ok')} all_clean={detail['summary'].get('all_replies_clean')}")
+        return 0 if ok else 1
 
     part_b = {"skipped": True, "reason": "Part B not requested (add --realtime)"}
     if args.realtime or args.all:

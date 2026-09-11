@@ -15,6 +15,8 @@ from typing import Any
 
 from backend.app.domain.lantern import get_lantern_store
 from backend.app.domain.waiter import WaiterSession
+from backend.app.pipeline.llm_live import _gemini_limiter
+from backend.app.pipeline.llm_live import AsyncTokenBucket  # re-export for typing convenience
 
 logger = logging.getLogger(__name__)
 
@@ -191,11 +193,26 @@ class WaiterAgent:
         tool_log: list[dict[str, Any]] = []
 
         for _ in range(6):
-            r = await __import__("asyncio").to_thread(
-                lambda: client.models.generate_content(
-                    model=self.model, contents=contents, config=config
-                )
-            )
+            lim = _gemini_limiter()
+            if lim is not None:
+                await lim.acquire()
+            import asyncio as _a
+
+            while True:
+                try:
+                    r = await _a.to_thread(
+                        lambda: client.models.generate_content(
+                            model=self.model, contents=contents, config=config
+                        )
+                    )
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    err = str(exc)
+                    is_ratelimit = ("429" in err) or ("RESOURCE_EXHAUSTED" in err) or ("quota" in err.lower())
+                    if not is_ratelimit:
+                        raise
+                    await _a.sleep(5.0)
+                    continue
             if r.candidates and r.candidates[0].content:
                 parts = r.candidates[0].content.parts
             else:

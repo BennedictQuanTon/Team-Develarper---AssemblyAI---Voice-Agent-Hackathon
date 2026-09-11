@@ -28,6 +28,35 @@ from rag.retrieve import DEFAULT_TOP_K, hybrid_retrieve
 
 logger = logging.getLogger(__name__)
 
+_THINKING_WAV = None  # lazily loaded (Path / wave)
+
+
+def _thinking_pcm_chunks(chunk_bytes: int = 3200, max_chunks: int = 24) -> list[bytes]:
+    """Read the local 'thinking' clip as 16kHz s16le mono PCM chunks (speculative filler)."""
+    import wave
+
+    global _THINKING_WAV
+    if _THINKING_WAV is None:
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[3] / "frontend" / "audio" / "backchannels" / "thinking.wav"
+        _THINKING_WAV = path if path.exists() else None
+    if _THINKING_WAV is None:
+        return []
+    try:
+        with wave.open(str(_THINKING_WAV), "rb") as w:
+            if w.getframerate() != 16000 or w.getnchannels() != 1 or w.getsampwidth() != 2:
+                return []
+            data = w.readframes(w.getnframes())
+    except Exception:  # noqa: BLE001
+        return []
+    chunks: list[bytes] = []
+    for i in range(0, len(data), chunk_bytes):
+        if len(chunks) >= max_chunks:
+            break
+        chunks.append(data[i : i + chunk_bytes])
+    return chunks
+
 
 class RealtimeSessionController:
     """Manages an active bi-directional WebSocket session for one user."""
@@ -166,6 +195,15 @@ class RealtimeSessionController:
             self._last_interim_text = ""
             self.sessions.reset(self.session_id)
             await self._send_json({"type": "session_reset", "session_id": self.session_id})
+        elif cmd == "set_86":
+            # Test hook: 86 (or restore) a menu SKU so a scenario can exercise the
+            # sold-out -> substitute path deterministically. Not part of normal guest flow.
+            sku = payload.get("sku")
+            available = bool(payload.get("available", False))
+            item = self.waiter_session.store.set_available(sku, available) if sku else None
+            await self._send_json(
+                {"type": "set_86_done", "sku": sku, "available": available, "found": item is not None}
+            )
 
     async def close(self) -> None:
         if self._watchdog_task and not self._watchdog_task.done():
@@ -437,6 +475,11 @@ class RealtimeSessionController:
           the half-applied mutations — the interrupted intent never leaked into the order.
         - Once audio starts, the confirmed commit point is reached: the basket stays
           (no reset), the guest reserves the right to change it on the next turn.
+
+        Speculative (P4 latency): the slow Gemini tool loop runs in a background task.
+        While it computes, a short LOCAL thinking clip is played (zero API cost, no
+        TTS-WS conflict) so the guest hears "processing" immediately. When the loop
+        returns, the clip is cut and the real reply streams via Cartesia.
         """
         t_start = time.perf_counter()
         session = self.sessions.get(self.session_id)
@@ -446,9 +489,26 @@ class RealtimeSessionController:
         pre_state = self.waiter_session.snapshot()
         committed_audio = False
 
-        # Run the agent (may take a few hundred ms; network-bound)
+        # Run the agent in the background (network-bound tool loop)
+        agent_task = asyncio.create_task(self.waiter_agent.respond(self.waiter_session, query))
+
+        # Speculative: play local thinking clip while the loop computes (no TTS conflict)
+        self.is_agent_speaking = True
+        thinking_done_event = asyncio.Event()
+
+        async def _play_thinking():
+            for chunk in _thinking_pcm_chunks():
+                if thinking_done_event.is_set() or cancel_ev.is_set():
+                    break
+                await self._send_json(
+                    {"type": "audio_chunk", "pcm_b64": base64.b64encode(chunk).decode("ascii"), "thinking": True}
+                )
+                await asyncio.sleep(0.05)
+
+        thinking_task = asyncio.create_task(_play_thinking())
+
         try:
-            result = await self.waiter_agent.respond(self.waiter_session, query)
+            result = await agent_task
         except Exception as exc:  # noqa: BLE001
             logger.warning("Waiter agent error: %s", exc)
             result = {
@@ -456,13 +516,17 @@ class RealtimeSessionController:
                 "tool_calls": [],
                 "basket": self.waiter_session.snapshot(),
             }
+        finally:
+            thinking_done_event.set()  # cut the speculative clip
 
         reply = (result.get("reply") or "").strip()
         tool_calls = result.get("tool_calls") or []
+        await thinking_task
 
         # If the guest interrupted during the tool loop, discard the half-finished
         # mutation (flush stale tool effects) and hand control back to the user.
         if cancel_ev.is_set():
+            self.is_agent_speaking = False
             self.waiter_session.restore(pre_state)
             logger.info("Waiter turn %s: tool loop barge-in — rolled back stale mutation", turn_id)
             await self._send_json(
@@ -480,18 +544,18 @@ class RealtimeSessionController:
             {
                 "type": "basket_update",
                 "basket": self.waiter_session.snapshot(),
-                "tool_calls": [{"tool": t["tool"], "args": t["args"]} for t in tool_calls],
+                "tool_calls": [{"tool": t.get("tool"), "args": t.get("args", {})} for t in tool_calls],
             }
         )
 
         if cancel_ev.is_set():
+            self.is_agent_speaking = False
             return
 
         if not reply:
             reply = "One moment."
 
         # Stream reply -> TTS with barge-in. First audio chunk = commit point.
-        self.is_agent_speaking = True
         first_chunk_sent = False
         t_first_audio = 0.0
 
