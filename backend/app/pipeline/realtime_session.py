@@ -453,9 +453,31 @@ class RealtimeSessionController:
         await self._send_json(
             {
                 "type": "turn_complete",
+                "turn_id": turn_id,
+                "query": query,
                 "answer": final_answer,
                 "ttfb_ms": t_first_audio,
                 "e2e_turn_ms": e2e_turn_ms,
+                "timings_ms": {
+                    "rag_ms": rag_ms,
+                    "ttfb_ms": t_first_audio,
+                    "e2e_turn_ms": e2e_turn_ms,
+                },
+                "provider": {
+                    "asr": "assemblyai_realtime" if self.has_aai else "stub_realtime",
+                    "llm": "gemini" if self.has_gemini else "mock_llm",
+                    "tts": "cartesia_websocket" if self.has_cartesia else "stub_tts",
+                },
+                "chunk_ids": [c["chunk_id"] for c in retrieval.get("chunks", [])],
+                "chunks": [
+                    {
+                        "chunk_id": c.get("chunk_id", ""),
+                        "text": (c.get("text", "") or "")[:200],
+                        "source": c.get("source", ""),
+                    }
+                    for c in retrieval.get("chunks", [])
+                ],
+                "cache": {"retrieval_cache_hit": bool(retrieval.get("cache_hit"))},
                 "session_ended": session.ended,
                 "turn_count": session.turn_count,
             }
@@ -624,9 +646,24 @@ class RealtimeSessionController:
         await self._send_json(
             {
                 "type": "turn_complete",
+                "turn_id": turn_id,
+                "query": query,
                 "answer": reply,
                 "ttfb_ms": t_first_audio,
                 "e2e_turn_ms": e2e_turn_ms,
+                "timings_ms": {
+                    "ttfb_ms": t_first_audio,
+                    "e2e_turn_ms": e2e_turn_ms,
+                },
+                "provider": {
+                    "asr": "assemblyai_realtime" if self.has_aai else "stub_realtime",
+                    "llm": "gemini_tools" if self.has_gemini else "rulebased",
+                    "tts": "cartesia_websocket" if self.has_cartesia else "stub_tts",
+                },
+                "tool_calls": [{"tool": t.get("tool"), "args": t.get("args", {})} for t in tool_calls],
+                "chunk_ids": [],
+                "chunks": [],
+                "cache": {"n_tool_calls": len(tool_calls)},
                 "session_ended": session.ended,
                 "turn_count": session.turn_count,
                 "basket": self.waiter_session.snapshot(),

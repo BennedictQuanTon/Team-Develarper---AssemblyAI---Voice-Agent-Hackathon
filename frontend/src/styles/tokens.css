@@ -43,10 +43,10 @@
   --chip-error-text: #DC2626;
   --chip-error-border: #FECACA;
 
-  /* Typography Stack */
+  /* Typography Stack (Unified to Libre Baskerville for numbers & display) */
   --font-display: "Libre Baskerville", Georgia, "Times New Roman", serif;
   --font-text: "Inter", -apple-system, "Segoe UI", Helvetica, sans-serif;
-  --font-mono: "Source Code Pro", "Fira Code", Consolas, monospace;
+  --font-mono: "Libre Baskerville", Georgia, "Times New Roman", serif;
 
   /* Border Radius: Completely flat 0px everywhere per DESIGN.md */
   --radius-none: 0px;

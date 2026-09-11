@@ -1,6 +1,7 @@
 /**
- * Apple Siri / Intelligence-inspired Minimalist Audio Orb.
- * Renders fluid, elegant reactive waveforms for Idle, Listen, Think, and Speak modes.
+ * Audio Reactive Zen Visualizer for The Lantern Voice Concierge.
+ * Renders dynamic acoustic frequency rings and ambient harmonic energy
+ * that vibrates and wobbles in real-time as the guest or AI speaks.
  */
 
 export type OrbMode = "idle" | "listen" | "think" | "speak";
@@ -11,8 +12,9 @@ export class AppleOrb {
   private mode: OrbMode = "idle";
   private analyser: AnalyserNode | null = null;
   private animFrameId: number | null = null;
-  private phase: number = 0;
+  private level: number = 0;
   private dataArray: Uint8Array<ArrayBuffer>;
+  private size: number = 260;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -20,16 +22,19 @@ export class AppleOrb {
     if (!context) throw new Error("Canvas 2D context not available");
     this.ctx = context;
 
-    // Retina display resolution
+    this.dataArray = new Uint8Array(new ArrayBuffer(128));
+    this.updateSize();
+    this.startLoop();
+  }
+
+  private updateSize(): void {
     const dpr = window.devicePixelRatio || 1;
     const rect = this.canvas.getBoundingClientRect();
-    const size = rect.width || 140;
-    this.canvas.width = size * dpr;
-    this.canvas.height = size * dpr;
+    this.size = Math.round(rect.width) || 260;
+    this.canvas.width = Math.round(this.size * dpr);
+    this.canvas.height = Math.round(this.size * dpr);
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(dpr, dpr);
-
-    this.dataArray = new Uint8Array(new ArrayBuffer(128));
-    this.startLoop();
   }
 
   public setMode(mode: OrbMode): void {
@@ -59,74 +64,84 @@ export class AppleOrb {
   }
 
   private draw(): void {
-    const width = 140;
-    const height = 140;
-    const centerX = width / 2;
-    const centerY = height / 2;
+    const dpr = window.devicePixelRatio || 1;
+    const expectedPx = Math.round(this.size * dpr);
+    if (this.canvas.width !== expectedPx || this.canvas.height !== expectedPx) {
+      this.updateSize();
+    }
 
-    this.ctx.clearRect(0, 0, width, height);
+    const centerX = this.size / 2;
+    const centerY = this.size / 2;
 
-    // Compute audio amplitude
-    let energy = 0;
+    this.ctx.clearRect(0, 0, this.size, this.size);
+
+    // 1. Compute acoustic energy from analyser
+    let energy = 0.05;
     if (this.analyser && (this.mode === "listen" || this.mode === "speak")) {
       this.analyser.getByteFrequencyData(this.dataArray);
       let sum = 0;
-      const count = Math.min(this.dataArray.length, 32);
+      const count = Math.min(this.dataArray.length, 48);
       for (let i = 0; i < count; i++) {
         sum += this.dataArray[i];
       }
-      energy = sum / (count * 255);
+      energy = Math.min(1.0, sum / (count * 150));
+    } else if (this.mode === "think") {
+      energy = 0.16 + 0.08 * Math.sin(performance.now() / 240);
+    } else {
+      energy = 0.04 + 0.02 * Math.sin(performance.now() / 900);
     }
 
-    this.phase += this.mode === "think" ? 0.08 : 0.03;
+    // Smooth lerp for buttery natural inertia
+    this.level += (energy - this.level) * 0.22;
 
-    // Radius dynamics
-    const baseRadius = 52;
-    const expansion = energy * 16;
-    const radius = baseRadius + expansion;
+    // Mic button is 64px diameter, radius is 32px
+    const micButtonRadius = 32;
+    const baseRadius = 40; // Starts right outside the mic button
+    const currentRadius = baseRadius * (1 + this.level * 0.5);
 
-    // ThoughtStream zen gradient layer
+    // 2. Soft core radial glow perfectly centered behind mic button
     const gradient = this.ctx.createRadialGradient(
-      centerX, centerY, radius * 0.4,
-      centerX, centerY, radius * 1.2
+      centerX, centerY, micButtonRadius * 0.7,
+      centerX, centerY, currentRadius * 1.5
     );
 
-    if (this.mode === "idle") {
-      gradient.addColorStop(0, "rgba(120, 113, 108, 0.12)");
-      gradient.addColorStop(0.8, "rgba(168, 162, 158, 0.04)");
-      gradient.addColorStop(1, "rgba(120, 113, 108, 0)");
-    } else if (this.mode === "listen") {
-      gradient.addColorStop(0, "rgba(120, 113, 108, 0.28)");
-      gradient.addColorStop(0.7, "rgba(168, 162, 158, 0.15)");
-      gradient.addColorStop(1, "rgba(120, 113, 108, 0)");
+    if (this.mode === "listen") {
+      gradient.addColorStop(0, `rgba(250, 250, 249, ${0.9 + this.level * 0.1})`);
+      gradient.addColorStop(0.4, `rgba(168, 162, 158, ${0.4 + this.level * 0.4})`);
+      gradient.addColorStop(1, "rgba(28, 25, 23, 0)");
+    } else if (this.mode === "speak") {
+      gradient.addColorStop(0, `rgba(240, 253, 244, ${0.9 + this.level * 0.1})`);
+      gradient.addColorStop(0.4, `rgba(101, 163, 13, ${0.35 + this.level * 0.45})`);
+      gradient.addColorStop(1, "rgba(28, 25, 23, 0)");
     } else if (this.mode === "think") {
-      gradient.addColorStop(0, "rgba(28, 25, 23, 0.3)");
-      gradient.addColorStop(0.6, "rgba(120, 113, 108, 0.18)");
+      gradient.addColorStop(0, "rgba(231, 229, 228, 0.8)");
+      gradient.addColorStop(0.5, "rgba(120, 113, 108, 0.4)");
       gradient.addColorStop(1, "rgba(28, 25, 23, 0)");
     } else {
-      // speak
-      gradient.addColorStop(0, "rgba(101, 163, 13, 0.35)");
-      gradient.addColorStop(0.6, "rgba(120, 113, 108, 0.18)");
-      gradient.addColorStop(1, "rgba(101, 163, 13, 0)");
+      gradient.addColorStop(0, "rgba(214, 211, 209, 0.4)");
+      gradient.addColorStop(0.5, "rgba(168, 162, 158, 0.15)");
+      gradient.addColorStop(1, "rgba(28, 25, 23, 0)");
     }
 
     this.ctx.fillStyle = gradient;
     this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, radius * 1.2, 0, Math.PI * 2);
+    this.ctx.arc(centerX, centerY, currentRadius * 1.4, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // Subtle hairline perimeter ring (0px radius philosophy with delicate geometric stroke)
-    this.ctx.strokeStyle = this.mode === "idle"
-      ? "rgba(231, 229, 228, 0.8)"
-      : this.mode === "listen"
-      ? "rgba(120, 113, 108, 0.7)"
-      : this.mode === "think"
-      ? "rgba(28, 25, 23, 0.6)"
-      : "rgba(101, 163, 13, 0.7)";
-
-    this.ctx.lineWidth = 1;
-    this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    this.ctx.stroke();
+    // 3. Vibrating Concentric Frequency Rings - perfectly centered and evenly spaced
+    const rings = 4;
+    for (let r = 0; r < rings; r++) {
+      const t = performance.now() / (650 - r * 80);
+      const wobble = 1 + this.level * (0.12 + r * 0.05) * Math.sin(t + r * 1.4);
+      this.ctx.beginPath();
+      const alpha = Math.max(0, 0.14 + this.level * 0.45 - r * 0.025);
+      this.ctx.strokeStyle = this.mode === "speak"
+        ? `rgba(101, 163, 13, ${alpha})`
+        : `rgba(168, 162, 158, ${alpha})`;
+      this.ctx.lineWidth = 1.5 + this.level * 2.5;
+      const ringRadius = (baseRadius + r * 18) * wobble;
+      this.ctx.arc(centerX, centerY, ringRadius, 0, Math.PI * 2);
+      this.ctx.stroke();
+    }
   }
 }
