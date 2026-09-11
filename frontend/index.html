@@ -42,14 +42,14 @@
         </svg>
         <span>Dining</span>
       </button>
-      <button type="button" class="segment-btn" id="tabOps" role="tab" aria-selected="false" aria-controls="viewOps" title="Floor &amp; Menu Operations">
+      <button type="button" class="segment-btn" id="tabOps" role="tab" aria-selected="false" aria-controls="viewOps" title="Restaurant Operations &amp; Management">
         <svg class="segment-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="3" width="7" height="7" rx="1.5" />
           <rect x="14" y="3" width="7" height="7" rx="1.5" />
           <rect x="14" y="14" width="7" height="7" rx="1.5" />
           <rect x="3" y="14" width="7" height="7" rx="1.5" />
         </svg>
-        <span>Floor</span>
+        <span>Management</span>
       </button>
     </nav>
 
@@ -141,8 +141,7 @@
         <!-- Top Operations Executive Metrics Bar -->
         <header class="ops-executive-bar">
           <div class="ops-title-group">
-            <h2 class="ops-page-title">Restaurant Operations &amp; Floor Management</h2>
-            <p class="ops-page-sub">Live spatial floor plan, real-time 86 inventory control, kitchen tickets (KDS) &amp; table reservations.</p>
+            <h2 class="ops-page-title">Restaurant Operations &amp; Management</h2>
           </div>
           <div class="ops-kpi-grid">
             <div class="ops-kpi-card">
@@ -183,7 +182,6 @@
             <div class="panel-header">
               <div class="panel-header-left">
                 <h3 class="panel-title">Spatial Floor Map</h3>
-                <span class="panel-badge">Interactive Plan</span>
               </div>
               <!-- Zone Filter Tabs -->
               <div class="zone-filter-tabs" role="tablist" aria-label="Floor zones">
@@ -284,21 +282,17 @@
             <div class="panel-header">
               <div class="panel-header-left">
                 <h3 class="panel-title">Kitchen Display System (KDS)</h3>
-                <span class="panel-badge kds-live-badge">Live Cook Stream</span>
               </div>
-              <span class="kds-sub-meta">Pending orders queued for chef</span>
             </div>
             <div class="kds-tickets-container" id="kdsTicketsList"></div>
           </div>
 
-          <!-- Right Column: Tonight's Table Reservations & Guest Book -->
+          <!-- Right Column: Tonight's Table Reservations -->
           <div class="ops-reservations-panel">
             <div class="panel-header">
               <div class="panel-header-left">
                 <h3 class="panel-title">Tonight's Reservations</h3>
-                <span class="panel-badge">Guest Book</span>
               </div>
-              <span class="reservation-count-meta" id="resCountMeta">5 Bookings</span>
             </div>
             <div class="reservations-table-wrapper">
               <div class="reservations-list" id="reservationsList"></div>

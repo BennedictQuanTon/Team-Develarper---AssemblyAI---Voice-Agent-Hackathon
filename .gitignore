@@ -55,3 +55,6 @@ sentence-transformers/
 # SQLite Runtime Artifacts
 :memory:.ses
 *.ses
+
+# Local raw graphic source assets (contains 11MB .eps)
+white-gray-abstract-gradient-background/

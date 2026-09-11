@@ -128,6 +128,20 @@ def root_page() -> FileResponse:
     return FileResponse(index)
 
 
+@app.get("/background.jpg")
+def background_image() -> FileResponse:
+    dist_bg = DIST_DIR / "background.jpg"
+    if dist_bg.exists():
+        return FileResponse(dist_bg)
+    pub_bg = FRONTEND_DIR / "public" / "background.jpg"
+    if pub_bg.exists():
+        return FileResponse(pub_bg)
+    src_bg = FRONTEND_DIR / "src" / "assets" / "background.jpg"
+    if src_bg.exists():
+        return FileResponse(src_bg)
+    raise HTTPException(status_code=404, detail="background.jpg not found")
+
+
 @app.get("/api")
 def api_root() -> dict[str, str]:
     return {

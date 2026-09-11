@@ -333,11 +333,14 @@ export class OpsView {
   private createTableNode(table: Table): HTMLElement {
     const card = document.createElement("div");
     const isSelected = this.selectedTable?.id === table.id;
-    card.className = `floor-table-card ${table.status} ${isSelected ? "selected" : ""}`;
+    card.className = `floor-table-node ${table.status} ${isSelected ? "selected" : ""}`;
+    card.setAttribute("data-id", table.id);
 
-    const statusLabel = table.status === "free" ? "Available" : "Occupied";
+    const isFree = table.status === "free";
+    const statusLabel = isFree ? "Available" : "Occupied";
+    const actionHint = isFree ? "Seat Guests" : "Clear Table";
 
-    // Generate miniature visual chair dots
+    // Miniature visual chairs
     let chairsHtml = "";
     const chairCount = Math.min(table.seats, 10);
     for (let i = 0; i < chairCount; i++) {
@@ -345,17 +348,21 @@ export class OpsView {
     }
 
     card.innerHTML = `
-      <div class="table-card-top">
-        <span class="table-id-tag">Table ${table.name}</span>
-        <span class="table-status-badge ${table.status}">${statusLabel}</span>
+      <div class="table-node-header">
+        <span class="table-node-name">Table ${table.name}</span>
+        <span class="table-node-seats">${table.seats} Seats</span>
       </div>
-      <div class="table-center-geom">
-        <div class="table-shape seats-${table.seats}">
-          <span class="table-seat-count">${table.seats}p</span>
+      <div class="table-node-center">
+        <div class="table-node-shape seats-${table.seats}">
+          <span class="table-center-code">T${table.name}</span>
+        </div>
+        <div class="table-chairs-row">
+          ${chairsHtml}
         </div>
       </div>
-      <div class="table-card-chairs">
-        ${chairsHtml}
+      <div class="table-node-footer">
+        <span class="table-node-status-pill ${table.status}">${statusLabel}</span>
+        <span class="table-action-hint">${actionHint}</span>
       </div>
     `;
 
@@ -370,10 +377,10 @@ export class OpsView {
     this.selectedTable = table;
 
     // Highlight selected card visually
-    const allCards = this.floorMapViewport.querySelectorAll(".floor-table-card");
+    const allCards = this.floorMapViewport.querySelectorAll(".floor-table-node");
     allCards.forEach((c) => c.classList.remove("selected"));
 
-    const clicked = this.floorMapViewport.querySelector(`.floor-table-card[data-id="${table.id}"]`);
+    const clicked = this.floorMapViewport.querySelector(`.floor-table-node[data-id="${table.id}"]`);
     if (clicked) clicked.classList.add("selected");
 
     this.updateDrawer(table);
@@ -398,7 +405,7 @@ export class OpsView {
   private closeDrawer(): void {
     this.selectedTable = null;
     this.tableQuickDrawer.style.display = "none";
-    const allCards = this.floorMapViewport.querySelectorAll(".floor-table-card");
+    const allCards = this.floorMapViewport.querySelectorAll(".floor-table-node");
     allCards.forEach((c) => c.classList.remove("selected"));
   }
 
