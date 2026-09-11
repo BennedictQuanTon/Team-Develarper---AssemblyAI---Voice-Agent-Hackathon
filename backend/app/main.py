@@ -4,6 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 import asyncio
+import json
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
@@ -276,6 +277,30 @@ async def turn(body: TurnRequest) -> dict[str, Any]:
 def metrics_summary() -> dict[str, Any]:
     settings = get_settings()
     return summarize_jsonl(settings.metrics_dir / "turns.jsonl")
+
+
+@app.get("/metrics/turns")
+def metrics_turns(limit: int = 50) -> list[dict[str, Any]]:
+    """Return recent turns with full latency, chunks, and provider telemetry."""
+    settings = get_settings()
+    path = settings.metrics_dir / "turns.jsonl"
+    if not path.is_absolute():
+        path = ROOT_DIR / path
+    if not path.exists():
+        return []
+    turns = []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        turns.append(json.loads(line))
+                    except Exception:
+                        pass
+    except Exception:
+        return []
+    return turns[-limit:][::-1]
 
 
 @app.websocket("/ws/turn")

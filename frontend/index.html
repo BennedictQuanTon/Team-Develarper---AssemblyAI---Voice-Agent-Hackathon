@@ -51,6 +51,13 @@
         </svg>
         <span>Management</span>
       </button>
+      <button type="button" class="segment-btn" id="tabLogs" role="tab" aria-selected="false" aria-controls="viewLogs" title="Live Telemetry, Models &amp; Turn Logs">
+        <svg class="segment-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="4 17 10 11 4 5"></polyline>
+          <line x1="12" y1="19" x2="20" y2="19"></line>
+        </svg>
+        <span>Logs</span>
+      </button>
     </nav>
 
     <!-- Empty right column to balance grid (dot removed per user request) -->
@@ -296,6 +303,174 @@
             </div>
             <div class="reservations-table-wrapper">
               <div class="reservations-list" id="reservationsList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 3: Telemetry, Models & Turn Logs -->
+    <section id="viewLogs" class="view-panel" role="tabpanel" aria-labelledby="tabLogs">
+      <div class="logs-container">
+        <!-- Top Title & Toolbar -->
+        <div class="logs-header-bar">
+          <div class="logs-header-titles">
+            <h2 class="logs-main-title">Telemetry &amp; Turn Logs</h2>
+            <p class="logs-sub-title">Live pipeline telemetry, model routing, latency metrics, and retrieved knowledge chunks.</p>
+          </div>
+          <div class="logs-toolbar-actions">
+            <button type="button" class="logs-action-btn" id="logRefreshBtn" title="Refresh history from server">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M23 4v6h-6M1 20v-6h6"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              <span>Refresh</span>
+            </button>
+            <button type="button" class="logs-action-btn" id="logClearStreamBtn" title="Clear console stream">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              <span>Clear Stream</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 KPI Cards: Models & Latency Overview -->
+        <div class="logs-kpis-grid">
+          <div class="log-kpi-card">
+            <span class="kpi-label">Speech Recognition (ASR)</span>
+            <span class="kpi-value mono" id="logKpiAsr">AssemblyAI Streaming</span>
+            <span class="kpi-note">Universal-Streaming / Conformer-2</span>
+          </div>
+          <div class="log-kpi-card">
+            <span class="kpi-label">LLM Orchestrator</span>
+            <span class="kpi-value mono" id="logKpiLlm">Gemini 2.5 Flash Lite</span>
+            <span class="kpi-note">Function Calling &amp; Strict Schema</span>
+          </div>
+          <div class="log-kpi-card">
+            <span class="kpi-label">Voice Synthesis (TTS)</span>
+            <span class="kpi-value mono" id="logKpiTts">Cartesia Sonic WebSocket</span>
+            <span class="kpi-note">PCM16 Streaming Low-Latency</span>
+          </div>
+          <div class="log-kpi-card">
+            <span class="kpi-label">Latest E2E Latency</span>
+            <span class="kpi-value mono accent-latency" id="logKpiLatency">—</span>
+            <span class="kpi-note">From endpointing to final audio</span>
+          </div>
+        </div>
+
+        <!-- Main 2-Column Split: Turn Inspector (Left 60%) + History List (Right 40%) -->
+        <div class="logs-body-split">
+          <!-- Left Column: Active Turn Inspector & Realtime Console -->
+          <div class="logs-inspector-col">
+            <!-- Active Turn Detail Card -->
+            <div class="card-glass log-active-card" id="logActiveTurnBox">
+              <div class="log-card-header">
+                <div class="log-card-tag">LATEST TURN INSPECTION</div>
+                <div class="log-meta-badges" id="logTurnMetaBadges">
+                  <span class="meta-tag mono">Turn: #ready</span>
+                  <span class="meta-tag">Waiting for speech</span>
+                </div>
+              </div>
+
+              <!-- Prompt & Response -->
+              <div class="log-speech-block">
+                <div class="log-speech-item">
+                  <div class="log-speaker-badge user-speaker">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <span>User Prompt</span>
+                  </div>
+                  <p class="log-speech-text" id="logTurnQuery">Tap the microphone on Dining page or speak to trigger a turn.</p>
+                </div>
+
+                <div class="log-speech-item">
+                  <div class="log-speaker-badge agent-speaker">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                    <span>Agent Spoken Response</span>
+                  </div>
+                  <p class="log-speech-text" id="logTurnAnswer">—</p>
+                </div>
+              </div>
+
+              <!-- Latency Breakdown -->
+              <div class="log-section-box">
+                <h4 class="log-section-title">Latency Breakdown</h4>
+                <div class="latency-pill-grid" id="logTurnLatencyGrid">
+                  <div class="latency-pill-card">
+                    <span class="latency-label">E2E Latency</span>
+                    <span class="latency-val">—</span>
+                  </div>
+                  <div class="latency-pill-card">
+                    <span class="latency-label">TTFB (First Audio)</span>
+                    <span class="latency-val">—</span>
+                  </div>
+                  <div class="latency-pill-card">
+                    <span class="latency-label">RAG Retrieval</span>
+                    <span class="latency-val">—</span>
+                  </div>
+                  <div class="latency-pill-card">
+                    <span class="latency-label">LLM / Tools</span>
+                    <span class="latency-val">—</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Retrieved Knowledge Chunks (sử dụng chunk gì gì gì) -->
+              <div class="log-section-box">
+                <div class="log-section-header">
+                  <h4 class="log-section-title">Knowledge Chunks (RAG Context)</h4>
+                </div>
+                <div class="log-chunks-container" id="logTurnChunksList">
+                  <div class="log-empty-state">
+                    <span>No chunks retrieved yet.</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tool Calls (Waiter Actions) -->
+              <div class="log-section-box">
+                <div class="log-section-header">
+                  <h4 class="log-section-title">Tool Calls &amp; State Mutations</h4>
+                </div>
+                <div class="log-tools-container" id="logTurnToolsList">
+                  <div class="log-empty-state">
+                    <span>No tool calls in current turn.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Live Event Stream Console -->
+            <div class="card-glass log-stream-card">
+              <div class="log-card-header">
+                <div class="log-card-tag">LIVE EVENT STREAM (WS / TELEMETRY)</div>
+              </div>
+              <div class="log-stream-list" id="logEventStream">
+                <div class="log-empty-state">
+                  <span>WebSocket events will stream live here...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Recent Turns History -->
+          <div class="logs-history-col">
+            <div class="card-glass log-history-panel">
+              <div class="log-card-header">
+                <div class="log-card-tag">RECENT TURNS HISTORY</div>
+                <span class="history-counter-pill" id="logHistoryCount">0 turns</span>
+              </div>
+              <div class="history-scroll-container" id="logHistoryList">
+                <div class="log-empty-state">
+                  <span>Loading history...</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
