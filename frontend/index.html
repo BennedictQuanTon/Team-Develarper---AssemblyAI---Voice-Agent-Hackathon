@@ -12,9 +12,25 @@
 <body>
   <!-- ThoughtStream Minimalist Top Navigation Header -->
   <header class="apple-header">
+    <!-- Dual Logo: The Lantern × AssemblyAI (No dots) -->
     <div class="header-brand">
-      <span class="brand-dot" aria-hidden="true"></span>
-      <span>The Lantern</span>
+      <div class="nav-brand-item" title="The Lantern">
+        <svg class="nav-logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M9 3h6M12 3v3M6 9h12l-2 9H8L6 9zM9 18v3h6v-3M10 9v9M14 9v9" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="nav-brand-name">The Lantern</span>
+      </div>
+      <span class="nav-brand-divider" aria-hidden="true">×</span>
+      <div class="nav-brand-item nav-partner" title="AssemblyAI Voice Agent">
+        <svg class="nav-assembly-icon" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="3" y="10" width="2.5" height="4" rx="1"/>
+          <rect x="7.5" y="6" width="2.5" height="12" rx="1"/>
+          <rect x="12" y="3" width="2.5" height="18" rx="1"/>
+          <rect x="16.5" y="6" width="2.5" height="12" rx="1"/>
+          <rect x="21" y="10" width="2.5" height="4" rx="1"/>
+        </svg>
+        <span class="nav-partner-name">AssemblyAI</span>
+      </div>
     </div>
 
     <!-- Minimal Filter Chip Navigation -->
@@ -27,10 +43,8 @@
       </button>
     </nav>
 
-    <!-- Discreet Online Dot (Status text removed per user request) -->
-    <div class="header-status">
-      <span class="status-dot live" id="statusDot" aria-label="System active"></span>
-    </div>
+    <!-- Empty right column to balance grid (dot removed per user request) -->
+    <div class="header-status"></div>
   </header>
 
   <!-- Application Main Container -->

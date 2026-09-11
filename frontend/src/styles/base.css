@@ -56,37 +56,10 @@ body {
   justify-self: start;
 }
 
-.brand-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-avatar);
-  background-color: var(--color-primary);
-}
-
 .header-status {
   display: flex;
   align-items: center;
   justify-self: end;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-avatar);
-  background-color: var(--content-tertiary);
-  transition: background-color 0.2s ease;
-}
-
-.status-dot.live {
-  background-color: var(--color-success);
-}
-
-.status-dot.busy {
-  background-color: var(--color-warning);
-}
-
-.status-dot.error {
-  background-color: var(--color-error);
 }
 
 /* Application Content Area */
