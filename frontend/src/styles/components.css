@@ -1,16 +1,16 @@
 /**
- * Component styles adhering to Apple Human Interface Guidelines.
+ * Component styles strictly adhering to DESIGN.md (ThoughtStream Design System).
+ * Minimal, zen, distraction-free. 0px border radius, flat geometry, generous whitespace.
  */
 
 /* ============================================================
-   1. Segmented Navigation Control (Apple Segmented Bar)
+   1. Navigation Segmented Control (DESIGN.md Filter Chips)
    ============================================================ */
 .segmented-control {
   display: inline-flex;
   align-items: center;
-  background-color: var(--fill-select);
-  padding: 2px;
-  border-radius: var(--radius-pill);
+  gap: 8px;
+  background: transparent;
   user-select: none;
 }
 
@@ -18,30 +18,30 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  min-width: 90px;
-  padding: 0 16px;
-  border: none;
+  min-height: 36px;
+  padding: 6px 16px;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-none);
   background: transparent;
   color: var(--content-secondary);
   font-family: var(--font-text);
   font-size: 13px;
   font-weight: 500;
-  border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
   outline: none;
+  transition: all 0.15s ease;
 }
 
 .segment-btn:hover {
+  background-color: var(--surface-card);
   color: var(--content-primary);
 }
 
 .segment-btn[aria-selected="true"] {
-  background-color: var(--surface-card);
-  color: var(--content-primary);
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--surface-bg);
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0.5px 1px rgba(0, 0, 0, 0.08);
 }
 
 .segment-btn:focus-visible {
@@ -49,15 +49,16 @@
 }
 
 /* ============================================================
-   2. Guest Voice Stage (Minimalist Siri-style Voice Experience)
+   2. Guest Voice Stage (Contemplative Minimalist Voice Experience)
    ============================================================ */
 .guest-stage {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 0;
-  gap: 24px;
+  padding: var(--space-4) 0;
+  gap: var(--space-3);
+  text-align: center;
 }
 
 .orb-container {
@@ -72,44 +73,42 @@
 .orb-canvas {
   width: 140px;
   height: 140px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-avatar);
   pointer-events: none;
 }
 
-/* Floating Central Mic Action Button (56x56 pt) */
+/* Central Mic Action Button (DESIGN.md Primary / Destructive Button) */
 .apple-mic-btn {
   position: absolute;
-  width: 60px;
-  height: 60px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--liquid-glass-border);
-  background: var(--liquid-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  color: var(--content-primary);
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-none);
+  border: 1px solid var(--color-primary);
+  background-color: var(--color-primary);
+  color: var(--surface-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: var(--shadow-card);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-none);
+  transition: all 0.15s ease;
   outline: none;
 }
 
 .apple-mic-btn:hover {
-  transform: scale(1.04);
-  background: var(--surface-card);
+  background-color: var(--content-secondary);
+  border-color: var(--content-secondary);
 }
 
 .apple-mic-btn:active {
-  transform: scale(0.96);
+  background-color: var(--color-tertiary);
+  border-color: var(--color-tertiary);
 }
 
 .apple-mic-btn.active {
-  background-color: var(--signal-red);
-  color: #ffffff;
-  border-color: transparent;
-  box-shadow: 0 0 20px rgba(255, 59, 48, 0.4);
+  background-color: var(--color-error);
+  border-color: var(--color-error);
+  color: var(--surface-bg);
 }
 
 .apple-mic-btn:focus-visible {
@@ -117,28 +116,29 @@
 }
 
 .apple-mic-btn svg {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   fill: currentColor;
 }
 
 /* Primary Spoken Text / Stage Transcript */
 .stage-caption-box {
-  max-width: 600px;
+  max-width: 620px;
   width: 100%;
-  min-height: 80px;
+  min-height: 90px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: 8px;
-  padding: 0 16px;
+  padding: 0 var(--space-2);
 }
 
 .stage-role-tag {
-  font-size: 12px;
+  font-family: var(--font-text);
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   font-weight: 600;
   color: var(--content-tertiary);
 }
@@ -146,47 +146,41 @@
 .stage-transcript {
   font-family: var(--font-display);
   font-size: 22px;
-  font-weight: 500;
-  line-height: 1.35;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
   color: var(--content-primary);
-  letter-spacing: -0.015em;
   word-break: break-word;
 }
 
 .stage-transcript.empty {
+  font-family: var(--font-text);
   font-size: 17px;
+  line-height: 1.8;
   color: var(--content-secondary);
-  font-weight: 400;
+  font-style: normal;
 }
 
 .stage-transcript.interim {
-  color: var(--accent);
-}
-
-/* Secondary Action Hint / Controls */
-.stage-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
+  font-style: italic;
+  color: var(--color-primary);
 }
 
 /* ============================================================
-   3. Guest Live Basket Card (Progressive Disclosure)
+   3. Guest Live Basket Card (DESIGN.md Default Card)
    ============================================================ */
 .basket-sheet {
   width: 100%;
-  max-width: 580px;
-  margin: 16px auto 0;
-  background-color: var(--surface-card);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-card);
-  padding: 24px;
+  max-width: 620px;
+  margin: var(--space-2) auto 0;
+  background-color: var(--surface-bg);
+  border-radius: var(--radius-none);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-none);
+  padding: var(--space-3);
   display: none;
   flex-direction: column;
-  gap: 16px;
-  animation: fadeIn 0.25s ease-out;
+  gap: var(--space-2);
 }
 
 .basket-sheet.visible {
@@ -197,30 +191,34 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--separator);
-  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-1);
 }
 
 .basket-title {
   font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   color: var(--content-primary);
 }
 
+/* DESIGN.md Status Chip */
 .basket-badge {
-  font-size: 12px;
+  font-family: var(--font-text);
+  font-size: 11px;
   font-weight: 600;
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  background-color: var(--signal-green-subtle);
-  color: var(--signal-green);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 12px;
+  border-radius: var(--radius-none);
+  background-color: var(--chip-success-bg);
+  color: var(--chip-success-text);
+  border: 1px solid var(--chip-success-border);
 }
 
 .basket-items-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
 }
 
 .basket-row {
@@ -228,6 +226,12 @@
   align-items: center;
   justify-content: space-between;
   font-size: 15px;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.basket-row:last-child {
+  border-bottom: none;
 }
 
 .basket-row-name {
@@ -237,17 +241,19 @@
 
 .basket-row-price {
   color: var(--content-secondary);
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
 }
 
 .basket-footer {
-  border-top: 1px solid var(--separator);
-  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-weight: 600;
-  font-size: 17px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--content-primary);
 }
 
 /* ============================================================
@@ -256,7 +262,7 @@
 .ops-container {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: var(--space-3);
 }
 
 /* Section Header */
@@ -264,18 +270,22 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-1);
+  margin-bottom: var(--space-2);
 }
 
 .section-title {
   font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--content-primary);
-  letter-spacing: -0.015em;
 }
 
-/* Metric Counter Pills */
+/* Metric Counter Pills (DESIGN.md Status Chips) */
 .metric-summary-bar {
   display: flex;
   flex-wrap: wrap;
@@ -286,10 +296,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 6px 14px;
   background-color: var(--surface-card);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-none);
   font-size: 13px;
   color: var(--content-secondary);
 }
@@ -297,6 +307,7 @@
 .metric-pill strong {
   color: var(--content-primary);
   font-weight: 600;
+  font-family: var(--font-mono);
 }
 
 /* Floor Tables Grid */
@@ -307,77 +318,77 @@
 }
 
 .table-card {
-  background-color: var(--surface-card);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  padding: 14px;
+  background-color: var(--surface-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-none);
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  box-shadow: var(--shadow-none);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
   user-select: none;
+  cursor: pointer;
 }
 
 .table-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent);
+  border-color: var(--border-strong);
+  background-color: var(--surface-card);
 }
 
 .table-number {
   font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   color: var(--content-primary);
 }
 
 .table-seats {
-  font-size: 12px;
-  color: var(--content-tertiary);
+  font-size: 13px;
+  color: var(--content-secondary);
 }
 
+/* Table Status Chip (DESIGN.md Status Chip) */
 .table-status-pill {
   display: inline-flex;
   align-items: center;
   align-self: flex-start;
   font-size: 11px;
   font-weight: 600;
-  text-transform: capitalize;
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  border-radius: var(--radius-none);
+  margin-top: 6px;
+  border: 1px solid transparent;
 }
 
 .table-status-pill.free {
-  background-color: var(--signal-green-subtle);
-  color: var(--signal-green);
+  background-color: var(--chip-success-bg);
+  color: var(--chip-success-text);
+  border-color: var(--chip-success-border);
 }
 
 .table-status-pill.seated {
-  background-color: var(--signal-red-subtle);
-  color: var(--signal-red);
+  background-color: var(--chip-warning-bg);
+  color: var(--chip-warning-text);
+  border-color: var(--chip-warning-border);
 }
 
-.table-status-pill.reserved {
-  background-color: var(--signal-amber-subtle);
-  color: var(--signal-amber);
-}
-
-/* Menu Inventory Management List */
+/* Menu Inventory Management List (DESIGN.md Lists) */
 .menu-inventory-card {
-  background-color: var(--surface-card);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
+  background-color: var(--surface-bg);
+  border-radius: var(--radius-none);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-none);
 }
 
 .menu-item-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--separator);
+  padding: 16px var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
   transition: background-color 0.12s ease;
 }
 
@@ -386,7 +397,7 @@
 }
 
 .menu-item-row:hover {
-  background-color: var(--fill-hover);
+  background-color: var(--surface-card);
 }
 
 .menu-item-info {
@@ -396,35 +407,34 @@
 }
 
 .menu-item-name {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   color: var(--content-primary);
 }
 
 .menu-item-meta {
   font-size: 13px;
-  color: var(--content-tertiary);
+  color: var(--content-secondary);
 }
 
 .menu-item-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .menu-price {
-  font-size: 14px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
   color: var(--content-secondary);
-  font-variant-numeric: tabular-nums;
 }
 
-/* 86 Toggle Button (Apple Tinted Button) */
+/* 86 Toggle Button (DESIGN.md Buttons) */
 .btn-86 {
-  min-height: 34px;
-  padding: 0 14px;
-  border-radius: var(--radius-pill);
-  border: 1px solid transparent;
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: var(--radius-none);
   font-family: var(--font-text);
   font-size: 13px;
   font-weight: 600;
@@ -434,19 +444,23 @@
 }
 
 .btn-86.active {
-  background-color: var(--signal-green-subtle);
-  color: var(--signal-green);
-  border-color: rgba(52, 199, 89, 0.25);
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--border-medium);
+}
+
+.btn-86.active:hover {
+  background-color: var(--surface-card);
 }
 
 .btn-86.off {
-  background-color: var(--signal-red-subtle);
-  color: var(--signal-red);
-  border-color: rgba(255, 59, 48, 0.25);
+  background-color: var(--chip-error-bg);
+  color: var(--chip-error-text);
+  border: 1px solid var(--chip-error-border);
 }
 
-.btn-86:hover {
-  opacity: 0.85;
+.btn-86.off:hover {
+  background-color: #fee2e2;
 }
 
 .btn-86:focus-visible {

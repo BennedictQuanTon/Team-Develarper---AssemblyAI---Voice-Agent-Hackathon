@@ -1,100 +1,69 @@
 /**
- * Apple Human Interface Guidelines (HIG) Semantic Design Tokens
- * Strictly following Apple_Design_Skill.md
+ * Design Tokens strictly adhering to DESIGN.md (ThoughtStream Design System).
+ * Minimal, zen, distraction-free, completely flat with generous whitespace.
  */
 
 :root {
-  /* Surfaces & Backgrounds */
-  --surface-bg: #f5f5f7;
-  --surface-card: #ffffff;
-  --surface-secondary: #fbfbfd;
-  --surface-tertiary: #e5e5ea;
-  --surface-overlay: rgba(255, 255, 255, 0.85);
+  /* Brand Palette */
+  --color-primary: #78716C;    /* Stone — anchors UI elements, links, icons */
+  --color-secondary: #A8A29E;  /* Sage — supporting accents, dividers */
+  --color-tertiary: #1C1917;   /* Warm Black — emphasis, strong headings */
 
-  /* Content / Typography (High Contrast > 4.5:1 WCAG AA) */
-  --content-primary: #1d1d1f;
-  --content-secondary: #6e6e73;
-  --content-tertiary: #86868b;
+  /* Surface Palette */
+  --surface-bg: #FAFAF9;       /* Warm white page background */
+  --surface-card: #F5F5F4;     /* Card and section backgrounds */
+  --surface-raised: #EFEDEB;   /* Hover states, subtle callout blocks */
 
-  /* Accent: Apple System Blue */
-  --accent: #0071e3;
-  --accent-hover: #0077ed;
-  --accent-subtle: rgba(0, 113, 227, 0.08);
-  --accent-contrast: #ffffff;
+  /* Content Palette */
+  --content-primary: #1C1917;  /* Body copy, headings */
+  --content-secondary: #57534E;/* Bylines, metadata, captions */
+  --content-tertiary: #A8A29E; /* Placeholders, disabled labels */
 
-  /* Semantic Signals */
-  --signal-green: #34c759;
-  --signal-green-subtle: rgba(52, 199, 89, 0.12);
-  --signal-amber: #ff9f0a;
-  --signal-amber-subtle: rgba(255, 159, 10, 0.12);
-  --signal-red: #ff3b30;
-  --signal-red-subtle: rgba(255, 59, 48, 0.12);
+  /* Border Palette */
+  --border-subtle: #E7E5E4;
+  --border-medium: #D6D3D1;
+  --border-strong: #A8A29E;
 
-  /* Materials & Liquid Glass (Floating Bars & Sheets only) */
-  --liquid-glass: rgba(255, 255, 255, 0.72);
-  --liquid-glass-border: rgba(255, 255, 255, 0.6);
-  --liquid-glass-blur: saturate(180%) blur(20px);
-  --hairline: rgba(0, 0, 0, 0.08);
-  --separator: rgba(0, 0, 0, 0.12);
+  /* Semantic Colors */
+  --color-success: #65A30D;
+  --color-warning: #CA8A04;
+  --color-error: #DC2626;
+  --color-info: #78716C;
 
-  /* Fills & Selection */
-  --fill-select: rgba(120, 120, 128, 0.16);
-  --fill-hover: rgba(120, 120, 128, 0.08);
+  /* Status Chips (DESIGN.md) */
+  --chip-success-bg: #F0FDF4;
+  --chip-success-text: #65A30D;
+  --chip-success-border: #BBF7D0;
 
-  /* Focus & Radii */
-  --focus-ring: 0 0 0 3.5px rgba(0, 113, 227, 0.35);
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-pill: 9999px;
+  --chip-warning-bg: #FEFCE8;
+  --chip-warning-text: #CA8A04;
+  --chip-warning-border: #FEF08A;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
-  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.08);
+  --chip-error-bg: #FEF2F2;
+  --chip-error-text: #DC2626;
+  --chip-error-border: #FECACA;
 
   /* Typography Stack */
-  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  --font-text: "Inter", -apple-system, "Segoe UI", Helvetica, sans-serif;
+  --font-mono: "Source Code Pro", "Fira Code", Consolas, monospace;
 
-  /* Touch Targets */
+  /* Border Radius: Completely flat 0px everywhere per DESIGN.md */
+  --radius-none: 0px;
+  --radius-avatar: 9999px; /* Avatars and status dot only */
+
+  /* Shadows: Completely flat per DESIGN.md */
+  --shadow-none: none;
+  --focus-ring: 0 0 0 2px #FAFAF9, 0 0 0 4px #78716C;
+
+  /* Spacing (Base unit 12px) */
+  --space-1: 12px;
+  --space-2: 24px;
+  --space-3: 36px;
+  --space-4: 48px;
+  --space-5: 60px;
+  --space-6: 72px;
+
+  /* Touch / Interactive target min */
   --target-min: 44px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --surface-bg: #000000;
-    --surface-card: #1c1c1e;
-    --surface-secondary: #2c2c2e;
-    --surface-tertiary: #3a3a3c;
-    --surface-overlay: rgba(28, 28, 30, 0.88);
-
-    --content-primary: #f5f5f7;
-    --content-secondary: #98989d;
-    --content-tertiary: #6e6e73;
-
-    --accent: #2997ff;
-    --accent-hover: #409cff;
-    --accent-subtle: rgba(41, 151, 255, 0.15);
-    --accent-contrast: #ffffff;
-
-    --signal-green: #30d158;
-    --signal-green-subtle: rgba(48, 209, 88, 0.16);
-    --signal-amber: #ff9f0a;
-    --signal-amber-subtle: rgba(255, 159, 10, 0.16);
-    --signal-red: #ff453a;
-    --signal-red-subtle: rgba(255, 69, 58, 0.16);
-
-    --liquid-glass: rgba(28, 28, 30, 0.76);
-    --liquid-glass-border: rgba(255, 255, 255, 0.12);
-    --hairline: rgba(255, 255, 255, 0.08);
-    --separator: rgba(255, 255, 255, 0.14);
-
-    --fill-select: rgba(120, 120, 128, 0.28);
-    --fill-hover: rgba(120, 120, 128, 0.16);
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
-    --shadow-float: 0 12px 36px rgba(0, 0, 0, 0.65);
-  }
 }

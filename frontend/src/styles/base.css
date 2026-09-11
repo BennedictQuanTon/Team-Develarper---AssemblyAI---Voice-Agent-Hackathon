@@ -1,6 +1,6 @@
 /**
- * Base layout, reset, and ergonomics.
- * Grounded in Apple Human Interface Guidelines.
+ * Base layout, reset, and typography strictly adhering to DESIGN.md.
+ * Minimal, zen, distraction-free. Flat geometry with 0px border radius.
  */
 
 *, *::before, *::after {
@@ -10,16 +10,15 @@
 }
 
 html, body {
-  height: 100%;
+  min-height: 100%;
   background-color: var(--surface-bg);
   color: var(--content-primary);
   font-family: var(--font-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  font-size: 16px;
-  line-height: 1.47;
-  letter-spacing: -0.01em;
+  font-size: 17px;
+  line-height: 1.8;
+  letter-spacing: 0;
 }
 
 body {
@@ -29,46 +28,44 @@ body {
   overflow-x: hidden;
 }
 
-/* App Header (Liquid Glass Floating Navigation) */
+/* Minimalist Top Navigation Header */
 .apple-header {
   position: sticky;
   top: 0;
   z-index: 100;
   width: 100%;
-  height: 52px;
-  background: var(--liquid-glass);
-  backdrop-filter: var(--liquid-glass-blur);
-  -webkit-backdrop-filter: var(--liquid-glass-blur);
-  border-bottom: 1px solid var(--hairline);
+  height: 60px;
+  background-color: var(--surface-bg);
+  border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 0 var(--space-2);
 }
 
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--content-primary);
   user-select: none;
 }
 
 .brand-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-pill);
-  background-color: var(--accent);
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-avatar);
+  background-color: var(--color-primary);
 }
 
 .header-status {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
   color: var(--content-secondary);
 }
@@ -76,30 +73,30 @@ body {
 .status-dot {
   width: 8px;
   height: 8px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-avatar);
   background-color: var(--content-tertiary);
-  transition: background-color 0.25s ease;
+  transition: background-color 0.2s ease;
 }
 
 .status-dot.live {
-  background-color: var(--signal-green);
+  background-color: var(--color-success);
 }
 
 .status-dot.busy {
-  background-color: var(--signal-amber);
+  background-color: var(--color-warning);
 }
 
 .status-dot.error {
-  background-color: var(--signal-red);
+  background-color: var(--color-error);
 }
 
-/* App Content Area */
+/* Application Content Area */
 .app-main {
   flex: 1;
-  max-width: 980px;
+  max-width: 760px;
   width: 100%;
   margin: 0 auto;
-  padding: 32px 24px 64px;
+  padding: var(--space-4) var(--space-2) var(--space-6);
   display: flex;
   flex-direction: column;
 }
@@ -109,7 +106,7 @@ body {
   display: none;
   flex-direction: column;
   width: 100%;
-  animation: fadeIn 0.2s ease-out;
+  animation: fadeIn 0.18s ease-out;
 }
 
 .view-panel.active {
@@ -119,12 +116,17 @@ body {
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(4px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
+}
+
+/* Headings */
+h1, h2, h3 {
+  font-family: var(--font-display);
+  color: var(--content-primary);
+  font-weight: 700;
 }
 
 /* Reduced motion preference */
@@ -133,14 +135,5 @@ body {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
-  }
-}
-
-/* Reduced transparency preference */
-@media (prefers-reduced-transparency: reduce) {
-  .apple-header {
-    background: var(--surface-card) !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
   }
 }

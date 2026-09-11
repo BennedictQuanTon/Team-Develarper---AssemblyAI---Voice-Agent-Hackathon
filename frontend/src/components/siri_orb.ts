@@ -85,29 +85,29 @@ export class AppleOrb {
     const expansion = energy * 16;
     const radius = baseRadius + expansion;
 
-    // Draw Apple glow layer
+    // ThoughtStream zen gradient layer
     const gradient = this.ctx.createRadialGradient(
       centerX, centerY, radius * 0.4,
       centerX, centerY, radius * 1.2
     );
 
     if (this.mode === "idle") {
-      gradient.addColorStop(0, "rgba(120, 120, 128, 0.2)");
-      gradient.addColorStop(0.8, "rgba(120, 120, 128, 0.04)");
-      gradient.addColorStop(1, "rgba(120, 120, 128, 0)");
+      gradient.addColorStop(0, "rgba(120, 113, 108, 0.12)");
+      gradient.addColorStop(0.8, "rgba(168, 162, 158, 0.04)");
+      gradient.addColorStop(1, "rgba(120, 113, 108, 0)");
     } else if (this.mode === "listen") {
-      gradient.addColorStop(0, "rgba(0, 113, 227, 0.4)");
-      gradient.addColorStop(0.7, "rgba(52, 199, 89, 0.2)");
-      gradient.addColorStop(1, "rgba(0, 113, 227, 0)");
+      gradient.addColorStop(0, "rgba(120, 113, 108, 0.28)");
+      gradient.addColorStop(0.7, "rgba(168, 162, 158, 0.15)");
+      gradient.addColorStop(1, "rgba(120, 113, 108, 0)");
     } else if (this.mode === "think") {
-      gradient.addColorStop(0, "rgba(175, 82, 222, 0.45)");
-      gradient.addColorStop(0.6, "rgba(0, 113, 227, 0.25)");
-      gradient.addColorStop(1, "rgba(175, 82, 222, 0)");
+      gradient.addColorStop(0, "rgba(28, 25, 23, 0.3)");
+      gradient.addColorStop(0.6, "rgba(120, 113, 108, 0.18)");
+      gradient.addColorStop(1, "rgba(28, 25, 23, 0)");
     } else {
       // speak
-      gradient.addColorStop(0, "rgba(52, 199, 89, 0.5)");
-      gradient.addColorStop(0.6, "rgba(0, 113, 227, 0.3)");
-      gradient.addColorStop(1, "rgba(52, 199, 89, 0)");
+      gradient.addColorStop(0, "rgba(101, 163, 13, 0.35)");
+      gradient.addColorStop(0.6, "rgba(120, 113, 108, 0.18)");
+      gradient.addColorStop(1, "rgba(101, 163, 13, 0)");
     }
 
     this.ctx.fillStyle = gradient;
@@ -115,16 +115,16 @@ export class AppleOrb {
     this.ctx.arc(centerX, centerY, radius * 1.2, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // Subtle breathing perimeter ring
+    // Subtle hairline perimeter ring (0px radius philosophy with delicate geometric stroke)
     this.ctx.strokeStyle = this.mode === "idle"
-      ? "rgba(120, 120, 128, 0.25)"
+      ? "rgba(231, 229, 228, 0.8)"
       : this.mode === "listen"
-      ? "rgba(0, 113, 227, 0.6)"
+      ? "rgba(120, 113, 108, 0.7)"
       : this.mode === "think"
-      ? "rgba(175, 82, 222, 0.6)"
-      : "rgba(52, 199, 89, 0.7)";
+      ? "rgba(28, 25, 23, 0.6)"
+      : "rgba(101, 163, 13, 0.7)";
 
-    this.ctx.lineWidth = 1.5;
+    this.ctx.lineWidth = 1;
     this.ctx.beginPath();
     this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
     this.ctx.stroke();
