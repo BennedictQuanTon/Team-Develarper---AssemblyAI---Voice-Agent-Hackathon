@@ -65,7 +65,7 @@ body {
 /* Application Content Area */
 .app-main {
   flex: 1;
-  max-width: 980px;
+  max-width: 1240px;
   width: 100%;
   margin: 0 auto;
   padding: var(--space-4) var(--space-3) var(--space-6);

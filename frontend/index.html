@@ -135,28 +135,175 @@
       </aside>
     </section>
 
-    <!-- Tab 2: Restaurant Floor & Menu Operations -->
+    <!-- Tab 2: Restaurant Floor & Menu Operations Dashboard -->
     <section id="viewOps" class="view-panel" role="tabpanel" aria-labelledby="tabOps">
       <div class="ops-container">
-        <!-- Floor Status Header -->
-        <div class="section-header">
-          <h2 class="section-title">Floor &amp; Table Operations</h2>
-          <div class="metric-summary-bar">
-            <div class="metric-pill">Tables free: <strong id="mFree">0</strong></div>
-            <div class="metric-pill">Seated: <strong id="mSeated">0</strong></div>
-            <div class="metric-pill">86'd items: <strong id="m86">0</strong></div>
+        <!-- Top Operations Executive Metrics Bar -->
+        <header class="ops-executive-bar">
+          <div class="ops-title-group">
+            <h2 class="ops-page-title">Restaurant Operations &amp; Floor Management</h2>
+            <p class="ops-page-sub">Live spatial floor plan, real-time 86 inventory control, kitchen tickets (KDS) &amp; table reservations.</p>
+          </div>
+          <div class="ops-kpi-grid">
+            <div class="ops-kpi-card">
+              <span class="kpi-label">Available Tables</span>
+              <div class="kpi-value-row">
+                <span class="kpi-number" id="mFree">0</span>
+                <span class="kpi-meta">/ 10 tables</span>
+              </div>
+            </div>
+            <div class="ops-kpi-card">
+              <span class="kpi-label">Seated Guests</span>
+              <div class="kpi-value-row">
+                <span class="kpi-number" id="mSeated">0</span>
+                <span class="kpi-meta" id="mOccupancy">0% occ</span>
+              </div>
+            </div>
+            <div class="ops-kpi-card">
+              <span class="kpi-label">86'd Out of Stock</span>
+              <div class="kpi-value-row">
+                <span class="kpi-number kpi-alert" id="m86">0</span>
+                <span class="kpi-meta">items</span>
+              </div>
+            </div>
+            <div class="ops-kpi-card">
+              <span class="kpi-label">Active Kitchen Tickets</span>
+              <div class="kpi-value-row">
+                <span class="kpi-number" id="mKdsActive">3</span>
+                <span class="kpi-meta">in progress</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <!-- Upper 2/3 + 1/3 Section: Floor Map & Menu Inventory Control -->
+        <div class="ops-upper-split">
+          <!-- Left Column (2/3): Interactive Spatial Floor Map -->
+          <div class="ops-floor-map-panel">
+            <div class="panel-header">
+              <div class="panel-header-left">
+                <h3 class="panel-title">Spatial Floor Map</h3>
+                <span class="panel-badge">Interactive Plan</span>
+              </div>
+              <!-- Zone Filter Tabs -->
+              <div class="zone-filter-tabs" role="tablist" aria-label="Floor zones">
+                <button type="button" class="zone-btn active" data-zone="all">All Areas</button>
+                <button type="button" class="zone-btn" data-zone="terrace">Window Terrace</button>
+                <button type="button" class="zone-btn" data-zone="main">Main Dining</button>
+                <button type="button" class="zone-btn" data-zone="vip">VIP Wine Booths</button>
+              </div>
+            </div>
+
+            <!-- Architectural Restaurant Map Viewport with Zones -->
+            <div class="floor-map-viewport" id="floorMapViewport">
+              <!-- Zone 1: Window Terrace & Garden -->
+              <div class="map-zone zone-terrace" id="zoneTerrace" data-zone="terrace">
+                <div class="zone-label-bar">
+                  <div class="zone-tag-wrap">
+                    <span class="zone-dot terrace"></span>
+                    <span class="zone-name">Window Terrace &amp; Garden</span>
+                  </div>
+                  <span class="zone-capacity">Tables 5 – 7 · 16 Seats</span>
+                </div>
+                <div class="zone-tables-grid" id="zoneTerraceTables"></div>
+              </div>
+
+              <!-- Zone 2: Main Dining Room -->
+              <div class="map-zone zone-main" id="zoneMain" data-zone="main">
+                <div class="zone-label-bar">
+                  <div class="zone-tag-wrap">
+                    <span class="zone-dot main"></span>
+                    <span class="zone-name">Main Dining Room</span>
+                  </div>
+                  <span class="zone-capacity">Tables 1 – 4 · 12 Seats</span>
+                </div>
+                <div class="zone-tables-grid" id="zoneMainTables"></div>
+              </div>
+
+              <!-- Zone 3: VIP Wine Lounge -->
+              <div class="map-zone zone-vip" id="zoneVip" data-zone="vip">
+                <div class="zone-label-bar">
+                  <div class="zone-tag-wrap">
+                    <span class="zone-dot vip"></span>
+                    <span class="zone-name">Private VIP Wine Booths</span>
+                  </div>
+                  <span class="zone-capacity">Tables 8 – 10 · 26 Seats</span>
+                </div>
+                <div class="zone-tables-grid" id="zoneVipTables"></div>
+              </div>
+            </div>
+
+            <!-- Selected Table Detail & Quick Action Drawer -->
+            <div class="table-quick-drawer" id="tableQuickDrawer" style="display: none;">
+              <div class="drawer-left">
+                <div class="drawer-title-row">
+                  <strong class="drawer-table-title" id="drawerTableName">Table 1</strong>
+                  <span class="drawer-seats-badge" id="drawerTableSeats">2 Seats</span>
+                  <span class="table-status-pill free" id="drawerTableStatus">Available</span>
+                </div>
+                <span class="drawer-zone-text" id="drawerTableZone">Main Dining Room</span>
+              </div>
+              <div class="drawer-right">
+                <button type="button" class="btn-drawer-action" id="drawerActionBtn">Seat Guests</button>
+                <button type="button" class="btn-drawer-close" id="drawerCloseBtn" aria-label="Dismiss drawer">×</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column (1/3): Menu & Inventory Control (86) -->
+          <div class="ops-menu-inventory-panel">
+            <div class="panel-header">
+              <div class="panel-header-left">
+                <h3 class="panel-title">Menu &amp; 86'd Stock</h3>
+                <span class="panel-badge" id="menuCountBadge">0 items</span>
+              </div>
+            </div>
+
+            <!-- Search and Category Filters -->
+            <div class="inventory-controls">
+              <input type="text" id="menuSearchInput" class="menu-search-input" placeholder="Search dishes &amp; wines…" aria-label="Search dishes" />
+              <div class="category-chips-row" id="categoryChips">
+                <button type="button" class="category-chip active" data-cat="all">All</button>
+                <button type="button" class="category-chip" data-cat="Main">Mains</button>
+                <button type="button" class="category-chip" data-cat="Appetizer">Starters</button>
+                <button type="button" class="category-chip" data-cat="Dessert">Desserts</button>
+              </div>
+            </div>
+
+            <!-- Scrollable 86 Inventory List -->
+            <div class="inventory-scroll-container">
+              <div id="menuList" class="menu-inventory-list"></div>
+            </div>
           </div>
         </div>
 
-        <!-- Realtime Floor Tables Grid -->
-        <div id="floorGrid" class="floor-grid" aria-label="Floor tables layout"></div>
+        <!-- Lower 1/2 + 1/2 Section: Live Kitchen Display System (KDS) & Table Reservations -->
+        <div class="ops-lower-split">
+          <!-- Left Column: Live Kitchen Display System (KDS) -->
+          <div class="ops-kds-panel">
+            <div class="panel-header">
+              <div class="panel-header-left">
+                <h3 class="panel-title">Kitchen Display System (KDS)</h3>
+                <span class="panel-badge kds-live-badge">Live Cook Stream</span>
+              </div>
+              <span class="kds-sub-meta">Pending orders queued for chef</span>
+            </div>
+            <div class="kds-tickets-container" id="kdsTicketsList"></div>
+          </div>
 
-        <!-- 86-Inventory Realtime Menu Availability -->
-        <div class="section-header" style="margin-top: 36px;">
-          <h2 class="section-title">Menu &amp; Inventory Control (86)</h2>
-        </div>
-        <div class="menu-inventory-card">
-          <div id="menuList" class="menu-inventory-list"></div>
+          <!-- Right Column: Tonight's Table Reservations & Guest Book -->
+          <div class="ops-reservations-panel">
+            <div class="panel-header">
+              <div class="panel-header-left">
+                <h3 class="panel-title">Tonight's Reservations</h3>
+                <span class="panel-badge">Guest Book</span>
+              </div>
+              <span class="reservation-count-meta" id="resCountMeta">5 Bookings</span>
+            </div>
+            <div class="reservations-table-wrapper">
+              <div class="reservations-list" id="reservationsList"></div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
