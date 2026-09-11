@@ -65,10 +65,10 @@ body {
 /* Application Content Area */
 .app-main {
   flex: 1;
-  max-width: 760px;
+  max-width: 980px;
   width: 100%;
   margin: 0 auto;
-  padding: var(--space-4) var(--space-2) var(--space-6);
+  padding: var(--space-4) var(--space-3) var(--space-6);
   display: flex;
   flex-direction: column;
 }

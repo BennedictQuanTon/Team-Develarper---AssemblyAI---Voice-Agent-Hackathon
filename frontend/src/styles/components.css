@@ -76,8 +76,8 @@
 
 .orb-container {
   position: relative;
-  width: 220px;
-  height: 220px;
+  width: 260px;
+  height: 260px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -85,15 +85,20 @@
 }
 
 .orb-canvas {
-  width: 220px;
-  height: 220px;
-  border-radius: var(--radius-avatar);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 260px;
+  height: 260px;
   pointer-events: none;
 }
 
-/* Rounded Tactile Microphone Button (Bo tròn chuẩn icon theo yêu cầu) */
+/* Rounded Tactile Microphone Button - Exactly concentric with orb visualizer */
 .apple-mic-btn {
   position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 64px;
   height: 64px;
   border-radius: 50%; /* Bo tròn hoàn toàn */
@@ -105,19 +110,20 @@
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(28, 25, 23, 0.1);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   outline: none;
   z-index: 2;
+  padding: 0;
 }
 
 .apple-mic-btn:hover {
-  transform: scale(1.06);
+  transform: translate(-50%, -50%) scale(1.06);
   background-color: var(--content-secondary);
   border-color: var(--border-strong);
 }
 
 .apple-mic-btn:active {
-  transform: scale(0.94);
+  transform: translate(-50%, -50%) scale(0.94);
   background-color: var(--color-tertiary);
 }
 
@@ -156,11 +162,11 @@
    ============================================================ */
 .dialogue-stage {
   width: 100%;
-  max-width: 760px;
+  max-width: 920px;
   margin: 0 auto;
 }
 
-/* Welcome Card (Initial Greeting State) - Significantly enlarged per user request */
+/* Welcome Card (Initial Greeting State) - Single-line heading & enlarged typography */
 .welcome-card {
   display: flex;
   flex-direction: column;
@@ -168,15 +174,24 @@
   text-align: center;
   gap: 16px;
   padding: 0 var(--space-2);
+  width: 100%;
 }
 
 .welcome-title {
   font-family: var(--font-display);
-  font-size: 38px;
+  font-size: clamp(24px, 2.7vw, 36px);
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: -0.02em;
   color: var(--content-primary);
+  white-space: nowrap; /* Bắt buộc hiển thị trên cùng một hàng theo yêu cầu */
+}
+
+@media (max-width: 768px) {
+  .welcome-title {
+    white-space: normal;
+    font-size: 26px;
+  }
 }
 
 .welcome-sub {

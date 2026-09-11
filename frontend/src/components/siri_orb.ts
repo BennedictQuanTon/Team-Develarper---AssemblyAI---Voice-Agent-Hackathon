@@ -14,6 +14,7 @@ export class AppleOrb {
   private animFrameId: number | null = null;
   private level: number = 0;
   private dataArray: Uint8Array<ArrayBuffer>;
+  private size: number = 260;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -21,16 +22,19 @@ export class AppleOrb {
     if (!context) throw new Error("Canvas 2D context not available");
     this.ctx = context;
 
-    // Retina display resolution
+    this.dataArray = new Uint8Array(new ArrayBuffer(128));
+    this.updateSize();
+    this.startLoop();
+  }
+
+  private updateSize(): void {
     const dpr = window.devicePixelRatio || 1;
     const rect = this.canvas.getBoundingClientRect();
-    const size = rect.width || 220;
-    this.canvas.width = size * dpr;
-    this.canvas.height = size * dpr;
+    this.size = Math.round(rect.width) || 260;
+    this.canvas.width = Math.round(this.size * dpr);
+    this.canvas.height = Math.round(this.size * dpr);
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(dpr, dpr);
-
-    this.dataArray = new Uint8Array(new ArrayBuffer(128));
-    this.startLoop();
   }
 
   public setMode(mode: OrbMode): void {
@@ -60,12 +64,16 @@ export class AppleOrb {
   }
 
   private draw(): void {
-    const width = 220;
-    const height = 220;
-    const centerX = width / 2;
-    const centerY = height / 2;
+    const dpr = window.devicePixelRatio || 1;
+    const expectedPx = Math.round(this.size * dpr);
+    if (this.canvas.width !== expectedPx || this.canvas.height !== expectedPx) {
+      this.updateSize();
+    }
 
-    this.ctx.clearRect(0, 0, width, height);
+    const centerX = this.size / 2;
+    const centerY = this.size / 2;
+
+    this.ctx.clearRect(0, 0, this.size, this.size);
 
     // 1. Compute acoustic energy from analyser
     let energy = 0.05;
@@ -86,12 +94,14 @@ export class AppleOrb {
     // Smooth lerp for buttery natural inertia
     this.level += (energy - this.level) * 0.22;
 
-    const baseRadius = 42;
-    const currentRadius = baseRadius * (1 + this.level * 0.65);
+    // Mic button is 64px diameter, radius is 32px
+    const micButtonRadius = 32;
+    const baseRadius = 40; // Starts right outside the mic button
+    const currentRadius = baseRadius * (1 + this.level * 0.5);
 
-    // 2. Soft core radial glow
+    // 2. Soft core radial glow perfectly centered behind mic button
     const gradient = this.ctx.createRadialGradient(
-      centerX, centerY, currentRadius * 0.1,
+      centerX, centerY, micButtonRadius * 0.7,
       centerX, centerY, currentRadius * 1.5
     );
 
@@ -108,28 +118,29 @@ export class AppleOrb {
       gradient.addColorStop(0.5, "rgba(120, 113, 108, 0.4)");
       gradient.addColorStop(1, "rgba(28, 25, 23, 0)");
     } else {
-      gradient.addColorStop(0, "rgba(214, 211, 209, 0.45)");
-      gradient.addColorStop(0.5, "rgba(168, 162, 158, 0.18)");
+      gradient.addColorStop(0, "rgba(214, 211, 209, 0.4)");
+      gradient.addColorStop(0.5, "rgba(168, 162, 158, 0.15)");
       gradient.addColorStop(1, "rgba(28, 25, 23, 0)");
     }
 
     this.ctx.fillStyle = gradient;
     this.ctx.beginPath();
-    this.ctx.arc(centerX, centerY, currentRadius * 1.35, 0, Math.PI * 2);
+    this.ctx.arc(centerX, centerY, currentRadius * 1.4, 0, Math.PI * 2);
     this.ctx.fill();
 
-    // 3. Vibrating Concentric Frequency Rings (Classic visualizer vibration)
+    // 3. Vibrating Concentric Frequency Rings - perfectly centered and evenly spaced
     const rings = 4;
     for (let r = 0; r < rings; r++) {
       const t = performance.now() / (650 - r * 80);
-      const wobble = 1 + this.level * (0.18 + r * 0.08) * Math.sin(t + r * 1.4);
+      const wobble = 1 + this.level * (0.12 + r * 0.05) * Math.sin(t + r * 1.4);
       this.ctx.beginPath();
-      const alpha = Math.max(0, 0.12 + this.level * 0.5 - r * 0.025);
+      const alpha = Math.max(0, 0.14 + this.level * 0.45 - r * 0.025);
       this.ctx.strokeStyle = this.mode === "speak"
         ? `rgba(101, 163, 13, ${alpha})`
         : `rgba(168, 162, 158, ${alpha})`;
-      this.ctx.lineWidth = 1.5 + this.level * 3.5;
-      this.ctx.arc(centerX, centerY, (baseRadius + r * 16) * wobble, 0, Math.PI * 2);
+      this.ctx.lineWidth = 1.5 + this.level * 2.5;
+      const ringRadius = (baseRadius + r * 18) * wobble;
+      this.ctx.arc(centerX, centerY, ringRadius, 0, Math.PI * 2);
       this.ctx.stroke();
     }
   }
