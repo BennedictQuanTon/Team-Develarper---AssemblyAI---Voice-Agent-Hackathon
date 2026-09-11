@@ -1,0 +1,17 @@
+{
+  "restaurant": "The Lantern",
+  "updated_at": "2026-09-10",
+  "hours": {
+    "lunch": "11:00 - 14:00",
+    "dinner": "17:00 - 22:00"
+  },
+  "takeout_eta_minutes_by_lines": {
+    "1_2": 20,
+    "3_4": 25,
+    "5_plus": 35
+  },
+  "notes": {
+    "last_call": "Kitchen last order 21:30.",
+    "allergen_disclaimer": "For any allergen not listed on the menu, tell the guest the kitchen must be asked."
+  }
+}

@@ -1,0 +1,567 @@
+/**
+ * Component styles strictly adhering to DESIGN.md (ThoughtStream Design System).
+ * Minimal, zen, distraction-free. Circular tactile mic, dual speech dialogue stream,
+ * literary typography, flat geometry, generous whitespace.
+ */
+
+/* ============================================================
+   1. Navigation Filter Chips (DESIGN.md Filter Chips)
+   ============================================================ */
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  user-select: none;
+}
+
+.segment-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 6px 16px;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-none);
+  background: transparent;
+  color: var(--content-secondary);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.segment-btn:hover {
+  background-color: var(--surface-card);
+  color: var(--content-primary);
+}
+
+.segment-btn[aria-selected="true"] {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--surface-bg);
+  font-weight: 600;
+}
+
+.segment-btn:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* ============================================================
+   2. Guest Voice Stage & Circular Microphone (Fine Dining Concierge)
+   ============================================================ */
+.guest-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3) 0 var(--space-4);
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.orb-container {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orb-canvas {
+  width: 140px;
+  height: 140px;
+  border-radius: var(--radius-avatar);
+  pointer-events: none;
+}
+
+/* Rounded Tactile Microphone Button (Bo tròn chuẩn icon theo yêu cầu) */
+.apple-mic-btn {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%; /* Bo tròn hoàn toàn */
+  border: 1.5px solid var(--border-medium);
+  background-color: var(--color-tertiary);
+  color: var(--surface-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(28, 25, 23, 0.08);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+}
+
+.apple-mic-btn:hover {
+  transform: scale(1.05);
+  background-color: var(--content-secondary);
+  border-color: var(--border-strong);
+}
+
+.apple-mic-btn:active {
+  transform: scale(0.95);
+  background-color: var(--color-tertiary);
+}
+
+.apple-mic-btn.active {
+  background-color: var(--color-error);
+  border-color: var(--color-error);
+  color: #ffffff;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.15);
+  animation: micPulse 1.8s infinite ease-in-out;
+}
+
+@keyframes micPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.25);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(220, 38, 38, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+.apple-mic-btn:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.apple-mic-btn svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+/* ============================================================
+   3. Dialogue Stage (Dual Speech Stream: Guest + AI Concierge)
+   ============================================================ */
+.dialogue-stage {
+  width: 100%;
+  max-width: 660px;
+  margin: 0 auto;
+}
+
+/* Welcome Card (Initial Greeting State) */
+.welcome-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 0 var(--space-2);
+}
+
+.welcome-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  color: var(--content-primary);
+}
+
+.welcome-sub {
+  font-family: var(--font-text);
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--content-secondary);
+  max-width: 540px;
+}
+
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chip-prompt {
+  font-family: var(--font-text);
+  font-size: 13px;
+  color: var(--content-secondary);
+  background-color: var(--surface-bg);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-none);
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-style: italic;
+  outline: none;
+}
+
+.chip-prompt:hover {
+  background-color: var(--surface-card);
+  color: var(--content-primary);
+  border-color: var(--border-strong);
+}
+
+/* Conversation Stream (Active State) */
+.conversation-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+}
+
+.speech-block {
+  background-color: var(--surface-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-none);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.speech-block.guest-speech {
+  border-left: 3px solid var(--color-primary);
+}
+
+.speech-block.agent-speech {
+  border-left: 3px solid var(--color-tertiary);
+  background-color: var(--surface-card);
+}
+
+.speech-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.speech-role {
+  font-family: var(--font-text);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--content-tertiary);
+}
+
+.speech-status {
+  font-size: 12px;
+  color: var(--color-primary);
+  font-style: italic;
+}
+
+.speech-text {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--content-primary);
+  word-break: break-word;
+}
+
+.speech-text.guest-text.interim {
+  color: var(--color-primary);
+  font-style: italic;
+}
+
+.speech-text.agent-text {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+  color: var(--content-primary);
+}
+
+/* ============================================================
+   4. Guest Live Basket Card (DESIGN.md Default Card)
+   ============================================================ */
+.basket-sheet {
+  width: 100%;
+  max-width: 660px;
+  margin: var(--space-3) auto 0;
+  background-color: var(--surface-bg);
+  border-radius: var(--radius-none);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-none);
+  padding: var(--space-3);
+  display: none;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.basket-sheet.visible {
+  display: flex;
+}
+
+.basket-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-1);
+}
+
+.basket-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--content-primary);
+}
+
+.basket-badge {
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 12px;
+  border-radius: var(--radius-none);
+  background-color: var(--chip-success-bg);
+  color: var(--chip-success-text);
+  border: 1px solid var(--chip-success-border);
+}
+
+.basket-items-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.basket-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.basket-row:last-child {
+  border-bottom: none;
+}
+
+.basket-row-name {
+  color: var(--content-primary);
+  font-weight: 500;
+}
+
+.basket-row-price {
+  color: var(--content-secondary);
+  font-family: var(--font-mono);
+}
+
+.basket-footer {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--content-primary);
+}
+
+/* ============================================================
+   5. Ops View (Floor Tables & Menu Availability)
+   ============================================================ */
+.ops-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--content-primary);
+}
+
+.metric-summary-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.metric-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background-color: var(--surface-card);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-none);
+  font-size: 13px;
+  color: var(--content-secondary);
+}
+
+.metric-pill strong {
+  color: var(--content-primary);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.floor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.table-card {
+  background-color: var(--surface-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-none);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--shadow-none);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  user-select: none;
+  cursor: pointer;
+}
+
+.table-card:hover {
+  border-color: var(--border-strong);
+  background-color: var(--surface-card);
+}
+
+.table-number {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--content-primary);
+}
+
+.table-seats {
+  font-size: 13px;
+  color: var(--content-secondary);
+}
+
+.table-status-pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 10px;
+  border-radius: var(--radius-none);
+  margin-top: 6px;
+  border: 1px solid transparent;
+}
+
+.table-status-pill.free {
+  background-color: var(--chip-success-bg);
+  color: var(--chip-success-text);
+  border-color: var(--chip-success-border);
+}
+
+.table-status-pill.seated {
+  background-color: var(--chip-warning-bg);
+  color: var(--chip-warning-text);
+  border-color: var(--chip-warning-border);
+}
+
+.menu-inventory-card {
+  background-color: var(--surface-bg);
+  border-radius: var(--radius-none);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-none);
+}
+
+.menu-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background-color 0.12s ease;
+}
+
+.menu-item-row:last-child {
+  border-bottom: none;
+}
+
+.menu-item-row:hover {
+  background-color: var(--surface-card);
+}
+
+.menu-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menu-item-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--content-primary);
+}
+
+.menu-item-meta {
+  font-size: 13px;
+  color: var(--content-secondary);
+}
+
+.menu-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.menu-price {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--content-secondary);
+}
+
+.btn-86 {
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: var(--radius-none);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.btn-86.active {
+  background-color: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--border-medium);
+}
+
+.btn-86.active:hover {
+  background-color: var(--surface-card);
+}
+
+.btn-86.off {
+  background-color: var(--chip-error-bg);
+  color: var(--chip-error-text);
+  border: 1px solid var(--chip-error-border);
+}
+
+.btn-86.off:hover {
+  background-color: #fee2e2;
+}
+
+.btn-86:focus-visible {
+  box-shadow: var(--focus-ring);
+}

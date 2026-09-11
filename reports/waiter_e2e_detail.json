@@ -1,0 +1,204 @@
+{
+  "case": "single_native_order_flow",
+  "api": {
+    "asr": "assemblyai_realtime",
+    "llm": "gemini_tools",
+    "tts": "cartesia_websocket"
+  },
+  "turns": [
+    {
+      "turn": 1,
+      "intent": "recommend",
+      "user_query_text": "What would you recommend for a mild couple?",
+      "asr_first_ms": 500.19,
+      "llm_tool_rounds": 2,
+      "reply_text": "I recommend the pomelo salad with shrimp and the lemongrass chicken, both are wonderful for two. Would you like me to add those?",
+      "reply_clean": true,
+      "tools_called": [
+        "recommend_dishes"
+      ],
+      "basket_before": [],
+      "basket_after": [],
+      "ttfb_ms": 17860.78,
+      "e2e_ms": 19232.23
+    },
+    {
+      "turn": 2,
+      "intent": "those-two",
+      "user_query_text": "We'll take those two please",
+      "asr_first_ms": 580.72,
+      "llm_tool_rounds": 2,
+      "reply_text": "I've added the pomelo salad and lemongrass chicken. Would you like anything else?",
+      "reply_clean": true,
+      "tools_called": [
+        "add_items_from_mention"
+      ],
+      "basket_before": [],
+      "basket_after": [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken"
+      ],
+      "ttfb_ms": 25863.29,
+      "e2e_ms": 27120.31
+    },
+    {
+      "turn": 3,
+      "intent": "86-squid",
+      "user_query_text": "I'd like the crispy squid too",
+      "asr_first_ms": 535.45,
+      "llm_tool_rounds": 3,
+      "reply_text": "I've added the Crispy Squid for you.",
+      "reply_clean": true,
+      "tools_called": [
+        "search_menu",
+        "add_item"
+      ],
+      "basket_before": [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken"
+      ],
+      "basket_after": [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Crispy Squid"
+      ],
+      "ttfb_ms": 28230.36,
+      "e2e_ms": 28684.52
+    },
+    {
+      "turn": 4,
+      "intent": "sub-seabass",
+      "user_query_text": "Okay, make it a grilled seabass instead",
+      "asr_first_ms": 549.2,
+      "llm_tool_rounds": 3,
+      "reply_text": "I've added the grilled seabass for sixteen dollars. Would you like anything else?",
+      "reply_clean": true,
+      "tools_called": [
+        "search_menu",
+        "add_item"
+      ],
+      "basket_before": [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Crispy Squid"
+      ],
+      "basket_after": [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Crispy Squid",
+        "Grilled Seabass"
+      ],
+      "ttfb_ms": 46511.13,
+      "e2e_ms": 47639.66
+    },
+    {
+      "turn": 5,
+      "intent": "add-morning-glory",
+      "user_query_text": "And stir-fried morning glory on the side",
+      "asr_first_ms": 825.2,
+      "llm_tool_rounds": 3,
+      "reply_text": "I've added the stir-fried morning glory to your order.",
+      "reply_clean": true,
+      "tools_called": [
+        "search_menu",
+        "add_item"
+      ],
+      "basket_before": [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Crispy Squid",
+        "Grilled Seabass"
+      ],
+      "basket_after": [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Crispy Squid",
+        "Grilled Seabass",
+        "Stir-fried Morning Glory"
+      ],
+      "ttfb_ms": 85967.16,
+      "e2e_ms": 86525.06
+    },
+    {
+      "turn": 6,
+      "intent": "place",
+      "user_query_text": "That's all, please place the order",
+      "asr_first_ms": 450.56,
+      "llm_tool_rounds": 3,
+      "reply_text": "All set! Your order has been placed and will be heading out from the kitchen shortly.",
+      "reply_clean": true,
+      "tools_called": [
+        "readback",
+        "place_order"
+      ],
+      "basket_before": [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Crispy Squid",
+        "Grilled Seabass",
+        "Stir-fried Morning Glory"
+      ],
+      "basket_after": [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Crispy Squid",
+        "Grilled Seabass",
+        "Stir-fried Morning Glory"
+      ],
+      "ttfb_ms": 53087.39,
+      "e2e_ms": 54130.08
+    }
+  ],
+  "state_delta": {
+    "menu_changed": false,
+    "basket_after_each_turn": [
+      [],
+      [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken"
+      ],
+      [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Crispy Squid"
+      ],
+      [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Crispy Squid",
+        "Grilled Seabass"
+      ],
+      [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Crispy Squid",
+        "Grilled Seabass",
+        "Stir-fried Morning Glory"
+      ],
+      [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Crispy Squid",
+        "Grilled Seabass",
+        "Stir-fried Morning Glory"
+      ]
+    ]
+  },
+  "rpm": {
+    "total_gemini_calls_est": 16,
+    "wall_seconds": 276.3,
+    "rate_per_minute_est": 3.474,
+    "cap_rpm": 15,
+    "under_cap": true
+  },
+  "summary": {
+    "turns_completed": 6,
+    "accuracy_name_ok": true,
+    "total_ok": false,
+    "all_replies_clean": true,
+    "final_total": 46.0,
+    "issues": [],
+    "avg_ttfb_ms": 42920.02,
+    "avg_e2e_ms": 43888.64
+  }
+}

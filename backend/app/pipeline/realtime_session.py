@@ -14,16 +14,48 @@ from fastapi import WebSocket
 from backend.app.config import Settings, get_settings
 from backend.app.metrics.spans import MetricsWriter, TurnSpans, new_turn_id
 from backend.app.pipeline.asr_stream import AssemblyAIRealtimeStream, StubRealtimeStream
-from backend.app.pipeline.filler import CLOSING_TEXT, is_farewell
+from backend.app.pipeline.filler import CLOSING_TEXT, is_backchannel, is_farewell
 from backend.app.pipeline.llm import StubLLMClient
 from backend.app.pipeline.llm_live import GeminiLLMClient
 from backend.app.pipeline.profiles import get_voice_profile
 from backend.app.pipeline.session import MAX_TURNS, SessionStore
 from backend.app.pipeline.tts_stream import CartesiaStreamingTTS, StubStreamingTTS
+from backend.app.pipeline.waiter_agent import build_waiter_agent
+from backend.app.domain.lantern import get_lantern_store
+from backend.app.domain.waiter import WaiterSession
 from rag.cache import RagCache
 from rag.retrieve import DEFAULT_TOP_K, hybrid_retrieve
 
 logger = logging.getLogger(__name__)
+
+_THINKING_WAV = None  # lazily loaded (Path / wave)
+
+
+def _thinking_pcm_chunks(chunk_bytes: int = 3200, max_chunks: int = 24) -> list[bytes]:
+    """Read the local 'thinking' clip as 16kHz s16le mono PCM chunks (speculative filler)."""
+    import wave
+
+    global _THINKING_WAV
+    if _THINKING_WAV is None:
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[3] / "frontend" / "audio" / "backchannels" / "thinking.wav"
+        _THINKING_WAV = path if path.exists() else None
+    if _THINKING_WAV is None:
+        return []
+    try:
+        with wave.open(str(_THINKING_WAV), "rb") as w:
+            if w.getframerate() != 16000 or w.getnchannels() != 1 or w.getsampwidth() != 2:
+                return []
+            data = w.readframes(w.getnframes())
+    except Exception:  # noqa: BLE001
+        return []
+    chunks: list[bytes] = []
+    for i in range(0, len(data), chunk_bytes):
+        if len(chunks) >= max_chunks:
+            break
+        chunks.append(data[i : i + chunk_bytes])
+    return chunks
 
 
 class RealtimeSessionController:
@@ -58,6 +90,11 @@ class RealtimeSessionController:
             if self.has_cartesia
             else StubStreamingTTS(sample_rate=16000)
         )
+
+        # Waiter agent (voice-ordering mode) with its own per-session basket
+        self.waiter_agent = build_waiter_agent()
+        self.waiter_session = WaiterSession(get_lantern_store(), session_id=self.session_id)
+        self.agent_mode = self.settings.agent_mode
 
         self.metrics = MetricsWriter(self.settings.metrics_dir / "turns.jsonl")
 
@@ -158,6 +195,15 @@ class RealtimeSessionController:
             self._last_interim_text = ""
             self.sessions.reset(self.session_id)
             await self._send_json({"type": "session_reset", "session_id": self.session_id})
+        elif cmd == "set_86":
+            # Test hook: 86 (or restore) a menu SKU so a scenario can exercise the
+            # sold-out -> substitute path deterministically. Not part of normal guest flow.
+            sku = payload.get("sku")
+            available = bool(payload.get("available", False))
+            item = self.waiter_session.store.set_available(sku, available) if sku else None
+            await self._send_json(
+                {"type": "set_86_done", "sku": sku, "available": available, "found": item is not None}
+            )
 
     async def close(self) -> None:
         if self._watchdog_task and not self._watchdog_task.done():
@@ -196,6 +242,12 @@ class RealtimeSessionController:
             return
 
         if self.is_agent_speaking:
+            # Backchannels (short "ok/yeah/mhm") while the waiter is mid-sentence
+            # must NOT cut off TTS — the user is listening, not taking the turn.
+            if is_backchannel(transcript):
+                logger.info("🙊 Backchannel ignored (agent speaking): %s", transcript)
+                await self._send_json({"type": "backchannel", "text": transcript})
+                return
             logger.info("⚡ ASR Turn Barge-In on transcript: %s", transcript)
             await self._trigger_barge_in("asr_turn")
 
@@ -231,6 +283,11 @@ class RealtimeSessionController:
                     "session_ended": True,
                 }
             )
+            return
+
+        # Waiter mode: run the voice waiter (RAG-independent ordering path)
+        if self.agent_mode == "waiter":
+            await self._execute_waiter_turn(query, cancel_ev)
             return
 
         # 1) Farewell Fast-Path (Zero API cost & Instant closing)
@@ -406,6 +463,175 @@ class RealtimeSessionController:
 
     async def _on_asr_error(self, error_msg: str) -> None:
         await self._send_json({"type": "error", "message": error_msg})
+
+    async def _execute_waiter_turn(self, query: str, cancel_ev: asyncio.Event) -> None:
+        """Voice-waiter turn: Gemini tool loop over deterministic menu/floor state,
+        then stream the spoken reply through Cartesia with barge-in support.
+
+        Barge-in semantics (P3):
+        - Backchannel is filtered upstream, so anything that reaches here is a real turn.
+        - We snapshot basket state BEFORE running tools. If the guest barges in while
+          the tool loop is still computing (before any audio is spoken), we roll back
+          the half-applied mutations — the interrupted intent never leaked into the order.
+        - Once audio starts, the confirmed commit point is reached: the basket stays
+          (no reset), the guest reserves the right to change it on the next turn.
+
+        Speculative (P4 latency): the slow Gemini tool loop runs in a background task.
+        While it computes, a short LOCAL thinking clip is played (zero API cost, no
+        TTS-WS conflict) so the guest hears "processing" immediately. When the loop
+        returns, the clip is cut and the real reply streams via Cartesia.
+        """
+        t_start = time.perf_counter()
+        session = self.sessions.get(self.session_id)
+        turn_id = new_turn_id()
+
+        # --- Snapshot for rollback on mid-compute barge-in (do NOT reset the basket) ---
+        pre_state = self.waiter_session.snapshot()
+        committed_audio = False
+
+        # Run the agent in the background (network-bound tool loop)
+        agent_task = asyncio.create_task(self.waiter_agent.respond(self.waiter_session, query))
+
+        # Speculative: play local thinking clip while the loop computes (no TTS conflict)
+        self.is_agent_speaking = True
+        thinking_done_event = asyncio.Event()
+
+        async def _play_thinking():
+            for chunk in _thinking_pcm_chunks():
+                if thinking_done_event.is_set() or cancel_ev.is_set():
+                    break
+                await self._send_json(
+                    {"type": "audio_chunk", "pcm_b64": base64.b64encode(chunk).decode("ascii"), "thinking": True}
+                )
+                await asyncio.sleep(0.05)
+
+        thinking_task = asyncio.create_task(_play_thinking())
+
+        try:
+            result = await agent_task
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Waiter agent error: %s", exc)
+            result = {
+                "reply": "Sorry, I didn't catch that. Could you say it again?",
+                "tool_calls": [],
+                "basket": self.waiter_session.snapshot(),
+            }
+        finally:
+            thinking_done_event.set()  # cut the speculative clip
+
+        reply = (result.get("reply") or "").strip()
+        tool_calls = result.get("tool_calls") or []
+        await thinking_task
+
+        # If the guest interrupted during the tool loop, discard the half-finished
+        # mutation (flush stale tool effects) and hand control back to the user.
+        if cancel_ev.is_set():
+            self.is_agent_speaking = False
+            self.waiter_session.restore(pre_state)
+            logger.info("Waiter turn %s: tool loop barge-in — rolled back stale mutation", turn_id)
+            await self._send_json(
+                {
+                    "type": "basket_update",
+                    "basket": self.waiter_session.snapshot(),
+                    "tool_calls": [],
+                    "rolled_back": True,
+                }
+            )
+            return
+
+        # Emit live basket state for the ops view (after tools mutated state)
+        await self._send_json(
+            {
+                "type": "basket_update",
+                "basket": self.waiter_session.snapshot(),
+                "tool_calls": [{"tool": t.get("tool"), "args": t.get("args", {})} for t in tool_calls],
+            }
+        )
+
+        if cancel_ev.is_set():
+            self.is_agent_speaking = False
+            return
+
+        if not reply:
+            reply = "One moment."
+
+        # Stream reply -> TTS with barge-in. First audio chunk = commit point.
+        first_chunk_sent = False
+        t_first_audio = 0.0
+
+        async def _reply_stream():
+            for word in reply.split(" "):
+                yield word + " "
+
+        try:
+            async for pcm_chunk in self.tts.stream_utterance(
+                _reply_stream(),
+                context_id=turn_id,
+                voice_id=self.profile["cartesia_voice_id"],
+                speaking_rate=self.profile["speaking_rate"],
+                cancel_event=cancel_ev,
+            ):
+                if cancel_ev.is_set():
+                    break
+                if not first_chunk_sent:
+                    first_chunk_sent = True
+                    committed_audio = True
+                    t_first_audio = round((time.perf_counter() - t_start) * 1000, 2)
+                    logger.info("⚡ WAITER VOICE TTFB: %.1f ms", t_first_audio)
+                await self._send_json(
+                    {
+                        "type": "audio_chunk",
+                        "pcm_b64": base64.b64encode(pcm_chunk).decode("ascii"),
+                        "ttfb_ms": t_first_audio,
+                    }
+                )
+        finally:
+            self.is_agent_speaking = False
+
+        if cancel_ev.is_set():
+            logger.info("Waiter turn %s cancelled by barge-in (basket preserved)", turn_id)
+            # Re-emit basket so ops UI stays live despite the interrupted turn
+            await self._send_json(
+                {"type": "basket_update", "basket": self.waiter_session.snapshot(), "tool_calls": []}
+            )
+            return
+
+        e2e_turn_ms = round((time.perf_counter() - t_start) * 1000, 2)
+        session = self.sessions.append_turn(self.session_id, query, reply)
+
+        spans = TurnSpans(
+            turn_id=turn_id,
+            session_id=self.session_id,
+            query=query,
+            transcript=query,
+            answer=reply,
+            profile=self.profile["name"],
+            provider={
+                "asr": "assemblyai_realtime" if self.has_aai else "stub_realtime",
+                "llm": "gemini_tools" if self.has_gemini else "rulebased",
+                "tts": "cartesia_websocket" if self.has_cartesia else "stub_tts",
+            },
+            timings_ms={
+                "ttfb_ms": t_first_audio,
+                "e2e_turn_ms": e2e_turn_ms,
+            },
+            cache={"n_tool_calls": len(tool_calls)},
+            chunk_ids=[],
+            phase=6,
+        )
+        self.metrics.write_turn(spans)
+
+        await self._send_json(
+            {
+                "type": "turn_complete",
+                "answer": reply,
+                "ttfb_ms": t_first_audio,
+                "e2e_turn_ms": e2e_turn_ms,
+                "session_ended": session.ended,
+                "turn_count": session.turn_count,
+                "basket": self.waiter_session.snapshot(),
+            }
+        )
 
     async def _send_json(self, data: dict[str, Any]) -> None:
         try:

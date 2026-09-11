@@ -18,7 +18,9 @@ class Settings(BaseSettings):
     cartesia_api_key: str = ""
     cartesia_voice_id: str = ""
     voice_profile: str = "friendly_guide"
+    agent_mode: str = "waiter"  # waiter | rag (legacy travel FAQ)
     gemini_model: str = "gemini-3.5-flash-lite"
+    gemini_rpm: int = 15  # per-minute request cap for the free/tiered Gemini plan
     assemblyai_speech_model: str = "universal-3-5-pro"
     assemblyai_mode: str = "min_latency"
 

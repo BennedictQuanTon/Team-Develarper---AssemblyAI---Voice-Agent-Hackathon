@@ -1,35 +1,57 @@
-# Python
+# Environments & Secrets (CRITICAL: Never commit real keys)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# Node / Frontend Dependencies & Build Output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+
+# Python Virtual Environments & Bytecode
 __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
 .eggs/
-dist/
 build/
 .venv/
 venv/
-.env
 .run/
 
-# Local data / indexes
+# Local Data & Vector/Keyword Indexes
 data/chroma/
 data/bm25/
 *.bin
 *.pkl
 
-# Reports & logs
+# Reports, Audio Artifacts & Logs
 reports/*.jsonl
 reports/*.html
 reports/audio/
 !reports/.gitkeep
 logs/
+*.log
 
-# IDE / OS
+# IDE, OS & Editor Artifacts
 .DS_Store
 .idea/
 .vscode/
 *.swp
+*.swo
 
-# Model caches (local embeddings)
+# Model Caches (Local HuggingFace / Sentence Transformers)
 .cache/
 sentence-transformers/
+
+# SQLite Runtime Artifacts
+:memory:.ses
+*.ses

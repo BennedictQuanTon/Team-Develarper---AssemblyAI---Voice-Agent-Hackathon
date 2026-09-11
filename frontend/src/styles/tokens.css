@@ -1,0 +1,69 @@
+/**
+ * Design Tokens strictly adhering to DESIGN.md (ThoughtStream Design System).
+ * Minimal, zen, distraction-free, completely flat with generous whitespace.
+ */
+
+:root {
+  /* Brand Palette */
+  --color-primary: #78716C;    /* Stone — anchors UI elements, links, icons */
+  --color-secondary: #A8A29E;  /* Sage — supporting accents, dividers */
+  --color-tertiary: #1C1917;   /* Warm Black — emphasis, strong headings */
+
+  /* Surface Palette */
+  --surface-bg: #FAFAF9;       /* Warm white page background */
+  --surface-card: #F5F5F4;     /* Card and section backgrounds */
+  --surface-raised: #EFEDEB;   /* Hover states, subtle callout blocks */
+
+  /* Content Palette */
+  --content-primary: #1C1917;  /* Body copy, headings */
+  --content-secondary: #57534E;/* Bylines, metadata, captions */
+  --content-tertiary: #A8A29E; /* Placeholders, disabled labels */
+
+  /* Border Palette */
+  --border-subtle: #E7E5E4;
+  --border-medium: #D6D3D1;
+  --border-strong: #A8A29E;
+
+  /* Semantic Colors */
+  --color-success: #65A30D;
+  --color-warning: #CA8A04;
+  --color-error: #DC2626;
+  --color-info: #78716C;
+
+  /* Status Chips (DESIGN.md) */
+  --chip-success-bg: #F0FDF4;
+  --chip-success-text: #65A30D;
+  --chip-success-border: #BBF7D0;
+
+  --chip-warning-bg: #FEFCE8;
+  --chip-warning-text: #CA8A04;
+  --chip-warning-border: #FEF08A;
+
+  --chip-error-bg: #FEF2F2;
+  --chip-error-text: #DC2626;
+  --chip-error-border: #FECACA;
+
+  /* Typography Stack */
+  --font-display: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  --font-text: "Inter", -apple-system, "Segoe UI", Helvetica, sans-serif;
+  --font-mono: "Source Code Pro", "Fira Code", Consolas, monospace;
+
+  /* Border Radius: Completely flat 0px everywhere per DESIGN.md */
+  --radius-none: 0px;
+  --radius-avatar: 9999px; /* Avatars and status dot only */
+
+  /* Shadows: Completely flat per DESIGN.md */
+  --shadow-none: none;
+  --focus-ring: 0 0 0 2px #FAFAF9, 0 0 0 4px #78716C;
+
+  /* Spacing (Base unit 12px) */
+  --space-1: 12px;
+  --space-2: 24px;
+  --space-3: 36px;
+  --space-4: 48px;
+  --space-5: 60px;
+  --space-6: 72px;
+
+  /* Touch / Interactive target min */
+  --target-min: 44px;
+}
