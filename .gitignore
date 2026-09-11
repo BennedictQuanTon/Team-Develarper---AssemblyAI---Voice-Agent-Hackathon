@@ -56,5 +56,6 @@ sentence-transformers/
 :memory:.ses
 *.ses
 
-# Local raw graphic source assets (contains 11MB .eps)
+# Local raw graphic source assets (contains 11-13MB .eps)
 white-gray-abstract-gradient-background/
+white-background-gradient-modern-abstract-design-round-shape/
