@@ -19,8 +19,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 7px;
   min-height: 36px;
-  padding: 6px 16px;
+  padding: 6px 14px;
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-none);
   background: transparent;
@@ -33,6 +34,13 @@
   transition: all 0.15s ease;
 }
 
+.segment-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  stroke: currentColor;
+}
+
 .segment-btn:hover {
   background-color: var(--surface-card);
   color: var(--content-primary);
@@ -43,6 +51,10 @@
   border-color: var(--color-primary);
   color: var(--surface-bg);
   font-weight: 600;
+}
+
+.segment-btn[aria-selected="true"] .segment-icon {
+  stroke: var(--surface-bg);
 }
 
 .segment-btn:focus-visible {
@@ -144,53 +156,53 @@
    ============================================================ */
 .dialogue-stage {
   width: 100%;
-  max-width: 660px;
+  max-width: 760px;
   margin: 0 auto;
 }
 
-/* Welcome Card (Initial Greeting State) */
+/* Welcome Card (Initial Greeting State) - Significantly enlarged per user request */
 .welcome-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 12px;
+  gap: 16px;
   padding: 0 var(--space-2);
 }
 
 .welcome-title {
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: 38px;
   font-weight: 700;
-  line-height: 1.35;
-  letter-spacing: -0.015em;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
   color: var(--content-primary);
 }
 
 .welcome-sub {
   font-family: var(--font-text);
-  font-size: 16px;
+  font-size: 19px;
   line-height: 1.7;
   color: var(--content-secondary);
-  max-width: 540px;
+  max-width: 660px;
 }
 
 .suggestion-chips {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .chip-prompt {
   font-family: var(--font-text);
-  font-size: 13px;
+  font-size: 15.5px;
   color: var(--content-secondary);
   background-color: var(--surface-bg);
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-none);
-  padding: 7px 14px;
+  padding: 10px 20px;
   cursor: pointer;
   transition: all 0.15s ease;
   font-style: italic;
