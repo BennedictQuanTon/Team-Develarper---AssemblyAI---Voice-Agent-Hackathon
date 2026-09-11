@@ -163,7 +163,7 @@
 .dialogue-stage {
   width: 100%;
   max-width: 920px;
-  margin: 0 auto;
+  margin: -28px auto 0;
 }
 
 /* Welcome Card (Initial Greeting State) - Single-line heading & enlarged typography */
@@ -172,7 +172,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 16px;
+  gap: 14px;
   padding: 0 var(--space-2);
   width: 100%;
 }
@@ -207,7 +207,7 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 30px;
 }
 
 .chip-prompt {
