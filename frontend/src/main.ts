@@ -18,6 +18,7 @@ class LanternApp {
   private audioCtx: AudioContext | null = null;
   private pcmPlayer: PCMStreamPlayer | null = null;
   private micRecorder: MicRecorder | null = null;
+  private ttsAnalyser: AnalyserNode | null = null;
   private voiceService: VoiceService;
   private opsService: OpsService;
 
@@ -59,7 +60,9 @@ class LanternApp {
     if (!this.audioCtx) {
       const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.audioCtx = new AudioContextClass();
-      this.pcmPlayer = new PCMStreamPlayer(this.audioCtx);
+      this.ttsAnalyser = this.audioCtx.createAnalyser();
+      this.ttsAnalyser.fftSize = 256;
+      this.pcmPlayer = new PCMStreamPlayer(this.audioCtx, this.ttsAnalyser);
       this.pcmPlayer.onPlaybackEnd = () => {
         if (this.isVoiceActive) {
           this.guestView.setOrbMode("listen");
@@ -150,6 +153,9 @@ class LanternApp {
         const pcm16 = new Int16Array(bytes.buffer);
         this.pcmPlayer.playChunk(pcm16, 16000);
         this.guestView.setOrbMode("speak");
+        if (this.ttsAnalyser) {
+          this.guestView.setAnalyser(this.ttsAnalyser);
+        }
       } else if (msg.type === "turn_complete") {
         if (msg.answer) {
           this.guestView.showAgentAnswer(msg.answer);

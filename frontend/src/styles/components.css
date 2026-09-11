@@ -64,16 +64,17 @@
 
 .orb-container {
   position: relative;
-  width: 140px;
-  height: 140px;
+  width: 220px;
+  height: 220px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin: 0 auto;
 }
 
 .orb-canvas {
-  width: 140px;
-  height: 140px;
+  width: 220px;
+  height: 220px;
   border-radius: var(--radius-avatar);
   pointer-events: none;
 }
@@ -81,8 +82,8 @@
 /* Rounded Tactile Microphone Button (Bo tròn chuẩn icon theo yêu cầu) */
 .apple-mic-btn {
   position: absolute;
-  width: 60px;
-  height: 60px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%; /* Bo tròn hoàn toàn */
   border: 1.5px solid var(--border-medium);
   background-color: var(--color-tertiary);
@@ -91,19 +92,20 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(28, 25, 23, 0.08);
+  box-shadow: 0 4px 16px rgba(28, 25, 23, 0.1);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   outline: none;
+  z-index: 2;
 }
 
 .apple-mic-btn:hover {
-  transform: scale(1.05);
+  transform: scale(1.06);
   background-color: var(--content-secondary);
   border-color: var(--border-strong);
 }
 
 .apple-mic-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
   background-color: var(--color-tertiary);
 }
 
