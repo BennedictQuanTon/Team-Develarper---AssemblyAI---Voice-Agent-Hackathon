@@ -316,7 +316,6 @@
         <div class="logs-header-bar">
           <div class="logs-header-titles">
             <h2 class="logs-main-title">Telemetry &amp; Turn Logs</h2>
-            <p class="logs-sub-title">Live pipeline telemetry, model routing, latency metrics, and retrieved knowledge chunks.</p>
           </div>
           <div class="logs-toolbar-actions">
             <button type="button" class="logs-action-btn" id="logRefreshBtn" title="Refresh history from server">
@@ -336,30 +335,6 @@
           </div>
         </div>
 
-        <!-- 4 KPI Cards: Models & Latency Overview -->
-        <div class="logs-kpis-grid">
-          <div class="log-kpi-card">
-            <span class="kpi-label">Speech Recognition (ASR)</span>
-            <span class="kpi-value mono" id="logKpiAsr">AssemblyAI Streaming</span>
-            <span class="kpi-note">Universal-Streaming / Conformer-2</span>
-          </div>
-          <div class="log-kpi-card">
-            <span class="kpi-label">LLM Orchestrator</span>
-            <span class="kpi-value mono" id="logKpiLlm">Gemini 2.5 Flash Lite</span>
-            <span class="kpi-note">Function Calling &amp; Strict Schema</span>
-          </div>
-          <div class="log-kpi-card">
-            <span class="kpi-label">Voice Synthesis (TTS)</span>
-            <span class="kpi-value mono" id="logKpiTts">Cartesia Sonic WebSocket</span>
-            <span class="kpi-note">PCM16 Streaming Low-Latency</span>
-          </div>
-          <div class="log-kpi-card">
-            <span class="kpi-label">Latest E2E Latency</span>
-            <span class="kpi-value mono accent-latency" id="logKpiLatency">—</span>
-            <span class="kpi-note">From endpointing to final audio</span>
-          </div>
-        </div>
-
         <!-- Main 2-Column Split: Turn Inspector (Left 60%) + History List (Right 40%) -->
         <div class="logs-body-split">
           <!-- Left Column: Active Turn Inspector & Realtime Console -->
@@ -368,10 +343,6 @@
             <div class="card-glass log-active-card" id="logActiveTurnBox">
               <div class="log-card-header">
                 <div class="log-card-tag">LATEST TURN INSPECTION</div>
-                <div class="log-meta-badges" id="logTurnMetaBadges">
-                  <span class="meta-tag mono">Turn: #ready</span>
-                  <span class="meta-tag">Waiting for speech</span>
-                </div>
               </div>
 
               <!-- Prompt & Response -->

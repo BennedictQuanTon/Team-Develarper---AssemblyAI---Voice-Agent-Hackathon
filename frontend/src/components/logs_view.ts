@@ -14,17 +14,11 @@ export class LogsView {
   private eventLogs: Array<{ time: string; type: string; detail: string; kind: string }> = [];
 
   // DOM sub-elements
-  private kpiAsrEl!: HTMLElement;
-  private kpiLlmEl!: HTMLElement;
-  private kpiTtsEl!: HTMLElement;
-  private kpiLatencyEl!: HTMLElement;
-
   private turnQueryEl!: HTMLElement;
   private turnAnswerEl!: HTMLElement;
   private turnLatencyGridEl!: HTMLElement;
   private turnChunksListEl!: HTMLElement;
   private turnToolsListEl!: HTMLElement;
-  private turnMetaBadgesEl!: HTMLElement;
 
   private eventLogsStreamEl!: HTMLElement;
   private historyListEl!: HTMLElement;
@@ -38,17 +32,11 @@ export class LogsView {
   }
 
   private bindDomElements(): void {
-    this.kpiAsrEl = this.container.querySelector("#logKpiAsr") as HTMLElement;
-    this.kpiLlmEl = this.container.querySelector("#logKpiLlm") as HTMLElement;
-    this.kpiTtsEl = this.container.querySelector("#logKpiTts") as HTMLElement;
-    this.kpiLatencyEl = this.container.querySelector("#logKpiLatency") as HTMLElement;
-
     this.turnQueryEl = this.container.querySelector("#logTurnQuery") as HTMLElement;
     this.turnAnswerEl = this.container.querySelector("#logTurnAnswer") as HTMLElement;
     this.turnLatencyGridEl = this.container.querySelector("#logTurnLatencyGrid") as HTMLElement;
     this.turnChunksListEl = this.container.querySelector("#logTurnChunksList") as HTMLElement;
     this.turnToolsListEl = this.container.querySelector("#logTurnToolsList") as HTMLElement;
-    this.turnMetaBadgesEl = this.container.querySelector("#logTurnMetaBadges") as HTMLElement;
 
     this.eventLogsStreamEl = this.container.querySelector("#logEventStream") as HTMLElement;
     this.historyListEl = this.container.querySelector("#logHistoryList") as HTMLElement;
@@ -84,9 +72,24 @@ export class LogsView {
         if (!this.activeTurn && data[0]) {
           this.setActiveTurn(data[0]);
         }
+      } else {
+        if (this.historyListEl) {
+          this.historyListEl.innerHTML = `
+            <div class="log-empty-state">
+              <span>No past turns recorded yet.</span>
+            </div>
+          `;
+        }
       }
     } catch (err) {
       console.warn("Failed to fetch turns history:", err);
+      if (this.historyListEl) {
+        this.historyListEl.innerHTML = `
+          <div class="log-empty-state">
+            <span>Failed to load turn history.</span>
+          </div>
+        `;
+      }
     }
   }
 
@@ -114,26 +117,7 @@ export class LogsView {
   public setActiveTurn(turn: TurnTelemetry): void {
     this.activeTurn = turn;
 
-    // 1. Update KPI Cards
-    const asrName = turn.provider?.asr || "assemblyai_realtime";
-    const llmName = turn.provider?.llm || "gemini_tools";
-    const ttsName = turn.provider?.tts || "cartesia_websocket";
-    const e2eMs = turn.e2e_turn_ms || turn.timings_ms?.e2e_turn_ms || 0;
-
-    if (this.kpiAsrEl) {
-      this.kpiAsrEl.textContent = this.formatProviderName("asr", asrName);
-    }
-    if (this.kpiLlmEl) {
-      this.kpiLlmEl.textContent = this.formatProviderName("llm", llmName);
-    }
-    if (this.kpiTtsEl) {
-      this.kpiTtsEl.textContent = this.formatProviderName("tts", ttsName);
-    }
-    if (this.kpiLatencyEl) {
-      this.kpiLatencyEl.textContent = e2eMs > 0 ? `${Math.round(e2eMs)} ms` : "—";
-    }
-
-    // 2. Update Query & Answer
+    // 1. Update Query & Answer
     if (this.turnQueryEl) {
       this.turnQueryEl.textContent = turn.query || turn.transcript || "—";
     }
@@ -141,17 +125,14 @@ export class LogsView {
       this.turnAnswerEl.textContent = turn.answer || "—";
     }
 
-    // 3. Update Latency Breakdown Grid
+    // 2. Update Latency Breakdown Grid
     this.renderLatencyBreakdown(turn);
 
-    // 4. Update Knowledge Chunks (sử dụng chunk gì gì gì)
+    // 3. Update Knowledge Chunks (sử dụng chunk gì gì gì)
     this.renderChunks(turn);
 
-    // 5. Update Tool Calls (nếu là Waiter mode)
+    // 4. Update Tool Calls (nếu là Waiter mode)
     this.renderToolCalls(turn);
-
-    // 6. Update Meta Badges
-    this.renderMetaBadges(turn);
 
     // Highlight active card in history list
     this.highlightActiveHistoryItem(turn.turn_id);
@@ -230,7 +211,7 @@ export class LogsView {
     if (tools.length === 0) {
       this.turnToolsListEl.innerHTML = `
         <div class="log-empty-state">
-          <span>No tools invoked during this turn.</span>
+          <span>No tool calls in current turn.</span>
         </div>
       `;
       return;
@@ -245,21 +226,6 @@ export class LogsView {
         <pre class="tool-args mono">${this.escapeHtml(JSON.stringify(t.args, null, 2))}</pre>
       </div>
     `).join("");
-  }
-
-  private renderMetaBadges(turn: TurnTelemetry): void {
-    if (!this.turnMetaBadgesEl) return;
-    const turnId = turn.turn_id ? turn.turn_id.slice(0, 10) : "live";
-    const cacheHit = turn.cache?.retrieval_cache_hit ? "Retrieval Cache: HIT" : "Retrieval Cache: MISS";
-    const profile = turn.profile || "friendly_guide";
-    const timestamp = turn.timestamp ? new Date(turn.timestamp).toLocaleTimeString() : "Just now";
-
-    this.turnMetaBadgesEl.innerHTML = `
-      <span class="meta-tag mono">Turn: #${turnId}</span>
-      <span class="meta-tag ${turn.cache?.retrieval_cache_hit ? 'tag-success' : ''}">${cacheHit}</span>
-      <span class="meta-tag">Profile: ${this.escapeHtml(profile)}</span>
-      <span class="meta-tag">${timestamp}</span>
-    `;
   }
 
   private renderEventStream(): void {
@@ -291,7 +257,7 @@ export class LogsView {
     if (this.turnsHistory.length === 0) {
       this.historyListEl.innerHTML = `
         <div class="log-empty-state">
-          <span>No past turns found in turns.jsonl</span>
+          <span>No past turns recorded yet.</span>
         </div>
       `;
       return;
@@ -347,22 +313,6 @@ export class LogsView {
         card.classList.remove("selected");
       }
     });
-  }
-
-  private formatProviderName(kind: "asr" | "llm" | "tts", name: string): string {
-    if (kind === "asr") {
-      if (name.includes("assemblyai")) return "AssemblyAI Streaming";
-      return name;
-    }
-    if (kind === "llm") {
-      if (name.includes("gemini")) return "Gemini 2.5 Flash Lite";
-      return name;
-    }
-    if (kind === "tts") {
-      if (name.includes("cartesia")) return "Cartesia Sonic WebSocket";
-      return name;
-    }
-    return name;
   }
 
   private escapeHtml(str: string): string {
