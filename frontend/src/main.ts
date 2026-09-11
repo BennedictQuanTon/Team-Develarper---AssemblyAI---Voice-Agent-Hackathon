@@ -25,7 +25,7 @@ class LanternApp {
   private opsView: OpsView;
 
   private statusDot: HTMLElement;
-  private statusText: HTMLElement;
+  private statusText: HTMLElement | null = null;
   private tabGuestBtn: HTMLButtonElement;
   private tabOpsBtn: HTMLButtonElement;
   private viewGuestPanel: HTMLElement;
@@ -36,7 +36,7 @@ class LanternApp {
   constructor() {
     // DOM Elements
     this.statusDot = document.getElementById("statusDot")!;
-    this.statusText = document.getElementById("statusText")!;
+    this.statusText = document.getElementById("statusText");
     this.tabGuestBtn = document.getElementById("tabGuest") as HTMLButtonElement;
     this.tabOpsBtn = document.getElementById("tabOps") as HTMLButtonElement;
     this.viewGuestPanel = document.getElementById("viewGuest")!;
@@ -109,18 +109,18 @@ class LanternApp {
 
     this.voiceService.onOpen = () => {
       this.statusDot.className = "status-dot live";
-      this.statusText.textContent = "Live";
+      if (this.statusText) this.statusText.textContent = "Live";
     };
 
     this.voiceService.onClose = () => {
       this.statusDot.className = "status-dot";
-      this.statusText.textContent = "Disconnected";
+      if (this.statusText) this.statusText.textContent = "Disconnected";
       this.stopVoiceSession();
     };
 
     this.voiceService.onError = () => {
       this.statusDot.className = "status-dot error";
-      this.statusText.textContent = "Error";
+      if (this.statusText) this.statusText.textContent = "Error";
     };
 
     this.voiceService.onMessage = (msg) => {
@@ -181,7 +181,7 @@ class LanternApp {
     } catch (err) {
       console.error("Failed to start voice session:", err);
       this.statusDot.className = "status-dot error";
-      this.statusText.textContent = "Mic Error";
+      if (this.statusText) this.statusText.textContent = "Mic Error";
     }
   }
 

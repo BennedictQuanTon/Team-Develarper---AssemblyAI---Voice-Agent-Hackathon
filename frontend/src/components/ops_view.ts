@@ -53,10 +53,10 @@ export class OpsView {
     for (const table of tables) {
       const card = document.createElement("div");
       card.className = `table-card ${table.status}`;
-      const statusText = table.status === "free" ? "Trống" : "Có khách";
+      const statusText = table.status === "free" ? "Available" : "Occupied";
       card.innerHTML = `
-        <div class="table-number">${table.name}</div>
-        <div class="table-seats">${table.seats} chỗ ngồi</div>
+        <div class="table-number">Table ${table.name}</div>
+        <div class="table-seats">${table.seats} Seats</div>
         <span class="table-status-pill ${table.status}">${statusText}</span>
       `;
 
@@ -76,7 +76,7 @@ export class OpsView {
     this.menuList.innerHTML = "";
 
     if (items.length === 0) {
-      this.menuList.innerHTML = '<p style="padding: 16px; color: var(--content-tertiary)">Không có món ăn nào.</p>';
+      this.menuList.innerHTML = '<p style="padding: 16px; color: var(--content-tertiary)">No menu items available.</p>';
       return;
     }
 
@@ -100,8 +100,8 @@ export class OpsView {
 
       const toggleBtn = document.createElement("button");
       toggleBtn.className = `btn-86 ${item.available ? "active" : "off"}`;
-      toggleBtn.textContent = item.available ? "Còn hàng" : "Hết món (86)";
-      toggleBtn.setAttribute("aria-label", `Chuyển trạng thái món ${item.name}`);
+      toggleBtn.textContent = item.available ? "Available" : "86'd";
+      toggleBtn.setAttribute("aria-label", `Toggle availability for ${item.name}`);
 
       toggleBtn.addEventListener("click", (e) => {
         e.stopPropagation();

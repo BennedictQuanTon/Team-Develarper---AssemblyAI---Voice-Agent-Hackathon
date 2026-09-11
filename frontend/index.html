@@ -1,47 +1,47 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="color-scheme" content="light dark" />
-  <title>The Lantern · Trợ Lý Gọi Món Bằng Giọng Nói</title>
+  <meta name="color-scheme" content="light" />
+  <title>The Lantern · Fine Dining Voice Concierge</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Code+Pro:wght@400;500&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <!-- Apple Liquid Glass Floating Header -->
+  <!-- ThoughtStream Minimalist Top Navigation Header -->
   <header class="apple-header">
     <div class="header-brand">
       <span class="brand-dot" aria-hidden="true"></span>
       <span>The Lantern</span>
     </div>
 
-    <!-- Apple Segmented Tab Control -->
-    <nav class="segmented-control" role="tablist" aria-label="Chế độ hiển thị">
+    <!-- Minimal Filter Chip Navigation -->
+    <nav class="segmented-control" role="tablist" aria-label="Views">
       <button type="button" class="segment-btn" id="tabGuest" role="tab" aria-selected="true" aria-controls="viewGuest">
-        Khách Hàng
+        Dining Concierge
       </button>
       <button type="button" class="segment-btn" id="tabOps" role="tab" aria-selected="false" aria-controls="viewOps">
-        Điều Hành Floor
+        Floor &amp; Menu Ops
       </button>
     </nav>
 
-    <!-- Minimal Connection Status Indicator -->
+    <!-- Discreet Online Dot (Status text removed per user request) -->
     <div class="header-status">
-      <span class="status-dot" id="statusDot" aria-hidden="true"></span>
-      <span id="statusText">Sẵn sàng</span>
+      <span class="status-dot live" id="statusDot" aria-label="System active"></span>
     </div>
   </header>
 
   <!-- Application Main Container -->
   <main class="app-main">
-    <!-- Tab 1: Guest Voice Ordering (Siri Minimalist Stage) -->
+    <!-- Tab 1: Guest Dining Voice Concierge -->
     <section id="viewGuest" class="view-panel active" role="tabpanel" aria-labelledby="tabGuest">
       <div class="guest-stage">
+        <!-- Circular Tactile Microphone & Concentric Sound Stage -->
         <div class="orb-container">
           <canvas id="orbCanvas" class="orb-canvas" width="280" height="280" aria-hidden="true"></canvas>
-          <button id="micBtn" class="apple-mic-btn" type="button" aria-label="Bật micro">
+          <button id="micBtn" class="apple-mic-btn" type="button" aria-label="Start speaking with waiter">
             <svg viewBox="0 0 24 24">
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
               <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
@@ -49,47 +49,87 @@
           </button>
         </div>
 
-        <div class="stage-caption-box">
-          <span id="stageRole" class="stage-role-tag"></span>
-          <p id="stageTranscript" class="stage-transcript empty">
-            Chạm vào biểu tượng micro để bắt đầu gọi món.
-          </p>
+        <!-- Dialogue Stage (Dual speech stream: Guest + AI Concierge) -->
+        <div class="dialogue-stage" id="dialogueStage">
+          <!-- Welcome Greeting (Initial State) -->
+          <div class="welcome-card" id="welcomeCard">
+            <h1 class="welcome-title">Good evening. Welcome to The Lantern.</h1>
+            <p class="welcome-sub">
+              Tap the microphone to order dishes, explore wine pairings, or ask about tonight's culinary specials.
+            </p>
+            <div class="suggestion-chips">
+              <button type="button" class="chip-prompt" data-prompt="What are tonight's specials?">
+                "What are tonight's specials?"
+              </button>
+              <button type="button" class="chip-prompt" data-prompt="I would like to order the Grilled Seabass.">
+                "I'd like to order the Grilled Seabass"
+              </button>
+              <button type="button" class="chip-prompt" data-prompt="What light vegetarian dishes do you have?">
+                "What light vegetarian dishes do you have?"
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Real-time Speech Stream Cards -->
+          <div class="conversation-stream" id="conversationStream" style="display: none;">
+            <!-- Guest Live Voice Stream -->
+            <div class="speech-block guest-speech" id="guestBlock">
+              <div class="speech-header">
+                <span class="speech-role">You · Table Guest</span>
+                <span class="speech-status" id="guestLiveStatus">Listening…</span>
+              </div>
+              <p class="speech-text guest-text" id="guestTranscript">
+                Listening to your order…
+              </p>
+            </div>
+
+            <!-- AI Waiter Spoken Response -->
+            <div class="speech-block agent-speech" id="agentBlock">
+              <div class="speech-header">
+                <span class="speech-role">The Lantern · Waiter &amp; Sommelier</span>
+                <span class="speech-status" id="agentLiveStatus">Responding…</span>
+              </div>
+              <p class="speech-text agent-text" id="agentTranscript">
+                Your waiter will respond here.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Progressive Live Basket (Discloses automatically when items are ordered) -->
-      <aside id="basketSheet" class="basket-sheet" aria-label="Đơn gọi món trực tiếp">
+      <aside id="basketSheet" class="basket-sheet" aria-label="Table order summary">
         <div class="basket-header">
-          <span class="basket-title">Đơn Gọi Món Trực Tiếp</span>
+          <span class="basket-title">Your Table Order</span>
           <span class="basket-badge">Live</span>
         </div>
         <div id="basketList" class="basket-items-list"></div>
         <div class="basket-footer">
-          <span>Tổng cộng</span>
+          <span>Subtotal</span>
           <span id="basketTotal">$0.00</span>
         </div>
       </aside>
     </section>
 
-    <!-- Tab 2: Restaurant Floor & Menu Operations (Direct Backend Sync) -->
+    <!-- Tab 2: Restaurant Floor & Menu Operations -->
     <section id="viewOps" class="view-panel" role="tabpanel" aria-labelledby="tabOps">
       <div class="ops-container">
         <!-- Floor Status Header -->
         <div class="section-header">
-          <h2 class="section-title">Trạng Thái Sảnh & Bàn Ăn</h2>
+          <h2 class="section-title">Floor &amp; Table Operations</h2>
           <div class="metric-summary-bar">
-            <div class="metric-pill">Bàn trống: <strong id="mFree">0</strong></div>
-            <div class="metric-pill">Đang phục vụ: <strong id="mSeated">0</strong></div>
-            <div class="metric-pill">Món tạm hết: <strong id="m86">0</strong></div>
+            <div class="metric-pill">Tables free: <strong id="mFree">0</strong></div>
+            <div class="metric-pill">Seated: <strong id="mSeated">0</strong></div>
+            <div class="metric-pill">86'd items: <strong id="m86">0</strong></div>
           </div>
         </div>
 
         <!-- Realtime Floor Tables Grid -->
-        <div id="floorGrid" class="floor-grid" aria-label="Danh sách bàn ăn"></div>
+        <div id="floorGrid" class="floor-grid" aria-label="Floor tables layout"></div>
 
         <!-- 86-Inventory Realtime Menu Availability -->
-        <div class="section-header" style="margin-top: 24px;">
-          <h2 class="section-title">Thực Đơn & Quản Lý Tồn Kho (86)</h2>
+        <div class="section-header" style="margin-top: 36px;">
+          <h2 class="section-title">Menu &amp; Inventory Control (86)</h2>
         </div>
         <div class="menu-inventory-card">
           <div id="menuList" class="menu-inventory-list"></div>
