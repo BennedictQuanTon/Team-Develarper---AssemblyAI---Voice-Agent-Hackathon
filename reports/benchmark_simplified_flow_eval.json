@@ -1,0 +1,147 @@
+{
+  "timestamp": "2026-09-12T05:18:40Z",
+  "scenario": "simplified_2_turn_flow",
+  "language": "en",
+  "turns_completed": 2,
+  "intent_accuracy_percentage": "100.0%",
+  "audio_context_fit_all_ok": true,
+  "business_logic": {
+    "turn1_recommendation_ok": false,
+    "turn2_order_placed_ok": true,
+    "turn2_modifier_applied_ok": true,
+    "final_basket_count": 1,
+    "final_basket_items": [
+      "Grilled Seabass"
+    ]
+  },
+  "latency_summary_ms": {
+    "avg_asr_ms": 882.08,
+    "avg_perceived_ttfb_ms": 1009.25,
+    "avg_actual_gemini_ttfb_ms": 11634.09,
+    "avg_e2e_ms": 12411.89,
+    "wall_clock_seconds": 34.44
+  },
+  "comparison_vs_yesterday": {
+    "yesterday_avg_ttfb_ms": 42920.0,
+    "yesterday_avg_e2e_ms": 43888.0,
+    "perceived_latency_reduction_percentage": "97.6%",
+    "perceived_speedup_factor": "42.5x faster",
+    "gemini_speedup_factor": "3.7x faster"
+  },
+  "turn_details": [
+    {
+      "turn": 1,
+      "phase": "Phase 1: Specialty Inquiry",
+      "query": "What are your house specialties here?",
+      "expected_intent": "case_specialty_rec",
+      "detected_filler_case": "case_specialty_rec",
+      "expected_filler_spoken": "Let me check our house specialties for you right now.",
+      "intent_correct": true,
+      "context_fit": {
+        "intent_correct": true,
+        "fit_score": 1.0,
+        "fit_rating": "EXCELLENT",
+        "fit_reason": "Customer asked for house specialties/recommendations; waiter immediately acknowledged by looking up signature dishes."
+      },
+      "asr_latency_ms": 863.15,
+      "perceived_ttfb_ms": 1088.5,
+      "actual_gemini_ttfb_ms": 3830.05,
+      "e2e_ms": 4645.81,
+      "reply_text": "Our house specialties include the grilled seabass and the tamarind river prawns.",
+      "tools_called": [],
+      "tools_called_names": [],
+      "basket_state": {
+        "basket": [],
+        "total": 0,
+        "ticket_type": "dine_in",
+        "table_id": null,
+        "party_size": 2,
+        "guest_tags": [],
+        "mentioned": [
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass"
+          }
+        ],
+        "placed": false
+      }
+    },
+    {
+      "turn": 2,
+      "phase": "Phase 2: Order & Modifier & Place",
+      "query": "I'll take the first one with no green onions, please place the order.",
+      "expected_intent": "case_order_process",
+      "detected_filler_case": "case_order_process",
+      "expected_filler_spoken": "Sure thing, putting that into the system for you.",
+      "intent_correct": true,
+      "context_fit": {
+        "intent_correct": true,
+        "fit_score": 1.0,
+        "fit_rating": "EXCELLENT",
+        "fit_reason": "Customer requested to order the first dish with a modifier; waiter immediately confirmed placing/processing into the system."
+      },
+      "asr_latency_ms": 901.01,
+      "perceived_ttfb_ms": 930.0,
+      "actual_gemini_ttfb_ms": 19438.14,
+      "e2e_ms": 20177.96,
+      "reply_text": "Your order for one Grilled Seabass without green onions is now placed.",
+      "tools_called": [
+        {
+          "tool": "add_items_from_mention",
+          "args": {
+            "ref": "the first"
+          }
+        },
+        {
+          "tool": "set_modifier",
+          "args": {
+            "line_or_sku": "MAIN_SEABASS",
+            "modifiers": [
+              "no green onions"
+            ]
+          }
+        },
+        {
+          "tool": "readback",
+          "args": {}
+        },
+        {
+          "tool": "place_order",
+          "args": {}
+        }
+      ],
+      "tools_called_names": [
+        "add_items_from_mention",
+        "set_modifier",
+        "readback",
+        "place_order"
+      ],
+      "basket_state": {
+        "basket": [
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass",
+            "price": 16.0,
+            "qty": 1,
+            "modifiers": [
+              "no green onions"
+            ],
+            "line_total": 16.0
+          }
+        ],
+        "total": 16.0,
+        "ticket_type": "dine_in",
+        "table_id": "T1",
+        "party_size": 2,
+        "guest_tags": [],
+        "mentioned": [
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass"
+          }
+        ],
+        "placed": true
+      }
+    }
+  ]
+}

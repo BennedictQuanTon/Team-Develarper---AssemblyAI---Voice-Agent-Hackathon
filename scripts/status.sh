@@ -19,16 +19,22 @@ if [[ -f "$PID_FILE" ]]; then
         echo "   📊 Status: $HEALTH_INFO"
       fi
     fi
-    exit 0
   fi
-fi
-
-if command -v lsof >/dev/null 2>&1 && lsof -tiTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+elif command -v lsof >/dev/null 2>&1 && lsof -tiTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
   echo "🟡 Port $PORT is occupied (process running without PID file)."
   echo "   Try: ./scripts/stop.sh then ./scripts/start.sh"
-  exit 0
+else
+  echo "🔴 The Lantern backend is NOT running on port $PORT."
+  echo "   Start with: ./scripts/start.sh"
 fi
 
-echo "🔴 The Lantern is NOT running."
-echo "   Start with: ./scripts/start.sh"
-exit 1
+echo "--------------------------------------------------------"
+if curl -s -m 2 "http://localhost:11434/api/tags" >/dev/null 2>&1; then
+  echo "🟢 Ollama Service: RUNNING (http://localhost:11434)"
+  MODELS="$(curl -s "http://localhost:11434/api/tags" 2>/dev/null | grep -o '"name":"[^"]*"' | cut -d '"' -f4 | tr '\n' ', ' | sed 's/,$//')"
+  echo "   🦙 Available models: ${MODELS:-none}"
+else
+  echo "🔴 Ollama Service: NOT running on port 11434"
+fi
+echo "========================================================"
+exit 0

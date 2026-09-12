@@ -44,6 +44,18 @@ if command -v lsof >/dev/null 2>&1; then
   fi
 fi
 
+# 3. Stop Ollama service if started by start.sh
+OLLAMA_PID_FILE="$PID_DIR/ollama.pid"
+if [[ -f "$OLLAMA_PID_FILE" ]]; then
+  OLLAMA_PID="$(cat "$OLLAMA_PID_FILE" 2>/dev/null || true)"
+  if [[ -n "${OLLAMA_PID}" ]] && kill -0 "$OLLAMA_PID" 2>/dev/null; then
+    kill "$OLLAMA_PID" 2>/dev/null || true
+    echo "🦙 Stopped project-managed Ollama service (PID: $OLLAMA_PID)"
+    stopped=1
+  fi
+  rm -f "$OLLAMA_PID_FILE"
+fi
+
 if [[ "$stopped" -eq 0 ]]; then
   echo "ℹ️ No running server found on port $PORT."
 else

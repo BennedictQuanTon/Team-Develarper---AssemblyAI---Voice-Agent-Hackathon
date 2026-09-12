@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "sample_rate": 16000,
   "clips": [
     {
@@ -36,6 +36,34 @@
       "label": "Anytime. Enjoy Da Nang.",
       "when": "session farewell",
       "duration_s": 1.982
+    },
+    {
+      "id": "case_dish_check",
+      "file": "/static/audio/backchannels/dish_check.wav",
+      "label": "Let me check the kitchen if that dish is available.",
+      "when": "checking menu or dish availability",
+      "duration_s": 2.41
+    },
+    {
+      "id": "case_table_check",
+      "file": "/static/audio/backchannels/table_check.wav",
+      "label": "Checking our floor plan for an open table for you.",
+      "when": "checking table or seating availability",
+      "duration_s": 2.41
+    },
+    {
+      "id": "case_order_process",
+      "file": "/static/audio/backchannels/order_process.wav",
+      "label": "Sure thing, putting that into the system for you.",
+      "when": "adding items, setting modifiers, or placing orders",
+      "duration_s": 2.41
+    },
+    {
+      "id": "case_specialty_rec",
+      "file": "/static/audio/backchannels/specialty_rec.wav",
+      "label": "Let me check our house specialties for you right now.",
+      "when": "asking for house specialties or recommendations",
+      "duration_s": 2.60
     }
   ]
 }
