@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     agent_mode: str = "waiter"  # waiter | rag (legacy travel FAQ)
     gemini_model: str = "gemini-3.5-flash-lite"
     gemini_rpm: int = 15  # per-minute request cap for the free/tiered Gemini plan
+    llm_provider: str = "gemini"  # gemini | ollama
+    ollama_model: str = "qwen2.5:3b"
+    ollama_base_url: str = "http://localhost:11434"
     assemblyai_speech_model: str = "universal-3-5-pro"
     assemblyai_mode: str = "min_latency"
 

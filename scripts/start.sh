@@ -60,7 +60,52 @@ if command -v lsof >/dev/null 2>&1; then
   fi
 fi
 
-# 6. Launch Uvicorn in background
+# 6. Check & Launch Ollama Service (if using local LLM)
+LLM_PROVIDER_CFG="$(grep -E '^LLM_PROVIDER=' "$ROOT/.env" 2>/dev/null | cut -d '=' -f2 | tr -d ' "' || echo "ollama")"
+OLLAMA_MODEL_CFG="$(grep -E '^OLLAMA_MODEL=' "$ROOT/.env" 2>/dev/null | cut -d '=' -f2 | tr -d ' "' || echo "qwen2.5:3b")"
+OLLAMA_BASE_URL_CFG="$(grep -E '^OLLAMA_BASE_URL=' "$ROOT/.env" 2>/dev/null | cut -d '=' -f2 | tr -d ' "' || echo "http://localhost:11434")"
+OLLAMA_PID_FILE="$PID_DIR/ollama.pid"
+OLLAMA_LOG_FILE="$PID_DIR/ollama.log"
+
+if [[ "${LLM_PROVIDER_CFG:-ollama}" == "ollama" ]]; then
+  echo -n "🦙 Checking Ollama service (${OLLAMA_BASE_URL_CFG})..."
+  if curl -s -m 2 "${OLLAMA_BASE_URL_CFG}/api/tags" >/dev/null 2>&1; then
+    echo " Running!"
+  else
+    echo " Not running."
+    if command -v ollama >/dev/null 2>&1; then
+      echo "🚀 Starting Ollama daemon in background..."
+      nohup ollama serve >"$OLLAMA_LOG_FILE" 2>&1 &
+      OLLAMA_PID=$!
+      echo "$OLLAMA_PID" >"$OLLAMA_PID_FILE"
+
+      # Wait up to 10s for Ollama to become ready
+      for _ in {1..20}; do
+        if curl -s -m 1 "${OLLAMA_BASE_URL_CFG}/api/tags" >/dev/null 2>&1; then
+          echo "✅ Ollama started successfully (PID: $OLLAMA_PID)."
+          break
+        fi
+        sleep 0.5
+      done
+    else
+      echo "⚠️ 'ollama' binary not found in PATH."
+      echo "   Please install Ollama from https://ollama.com to use local models."
+    fi
+  fi
+
+  # Verify model presence
+  if curl -s -m 2 "${OLLAMA_BASE_URL_CFG}/api/tags" >/dev/null 2>&1; then
+    if ! curl -s "${OLLAMA_BASE_URL_CFG}/api/tags" | grep -q "${OLLAMA_MODEL_CFG}"; then
+      echo "📥 Model '${OLLAMA_MODEL_CFG}' not found in Ollama. Pulling now..."
+      ollama pull "${OLLAMA_MODEL_CFG}"
+      echo "✅ Model '${OLLAMA_MODEL_CFG}' downloaded successfully."
+    else
+      echo "✅ Model '${OLLAMA_MODEL_CFG}' is ready in Ollama."
+    fi
+  fi
+fi
+
+# 7. Launch Uvicorn in background
 source "$ROOT/.venv/bin/activate"
 export PYTHONPATH="$ROOT"
 
@@ -83,6 +128,7 @@ for _ in {1..10}; do
       echo "========================================================"
       echo " 🌐 Web UI:     http://${HOST}:${PORT}/"
       echo " 🩺 Health:     http://${HOST}:${PORT}/health"
+      echo " 🦙 LLM Engine: ${LLM_PROVIDER_CFG} (${OLLAMA_MODEL_CFG})"
       echo " 📋 Logs:       tail -f .run/uvicorn.log"
       echo " 🛑 Stop:       ./scripts/stop.sh"
       echo "========================================================"

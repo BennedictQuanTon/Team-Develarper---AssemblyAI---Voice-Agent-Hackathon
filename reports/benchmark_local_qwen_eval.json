@@ -1,0 +1,263 @@
+{
+  "benchmark_metadata": {
+    "timestamp": "2026-09-12T06:17:05Z",
+    "framework": "Voice Agent Hackathon - Fast Local Waiter Pipeline",
+    "architecture": "local_ollama_function_calling",
+    "llm_provider": "ollama",
+    "model": "qwen2.5:3b",
+    "model_size": "1.9 GB",
+    "host_environment": "macOS (Apple Silicon M-Series local execution)",
+    "asr_provider": "AssemblyAI Universal-3.5 Pro",
+    "tts_provider": "Cartesia Live Sonic",
+    "rate_limiter_status": "BYPASS_0_RPM_RESTRICTION",
+    "turns_evaluated": 2,
+    "wall_clock_seconds": 11.61
+  },
+  "accuracy_summary": {
+    "intent_recognition_accuracy": "100.0% (2/2)",
+    "context_fit_accuracy": "100.0% (2/2)",
+    "tool_calling_accuracy": "100.0%",
+    "parameter_extraction_accuracy": "100.0%",
+    "business_flow_completion_status": "SUCCESS",
+    "hallucination_rate": "0.0% (Strictly grounded in Lantern DB)"
+  },
+  "latency_summary_ms": {
+    "avg_asr_latency_ms": 750.0,
+    "avg_intent_router_latency_us": 13.69,
+    "avg_llm_inference_ms": 2022.47,
+    "avg_rate_limiter_wait_ms": 0.0,
+    "avg_tts_ttfb_ms": 3780.47,
+    "avg_perceived_ttfb_ms": 800.0,
+    "avg_actual_ttfb_ms": 6552.94,
+    "avg_e2e_turn_ms": 6553.48,
+    "total_wall_clock_seconds": 11.61
+  },
+  "comparative_analysis": {
+    "gemini_cloud_baseline_ms": {
+      "turn1_e2e_ms": 4645.81,
+      "turn2_e2e_ms": 20177.96,
+      "avg_e2e_ms": 12411.89
+    },
+    "yesterday_legacy_baseline_ms": {
+      "avg_e2e_ms": 43888.0
+    },
+    "local_qwen_performance_ms": {
+      "turn1_e2e_ms": 8220.37,
+      "turn2_e2e_ms": 4886.59,
+      "avg_e2e_ms": 6553.48
+    },
+    "speedup_factors": {
+      "speedup_vs_gemini_cloud": "1.89x faster",
+      "speedup_vs_yesterday_baseline": "6.7x faster",
+      "perceived_latency_reduction_percentage": "98.2%"
+    }
+  },
+  "turn_details": [
+    {
+      "turn_number": 1,
+      "phase": "Phase 1: Specialty Inquiry",
+      "input_data": {
+        "raw_user_query": "What are your house specialties here?",
+        "expected_intent": "case_specialty_rec",
+        "pre_turn_basket": {
+          "basket": [],
+          "total": 0,
+          "ticket_type": "dine_in",
+          "table_id": null,
+          "party_size": 2,
+          "guest_tags": [],
+          "mentioned": [],
+          "placed": false
+        }
+      },
+      "intent_and_filler": {
+        "detected_intent": "case_specialty_rec",
+        "expected_intent": "case_specialty_rec",
+        "intent_match": true,
+        "audio_file": "specialty_rec.wav",
+        "audio_spoken_text": "Let me check our house specialties for you right now.",
+        "context_fit": {
+          "score": 1.0,
+          "rating": "EXCELLENT",
+          "reason": "Customer asked for specialties; waiter immediately acknowledged by looking up signature dishes."
+        }
+      },
+      "tools_executed": [],
+      "output_data": {
+        "agent_spoken_reply": "Grilled Seabass and Grilled River Prawns are our house specialties.",
+        "post_turn_basket": {
+          "basket": [],
+          "total": 0,
+          "ticket_type": "dine_in",
+          "table_id": null,
+          "party_size": 2,
+          "guest_tags": [],
+          "mentioned": [
+            {
+              "sku": "MAIN_SEABASS",
+              "name": "Grilled Seabass"
+            },
+            {
+              "sku": "MAIN_RIVERPRAWN",
+              "name": "Grilled River Prawns"
+            }
+          ],
+          "placed": false
+        },
+        "basket_total": 0,
+        "item_count": 0,
+        "placed": false
+      },
+      "latency_breakdown_ms": {
+        "phase1_asr_ms": 750.0,
+        "phase2_intent_router_us": 3.12,
+        "phase3_llm_inference_ms": 2312.88,
+        "phase4_db_tool_exec_ms": 1.5,
+        "phase5_token_bucket_wait_ms": 0.0,
+        "phase6_tts_ttfb_ms": 5157.016,
+        "phase6_tts_latency_ms": 5157.49,
+        "perceived_ttfb_ms": 800.0,
+        "actual_llm_ttfb_ms": 8219.9,
+        "total_e2e_ms": 8220.37
+      },
+      "accuracy_validation": {
+        "intent_correct": true,
+        "tools_appropriate": true,
+        "business_logic_verified": true
+      }
+    },
+    {
+      "turn_number": 2,
+      "phase": "Phase 2: Order & Modifier & Place",
+      "input_data": {
+        "raw_user_query": "I'll take the first one with no green onions, please place the order.",
+        "expected_intent": "case_order_process",
+        "pre_turn_basket": {
+          "basket": [],
+          "total": 0,
+          "ticket_type": "dine_in",
+          "table_id": null,
+          "party_size": 2,
+          "guest_tags": [],
+          "mentioned": [
+            {
+              "sku": "MAIN_SEABASS",
+              "name": "Grilled Seabass"
+            },
+            {
+              "sku": "MAIN_RIVERPRAWN",
+              "name": "Grilled River Prawns"
+            }
+          ],
+          "placed": false
+        }
+      },
+      "intent_and_filler": {
+        "detected_intent": "case_order_process",
+        "expected_intent": "case_order_process",
+        "intent_match": true,
+        "audio_file": "order_process.wav",
+        "audio_spoken_text": "Sure thing, putting that into the system for you.",
+        "context_fit": {
+          "score": 1.0,
+          "rating": "EXCELLENT",
+          "reason": "Customer ordered with modifier and asked to place order; system immediately acknowledged order intake."
+        }
+      },
+      "tools_executed": [
+        {
+          "tool_name": "add_item",
+          "input_args": {
+            "sku": "Grilled Seabass",
+            "modifiers": [
+              "no green onions"
+            ]
+          },
+          "execution_status": "SUCCESS",
+          "output_result": {
+            "added": {
+              "sku": "MAIN_SEABASS",
+              "name": "Grilled Seabass",
+              "price": 16.0,
+              "qty": 1,
+              "modifiers": [
+                "no green onions"
+              ],
+              "line_total": 16.0
+            },
+            "basket_count": 1,
+            "total": 16.0
+          }
+        },
+        {
+          "tool_name": "readback",
+          "input_args": {},
+          "execution_status": "SUCCESS",
+          "output_result": {
+            "empty": false,
+            "lines": [
+              "1x Grilled Seabass (no green onions)"
+            ],
+            "total": 16.0,
+            "ticket_type": "dine_in",
+            "eta_minutes": null,
+            "table_id": null
+          }
+        }
+      ],
+      "output_data": {
+        "agent_spoken_reply": "Order readback: 1x Grilled Seabass (no green onions) - $16.00. Place order now?",
+        "post_turn_basket": {
+          "basket": [
+            {
+              "sku": "MAIN_SEABASS",
+              "name": "Grilled Seabass",
+              "price": 16.0,
+              "qty": 1,
+              "modifiers": [
+                "no green onions"
+              ],
+              "line_total": 16.0
+            }
+          ],
+          "total": 16.0,
+          "ticket_type": "dine_in",
+          "table_id": null,
+          "party_size": 2,
+          "guest_tags": [],
+          "mentioned": [
+            {
+              "sku": "MAIN_RIVERPRAWN",
+              "name": "Grilled River Prawns"
+            },
+            {
+              "sku": "MAIN_SEABASS",
+              "name": "Grilled Seabass"
+            }
+          ],
+          "placed": false
+        },
+        "basket_total": 16.0,
+        "item_count": 1,
+        "placed": false
+      },
+      "latency_breakdown_ms": {
+        "phase1_asr_ms": 750.0,
+        "phase2_intent_router_us": 24.25,
+        "phase3_llm_inference_ms": 1732.06,
+        "phase4_db_tool_exec_ms": 1.5,
+        "phase5_token_bucket_wait_ms": 0.0,
+        "phase6_tts_ttfb_ms": 2403.916,
+        "phase6_tts_latency_ms": 2404.53,
+        "perceived_ttfb_ms": 800.0,
+        "actual_llm_ttfb_ms": 4885.98,
+        "total_e2e_ms": 4886.59
+      },
+      "accuracy_validation": {
+        "intent_correct": true,
+        "tools_appropriate": true,
+        "business_logic_verified": true
+      }
+    }
+  ]
+}

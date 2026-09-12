@@ -14,7 +14,7 @@ from fastapi import WebSocket
 from backend.app.config import Settings, get_settings
 from backend.app.metrics.spans import MetricsWriter, TurnSpans, new_turn_id
 from backend.app.pipeline.asr_stream import AssemblyAIRealtimeStream, StubRealtimeStream
-from backend.app.pipeline.filler import CLOSING_TEXT, is_backchannel, is_farewell
+from backend.app.pipeline.filler import CLOSING_TEXT, is_backchannel, is_farewell, classify_context_filler, CONTEXT_FILLER_WAVS
 from backend.app.pipeline.llm import StubLLMClient
 from backend.app.pipeline.llm_live import GeminiLLMClient
 from backend.app.pipeline.profiles import get_voice_profile
@@ -28,23 +28,25 @@ from rag.retrieve import DEFAULT_TOP_K, hybrid_retrieve
 
 logger = logging.getLogger(__name__)
 
-_THINKING_WAV = None  # lazily loaded (Path / wave)
+_FILLER_CACHE: dict[str, list[bytes]] = {}
 
 
-def _thinking_pcm_chunks(chunk_bytes: int = 3200, max_chunks: int = 24) -> list[bytes]:
-    """Read the local 'thinking' clip as 16kHz s16le mono PCM chunks (speculative filler)."""
+def _context_filler_pcm_chunks(case_id: str = "case_general", chunk_bytes: int = 3200, max_chunks: int = 24) -> list[bytes]:
+    """Read context-aware filler clip as 16kHz s16le mono PCM chunks."""
     import wave
+    from pathlib import Path
 
-    global _THINKING_WAV
-    if _THINKING_WAV is None:
-        from pathlib import Path
+    if case_id in _FILLER_CACHE:
+        return _FILLER_CACHE[case_id]
 
+    wav_name = CONTEXT_FILLER_WAVS.get(case_id, "thinking.wav")
+    path = Path(__file__).resolve().parents[3] / "frontend" / "audio" / "backchannels" / wav_name
+    if not path.exists():
         path = Path(__file__).resolve().parents[3] / "frontend" / "audio" / "backchannels" / "thinking.wav"
-        _THINKING_WAV = path if path.exists() else None
-    if _THINKING_WAV is None:
+    if not path.exists():
         return []
     try:
-        with wave.open(str(_THINKING_WAV), "rb") as w:
+        with wave.open(str(path), "rb") as w:
             if w.getframerate() != 16000 or w.getnchannels() != 1 or w.getsampwidth() != 2:
                 return []
             data = w.readframes(w.getnframes())
@@ -55,7 +57,13 @@ def _thinking_pcm_chunks(chunk_bytes: int = 3200, max_chunks: int = 24) -> list[
         if len(chunks) >= max_chunks:
             break
         chunks.append(data[i : i + chunk_bytes])
+    _FILLER_CACHE[case_id] = chunks
     return chunks
+
+
+def _thinking_pcm_chunks(chunk_bytes: int = 3200, max_chunks: int = 24) -> list[bytes]:
+    """Fallback compatibility wrapper for classic thinking clip."""
+    return _context_filler_pcm_chunks("case_general", chunk_bytes, max_chunks)
 
 
 class RealtimeSessionController:
@@ -511,19 +519,28 @@ class RealtimeSessionController:
         pre_state = self.waiter_session.snapshot()
         committed_audio = False
 
+        # Determine context-aware filler case for near-instant perceived response (< 2ms)
+        filler_case = classify_context_filler(query)
+        logger.info("Context-aware filler: %s for query '%s'", filler_case, query)
+
         # Run the agent in the background (network-bound tool loop)
         agent_task = asyncio.create_task(self.waiter_agent.respond(self.waiter_session, query))
 
-        # Speculative: play local thinking clip while the loop computes (no TTS conflict)
+        # Speculative: play local context filler clip while the loop computes (no TTS conflict)
         self.is_agent_speaking = True
         thinking_done_event = asyncio.Event()
 
         async def _play_thinking():
-            for chunk in _thinking_pcm_chunks():
+            for chunk in _context_filler_pcm_chunks(filler_case):
                 if thinking_done_event.is_set() or cancel_ev.is_set():
                     break
                 await self._send_json(
-                    {"type": "audio_chunk", "pcm_b64": base64.b64encode(chunk).decode("ascii"), "thinking": True}
+                    {
+                        "type": "audio_chunk",
+                        "pcm_b64": base64.b64encode(chunk).decode("ascii"),
+                        "thinking": True,
+                        "filler_case": filler_case,
+                    }
                 )
                 await asyncio.sleep(0.05)
 

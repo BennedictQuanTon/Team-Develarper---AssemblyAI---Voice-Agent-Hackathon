@@ -15,7 +15,7 @@ from backend.app.config import Settings, get_settings
 from backend.app.metrics.spans import MetricsWriter, TurnSpans, new_turn_id
 from backend.app.pipeline.base import ASRClient, LLMClient, TTSClient
 from backend.app.pipeline.factory import build_clients
-from backend.app.pipeline.filler import CLOSING_TEXT, choose_filler_id, is_farewell
+from backend.app.pipeline.filler import CLOSING_TEXT, choose_filler_id, classify_context_filler, is_farewell
 from backend.app.pipeline.profiles import get_voice_profile
 from backend.app.pipeline.session import MAX_TURNS, SessionStore
 from rag.cache import RagCache, cache_key, normalize_query
@@ -134,9 +134,10 @@ class Orchestrator:
         query = stt.text
 
         filler_id = choose_filler_id(query)
+        filler_case = classify_context_filler(query)
         await _emit(
             on_event,
-            {"type": "filler", "filler_id": filler_id, "stage": "processing"},
+            {"type": "filler", "filler_id": filler_id, "filler_case": filler_case, "stage": "processing"},
         )
 
         # Farewell early exit — local closer, no Gemini/Cartesia

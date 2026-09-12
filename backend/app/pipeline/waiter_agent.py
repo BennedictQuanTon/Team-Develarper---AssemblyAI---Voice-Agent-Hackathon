@@ -23,10 +23,16 @@ logger = logging.getLogger(__name__)
 SYSTEM_INSTRUCTION = (
     "You are the friendly voice waiter at The Lantern, a Vietnamese seafood & grill restaurant in Da Nang. "
     "You take orders and recommend dishes over the phone/browser, one short spoken sentence at a time.\n"
+    "House Specialties & Signature Dishes:\n"
+    "- Grilled Seabass ($16.00): Whole char-grilled seabass with lemongrass and lime leaf.\n"
+    "- Grilled River Prawns ($18.00): Large river prawns over charcoal with tamarind glaze.\n"
+    "- Pomelo Salad with Shrimp ($6.50): Crisp pomelo, poached shrimp, roasted peanut.\n"
+    "- Lemongrass Chicken ($9.00): Grilled chicken thigh with jasmine rice.\n"
     "Rules:\n"
-    "- Never invent a price, availability, or allergen. Only use tool results.\n"
+    "- When guests ask for house specialties or recommendations, recommend 1-2 of our signature dishes directly without needing extra tool calls.\n"
+    "- Never invent a price, availability, or allergen not listed above. Only use tool results for unknown items.\n"
     "- If a menu item is sold out (86), do not add it; offer the suggested substitute.\n"
-    "- Resolve 'those two' / 'that one' / 'both' via add_items_from_mention with the exact ref word.\n"
+    "- Resolve 'those two' / 'that one' / 'both' / 'the first' via add_items_from_mention with the exact ref word.\n"
     "- For allergens not on the menu, say you must check the kitchen and do not guess.\n"
     "- Keep every spoken reply under ~25 words, conversational, no markdown, no emoji.\n"
     "- Confirm by reading back the order before place_order.\n"
@@ -222,6 +228,10 @@ class WaiterAgent:
             text = "".join(getattr(p, "text", "") or "" for p in parts).strip()
 
             if not calls:
+                if text:
+                    for it in ss.store.list_menu():
+                        if it.name.lower() in text.lower():
+                            ss._record_mentions([it])
                 return {
                     "reply": text,
                     "tool_calls": tool_log,
@@ -233,7 +243,7 @@ class WaiterAgent:
             for call in calls:
                 name = call.name
                 args = call.args or {}
-                result = self._exec(ss, name, args)
+                result = _exec_waiter_tool(ss, name, args)
                 tool_log.append({"tool": name, "args": args, "result": result})
                 function_parts.append(
                     types.Part.from_function_response(
@@ -250,34 +260,129 @@ class WaiterAgent:
             "basket": ss.snapshot(),
         }
 
-    def _exec(self, ss: WaiterSession, name: str, args: dict[str, Any]) -> dict[str, Any]:
-        try:
-            if name == "search_menu":
-                return ss.search_menu(args.get("query", ""), int(args.get("limit", 5)))
-            if name == "recommend_dishes":
-                return ss.recommend_dishes(args.get("tags", ""), int(args.get("party_size", 2) or 2), int(args.get("limit", 2)))
-            if name == "check_availability":
-                return ss.check_availability(args.get("sku", ""))
-            if name == "add_item":
-                return ss.add_item(args.get("sku", ""), int(args.get("qty", 1) or 1), args.get("modifiers"))
-            if name == "add_items_from_mention":
-                return ss.add_items_from_mention(args.get("ref", ""))
-            if name == "remove_item":
-                return ss.remove_item(args.get("sku_or_name", ""))
-            if name == "set_modifier":
-                return ss.set_modifier(args.get("line_or_sku", ""), args.get("modifiers"))
-            if name == "get_floor":
-                return ss.get_floor()
-            if name == "seat_party":
-                return ss.seat_party(args.get("table_id", ""), int(args.get("party_size", 2) or 2))
-            if name == "readback":
-                return ss.readback()
-            if name == "place_order":
-                return ss.place_order()
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("tool %s error: %s", name, exc)
-            return {"error": str(exc)}
-        return {"error": f"unknown tool {name}"}
+def _exec_waiter_tool(ss: WaiterSession, name: str, args: dict[str, Any]) -> dict[str, Any]:
+    try:
+        if name == "search_menu":
+            return ss.search_menu(args.get("query", ""), int(args.get("limit", 5) or 5))
+        if name == "recommend_dishes":
+            return ss.recommend_dishes(args.get("tags", ""), int(args.get("party_size", 2) or 2), int(args.get("limit", 2) or 2))
+        if name == "check_availability":
+            return ss.check_availability(args.get("sku", ""))
+        if name == "add_item":
+            return ss.add_item(args.get("sku", ""), int(args.get("qty", 1) or 1), args.get("modifiers"))
+        if name == "add_items_from_mention":
+            return ss.add_items_from_mention(args.get("ref", ""))
+        if name == "remove_item":
+            return ss.remove_item(args.get("sku_or_name", ""))
+        if name == "set_modifier":
+            return ss.set_modifier(args.get("line_or_sku", ""), args.get("modifiers"))
+        if name == "get_floor":
+            return ss.get_floor()
+        if name == "seat_party":
+            return ss.seat_party(args.get("table_id", ""), int(args.get("party_size", 2) or 2))
+        if name == "readback":
+            return ss.readback()
+        if name == "place_order":
+            return ss.place_order()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("tool %s error: %s", name, exc)
+        return {"error": str(exc)}
+    return {"error": f"unknown tool {name}"}
+
+
+class OllamaWaiterAgent:
+    """Local Qwen / Ollama-backed function-calling loop with zero cloud latency and no rate limits."""
+
+    def __init__(self, model: str | None = None, base_url: str | None = None) -> None:
+        from backend.app.config import get_settings
+
+        settings = get_settings()
+        self.model = (model or getattr(settings, "ollama_model", "") or "qwen2.5:3b").strip()
+        self.base_url = (base_url or getattr(settings, "ollama_base_url", "") or "http://localhost:11434").rstrip("/")
+        self.available = True
+
+    def _tool_spec(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": s["name"],
+                    "description": s["description"],
+                    "parameters": s["parameters"],
+                },
+            }
+            for s in TOOL_SCHEMAS
+        ]
+
+    async def respond(
+        self,
+        ss: WaiterSession,
+        user_text: str,
+    ) -> dict[str, Any]:
+        import httpx
+
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": SYSTEM_INSTRUCTION},
+            {"role": "user", "content": user_text},
+        ]
+        tool_log: list[dict[str, Any]] = []
+
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            for _ in range(6):
+                payload = {
+                    "model": self.model,
+                    "messages": messages,
+                    "tools": self._tool_spec(),
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.3,
+                        "num_predict": 90,
+                    },
+                }
+                res = await client.post(f"{self.base_url}/api/chat", json=payload)
+                if res.status_code != 200:
+                    raise RuntimeError(f"Ollama API error {res.status_code}: {res.text[:200]}")
+                data = res.json()
+                msg = data.get("message", {})
+                text = (msg.get("content") or "").strip()
+                calls = msg.get("tool_calls") or []
+
+                if not calls:
+                    if text:
+                        for it in ss.store.list_menu():
+                            if it.name.lower() in text.lower():
+                                ss._record_mentions([it])
+                    return {
+                        "reply": text,
+                        "tool_calls": tool_log,
+                        "basket": ss.snapshot(),
+                    }
+
+                # Record assistant tool call turn
+                messages.append(msg)
+
+                # Execute calls and feed results back into context
+                for call in calls:
+                    fn = call.get("function", {})
+                    name = fn.get("name")
+                    args = fn.get("arguments", {})
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args)
+                        except Exception:
+                            args = {}
+                    result = _exec_waiter_tool(ss, name, args)
+                    tool_log.append({"tool": name, "args": args, "result": result})
+                    messages.append({
+                        "role": "tool",
+                        "content": json.dumps(result),
+                    })
+
+        return {
+            "reply": text if text else "Let me read that back for you.",
+            "tool_calls": tool_log,
+            "basket": ss.snapshot(),
+        }
 
 
 class RuleBasedWaiterAgent:
@@ -358,10 +463,14 @@ class RuleBasedWaiterAgent:
             return nums.get(w, 2)
 
 
-def build_waiter_agent() -> WaiterAgent | RuleBasedWaiterAgent:
+def build_waiter_agent(provider: str | None = None) -> WaiterAgent | OllamaWaiterAgent | RuleBasedWaiterAgent:
     from backend.app.config import get_settings
 
     settings = get_settings()
+    p = (provider or getattr(settings, "llm_provider", "") or "gemini").lower()
+    if p == "ollama":
+        return OllamaWaiterAgent()
     if settings.keys_configured.get("gemini"):
         return WaiterAgent()
     return RuleBasedWaiterAgent()
+
