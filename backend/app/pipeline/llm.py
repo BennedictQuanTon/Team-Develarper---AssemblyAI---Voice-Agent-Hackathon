@@ -7,7 +7,7 @@ import time
 from typing import Any, AsyncIterator
 
 from backend.app.pipeline.base import LLMResult
-from rag.retrieve import extractive_answer
+from legacy.travel.rag.retrieve import extractive_answer
 
 
 class StubLLMClient:

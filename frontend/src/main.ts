@@ -1,7 +1,7 @@
 /**
  * Main application orchestrator for The Lantern Voice Agent.
  * Rebuilt completely in TypeScript following Apple Human Interface Guidelines
- * and ThoughtStream Design System (DESIGN.md).
+ * and The Lantern UI Design System (docs/design/ui-design-system.md).
  */
 
 import "./styles/tokens.css";

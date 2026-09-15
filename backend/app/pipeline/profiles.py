@@ -11,6 +11,13 @@ import yaml
 from backend.app.config import get_settings
 
 
+PROFILE_ALIASES = {
+    # Preserve existing local .env files while the canonical profile name is
+    # made specific to the Lantern product.
+    "friendly_guide": "friendly_waiter",
+}
+
+
 @lru_cache
 def _load_profiles(path: str) -> dict[str, Any]:
     with Path(path).open(encoding="utf-8") as handle:
@@ -22,7 +29,8 @@ def get_voice_profile(name: str | None = None) -> dict[str, Any]:
     settings = get_settings()
     data = _load_profiles(str(settings.voice_profiles_path.resolve()))
     profiles = data.get("profiles") or {}
-    chosen = name or settings.voice_profile or data.get("default_profile") or "friendly_guide"
+    requested = name or settings.voice_profile or data.get("default_profile") or "friendly_waiter"
+    chosen = PROFILE_ALIASES.get(requested, requested)
     profile = profiles.get(chosen) or profiles.get(data.get("default_profile")) or {}
     return {
         "name": chosen,

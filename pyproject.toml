@@ -1,0 +1,17 @@
+[project]
+name = "lantern-voice-waiter"
+version = "0.6.0"
+description = "The Lantern real-time voice waiter"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

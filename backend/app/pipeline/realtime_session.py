@@ -21,10 +21,10 @@ from backend.app.pipeline.profiles import get_voice_profile
 from backend.app.pipeline.session import MAX_TURNS, SessionStore
 from backend.app.pipeline.tts_stream import CartesiaStreamingTTS, StubStreamingTTS
 from backend.app.pipeline.waiter_agent import build_waiter_agent
-from backend.app.domain.lantern import get_lantern_store
-from backend.app.domain.waiter import WaiterSession
-from rag.cache import RagCache
-from rag.retrieve import DEFAULT_TOP_K, hybrid_retrieve
+from backend.app.domain.restaurant.order_session import WaiterSession
+from backend.app.domain.restaurant.store import get_lantern_store
+from legacy.travel.rag.cache import RagCache
+from legacy.travel.rag.retrieve import DEFAULT_TOP_K, hybrid_retrieve
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +40,9 @@ def _context_filler_pcm_chunks(case_id: str = "case_general", chunk_bytes: int =
         return _FILLER_CACHE[case_id]
 
     wav_name = CONTEXT_FILLER_WAVS.get(case_id, "thinking.wav")
-    path = Path(__file__).resolve().parents[3] / "frontend" / "audio" / "backchannels" / wav_name
+    path = Path(__file__).resolve().parents[3] / "frontend" / "public" / "audio" / "backchannels" / wav_name
     if not path.exists():
-        path = Path(__file__).resolve().parents[3] / "frontend" / "audio" / "backchannels" / "thinking.wav"
+        path = Path(__file__).resolve().parents[3] / "frontend" / "public" / "audio" / "backchannels" / "thinking.wav"
     if not path.exists():
         return []
     try:

@@ -13,8 +13,8 @@ import json
 import logging
 from typing import Any
 
-from backend.app.domain.lantern import get_lantern_store
-from backend.app.domain.waiter import WaiterSession
+from backend.app.domain.restaurant.order_session import WaiterSession
+from backend.app.domain.restaurant.store import get_lantern_store
 from backend.app.pipeline.llm_live import _gemini_limiter
 from backend.app.pipeline.llm_live import AsyncTokenBucket  # re-export for typing convenience
 
@@ -473,4 +473,3 @@ def build_waiter_agent(provider: str | None = None) -> WaiterAgent | OllamaWaite
     if settings.keys_configured.get("gemini"):
         return WaiterAgent()
     return RuleBasedWaiterAgent()
-

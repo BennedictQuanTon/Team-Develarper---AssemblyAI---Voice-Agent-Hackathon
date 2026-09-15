@@ -1,5 +1,5 @@
 /**
- * Design Tokens strictly adhering to DESIGN.md (ThoughtStream Design System).
+ * Design tokens for The Lantern UI Design System.
  * Minimal, zen, distraction-free, completely flat with generous whitespace.
  */
 
@@ -30,7 +30,7 @@
   --color-error: #DC2626;
   --color-info: #78716C;
 
-  /* Status Chips (DESIGN.md) */
+  /* Status chips */
   --chip-success-bg: #F0FDF4;
   --chip-success-text: #65A30D;
   --chip-success-border: #BBF7D0;
@@ -48,11 +48,11 @@
   --font-text: "Inter", -apple-system, "Segoe UI", Helvetica, sans-serif;
   --font-mono: "Libre Baskerville", Georgia, "Times New Roman", serif;
 
-  /* Border Radius: Completely flat 0px everywhere per DESIGN.md */
+  /* Border radius: completely flat 0px everywhere */
   --radius-none: 0px;
   --radius-avatar: 9999px; /* Avatars and status dot only */
 
-  /* Shadows: Completely flat per DESIGN.md */
+  /* Shadows: completely flat */
   --shadow-none: none;
   --focus-ring: 0 0 0 2px #FAFAF9, 0 0 0 4px #78716C;
 

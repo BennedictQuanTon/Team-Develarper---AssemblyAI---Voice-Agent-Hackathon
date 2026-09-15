@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "source": "migrated",
+  "product": "restaurant",
+  "suite": "waiter-latency",
+  "run_id": "2026-09-11T000000Z",
+  "source_files": [
+    "reports/waiter_latency_detail.json",
+    "reports/waiter_latency_report.md"
+  ],
+  "git_commit": null,
+  "git_dirty": null,
+  "notes": ["The source report identifies the day but not the exact run time."]
+}

@@ -28,7 +28,7 @@ DANANG_KEYTERMS = [
 def get_lantern_keyterms(limit: int = 100) -> list[str]:
     """Menu + modifier vocabulary from The Lantern store (falls back to empty)."""
     try:
-        from backend.app.domain.lantern import get_lantern_store
+        from backend.app.domain.restaurant.store import get_lantern_store
 
         return get_lantern_store().keyterms(limit=limit)
     except Exception:  # noqa: BLE001

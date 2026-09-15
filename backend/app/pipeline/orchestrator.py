@@ -18,11 +18,11 @@ from backend.app.pipeline.factory import build_clients
 from backend.app.pipeline.filler import CLOSING_TEXT, choose_filler_id, classify_context_filler, is_farewell
 from backend.app.pipeline.profiles import get_voice_profile
 from backend.app.pipeline.session import MAX_TURNS, SessionStore
-from rag.cache import RagCache, cache_key, normalize_query
-from rag.retrieve import DEFAULT_TOP_K, hybrid_retrieve
+from legacy.travel.rag.cache import RagCache, cache_key, normalize_query
+from legacy.travel.rag.retrieve import DEFAULT_TOP_K, hybrid_retrieve
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
-CLOSING_WAV = ROOT_DIR / "frontend" / "audio" / "backchannels" / "closing.wav"
+CLOSING_WAV = ROOT_DIR / "frontend" / "public" / "audio" / "backchannels" / "closing.wav"
 
 EventCallback = Callable[[dict[str, Any]], Awaitable[None] | None]
 

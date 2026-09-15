@@ -1,6 +1,6 @@
 /**
  * Logs & Telemetry View Component
- * Adheres strictly to ThoughtStream Design System (DESIGN.md).
+ * Adheres strictly to The Lantern UI Design System.
  * Displays real-time model routing, latency breakdowns, retrieved RAG chunks,
  * tool calls, and historical turns inspection.
  */

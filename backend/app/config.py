@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     cartesia_api_key: str = ""
     cartesia_voice_id: str = ""
-    voice_profile: str = "friendly_guide"
+    voice_profile: str = "friendly_waiter"
     agent_mode: str = "waiter"  # waiter | rag (legacy travel FAQ)
     gemini_model: str = "gemini-3.5-flash-lite"
     gemini_rpm: int = 15  # per-minute request cap for the free/tiered Gemini plan
@@ -29,9 +29,11 @@ class Settings(BaseSettings):
 
     chroma_persist_dir: Path = ROOT_DIR / "data" / "chroma"
     bm25_index_path: Path = ROOT_DIR / "data" / "bm25" / "index.pkl"
-    danang_json_path: Path = ROOT_DIR / "data" / "danang_en" / "documents.json"
-    metrics_dir: Path = ROOT_DIR / "reports"
-    voice_profiles_path: Path = ROOT_DIR / "config" / "voice_profiles.yaml"
+    # Legacy travel RAG is retained behind agent_mode=rag until separately retired.
+    danang_json_path: Path = ROOT_DIR / "legacy" / "travel" / "data" / "knowledge_base.v1.json"
+    # Runtime logs are intentionally separate from curated benchmark reports.
+    metrics_dir: Path = ROOT_DIR / "var" / "metrics"
+    voice_profiles_path: Path = ROOT_DIR / "config" / "voice" / "profiles.yaml"
 
     app_host: str = "0.0.0.0"
     app_port: int = 8000

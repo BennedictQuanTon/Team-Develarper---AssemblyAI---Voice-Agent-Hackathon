@@ -1,0 +1,113 @@
+{
+  "phase": 2,
+  "query_count": 8,
+  "rounds": 1,
+  "cold_total_ms": {
+    "p50": 64.39,
+    "p95": 144.606,
+    "mean": 74.482,
+    "min": 62.472,
+    "max": 144.606
+  },
+  "warm_total_ms": {
+    "p50": 0.003,
+    "p95": 0.004,
+    "mean": 0.003,
+    "min": 0.002,
+    "max": 0.004
+  },
+  "cold_retrieval_ms": {
+    "p50": 64.355,
+    "p95": 144.562,
+    "mean": 74.443,
+    "min": 62.426,
+    "max": 144.562
+  },
+  "warm_retrieval_ms": {
+    "p50": 0.0,
+    "p95": 0.0,
+    "mean": 0.0,
+    "min": 0.0,
+    "max": 0.0
+  },
+  "speedup_total_p50": 21463.33,
+  "answer_cache": {
+    "hits": 8,
+    "misses": 8,
+    "hit_rate": 0.5
+  },
+  "details": [
+    {
+      "query": "What is Ba Na Hills and the Golden Bridge?",
+      "cold_total_ms": 144.606,
+      "warm_total_ms": 0.003,
+      "cold_retrieval_ms": 144.562,
+      "warm_retrieval_ms": 0.0,
+      "warm_answer_cache_hit": true,
+      "top_chunk": "attr_golden_bridge"
+    },
+    {
+      "query": "Best beaches in Da Nang My Khe",
+      "cold_total_ms": 67.116,
+      "warm_total_ms": 0.004,
+      "cold_retrieval_ms": 67.072,
+      "warm_retrieval_ms": 0.0,
+      "warm_answer_cache_hit": true,
+      "top_chunk": "beach_my_khe"
+    },
+    {
+      "query": "How do I get from Da Nang airport to the city?",
+      "cold_total_ms": 67.089,
+      "warm_total_ms": 0.003,
+      "cold_retrieval_ms": 67.044,
+      "warm_retrieval_ms": 0.0,
+      "warm_answer_cache_hit": true,
+      "top_chunk": "transport_airport"
+    },
+    {
+      "query": "Day trip to Hoi An from Da Nang",
+      "cold_total_ms": 64.367,
+      "warm_total_ms": 0.003,
+      "cold_retrieval_ms": 64.33,
+      "warm_retrieval_ms": 0.0,
+      "warm_answer_cache_hit": true,
+      "top_chunk": "daytrip_hoi_an"
+    },
+    {
+      "query": "When is the Dragon Bridge fire show?",
+      "cold_total_ms": 62.472,
+      "warm_total_ms": 0.003,
+      "cold_retrieval_ms": 62.426,
+      "warm_retrieval_ms": 0.0,
+      "warm_answer_cache_hit": true,
+      "top_chunk": "events_dragon_show"
+    },
+    {
+      "query": "What food should I try mi Quang",
+      "cold_total_ms": 62.997,
+      "warm_total_ms": 0.002,
+      "cold_retrieval_ms": 62.965,
+      "warm_retrieval_ms": 0.0,
+      "warm_answer_cache_hit": true,
+      "top_chunk": "food_mi_quang"
+    },
+    {
+      "query": "Is Da Nang good for families?",
+      "cold_total_ms": 64.413,
+      "warm_total_ms": 0.002,
+      "cold_retrieval_ms": 64.38,
+      "warm_retrieval_ms": 0.0,
+      "warm_answer_cache_hit": true,
+      "top_chunk": "faq_family"
+    },
+    {
+      "query": "Weather and best time to visit Da Nang",
+      "cold_total_ms": 62.796,
+      "warm_total_ms": 0.002,
+      "cold_retrieval_ms": 62.764,
+      "warm_retrieval_ms": 0.0,
+      "warm_answer_cache_hit": true,
+      "top_chunk": "weather_seasons"
+    }
+  ]
+}

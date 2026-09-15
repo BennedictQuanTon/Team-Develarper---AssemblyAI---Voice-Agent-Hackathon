@@ -12,14 +12,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from backend.app.config import get_settings
-from backend.app.domain.lantern import get_lantern_store
+from backend.app.domain.restaurant.store import get_lantern_store
 from backend.app.metrics.spans import summarize_jsonl
 from backend.app.pipeline.orchestrator import Orchestrator
 from backend.app.pipeline.realtime_session import RealtimeSessionController
 from backend.app.pipeline.session import SessionStore
-from rag.cache import RagCache
-from rag.retrieve import DEFAULT_TOP_K, ask, hybrid_retrieve, warmup_retriever
-from rag.store import get_collection
+from legacy.travel.rag.cache import RagCache
+from legacy.travel.rag.retrieve import DEFAULT_TOP_K, ask, hybrid_retrieve, warmup_retriever
+from legacy.travel.rag.store import get_collection
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 FRONTEND_DIR = ROOT_DIR / "frontend"
@@ -62,9 +62,9 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="Da Nang Realtime Voice Agent",
-    description="AssemblyAI Realtime STT + custom RAG/LLM/TTS orchestration",
-    version="0.5.0-realtime",
+    title="The Lantern Voice Waiter",
+    description="AssemblyAI realtime voice ordering with deterministic restaurant operations",
+    version="0.6.0",
     lifespan=lifespan,
 )
 
@@ -103,7 +103,7 @@ def health() -> JSONResponse:
         {
             "status": "ok",
             "phase": 5,
-            "service": "danang-realtime-voice-agent",
+            "service": "lantern-voice-waiter",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "keys_configured": settings.keys_configured,
             "client_mode": get_orchestrator().client_mode,
@@ -137,9 +137,6 @@ def background_image() -> FileResponse:
     pub_bg = FRONTEND_DIR / "public" / "background.jpg"
     if pub_bg.exists():
         return FileResponse(pub_bg)
-    src_bg = FRONTEND_DIR / "src" / "assets" / "background.jpg"
-    if src_bg.exists():
-        return FileResponse(src_bg)
     raise HTTPException(status_code=404, detail="background.jpg not found")
 
 
@@ -404,7 +401,7 @@ async def ws_ops(websocket: WebSocket) -> None:
                         for m in store.list_menu()
                     ]
                 },
-                "metrics": summarize_jsonl(get_settings().metrics_dir / "spans.jsonl"),
+                "metrics": summarize_jsonl(get_settings().metrics_dir / "turns.jsonl"),
                 "ts": datetime.now(timezone.utc).isoformat(),
             }
         )

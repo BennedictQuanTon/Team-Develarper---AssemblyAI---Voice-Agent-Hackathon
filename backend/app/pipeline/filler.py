@@ -128,4 +128,4 @@ def choose_filler_id(text: str) -> str:
 
 
 CLOSING_TEXT = "Anytime. Enjoy Da Nang."
-CLOSING_AUDIO_PATH = "audio/backchannels/closing.wav"
+CLOSING_AUDIO_PATH = "public/audio/backchannels/closing.wav"

@@ -1,11 +1,11 @@
 /**
- * Component styles strictly adhering to DESIGN.md (ThoughtStream Design System).
+ * Component styles for The Lantern UI Design System.
  * Minimal, zen, distraction-free. Circular tactile mic, dual speech dialogue stream,
  * literary typography, flat geometry, generous whitespace.
  */
 
 /* ============================================================
-   1. Navigation Filter Chips (DESIGN.md Filter Chips)
+   1. Navigation filter chips
    ============================================================ */
 .segmented-control {
   display: inline-flex;
@@ -302,7 +302,7 @@
 }
 
 /* ============================================================
-   4. Guest Live Basket Card (DESIGN.md Default Card)
+   4. Guest live basket card
    ============================================================ */
 .basket-sheet {
   width: 100%;
@@ -1559,7 +1559,7 @@
 }
 
 /* ============================================================
-   11. Telemetry & Turn Logs Dashboard (DESIGN.md Minimal Zen)
+   11. Telemetry and turn logs dashboard
    ============================================================ */
 .logs-container {
   display: flex;
@@ -2089,4 +2089,3 @@
   color: var(--content-tertiary);
   font-size: 12px;
 }
-
