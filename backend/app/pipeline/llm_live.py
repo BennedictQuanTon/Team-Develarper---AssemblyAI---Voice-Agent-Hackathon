@@ -11,30 +11,60 @@ from backend.app.pipeline.base import LLMResult
 
 
 class AsyncTokenBucket:
-    """Async token-bucket rate limiter (e.g. a Gemini RPM quota).
+    """Sliding-window limiter for a provider's per-minute request quota.
 
-    Acquire can only do *one* call at a time (serializes concurrent calls),
-    spacing them so the sustained rate never exceeds `rate` per `window_seconds`.
+    A provider RPM cap is a count inside a rolling window, not a minimum gap
+    between calls, so a turn's whole tool loop may fire back to back; we only
+    block once `rate` requests already sit inside the trailing window. `burst`
+    is a second, shorter window that keeps a runaway tool loop from draining the
+    whole minute in a couple of seconds.
     """
 
-    def __init__(self, rate: int, window_seconds: int = 60) -> None:
+    BURST_WINDOW = 10.0
+
+    def __init__(self, rate: int, window_seconds: int = 60, burst: int = 0) -> None:
         self.rate = max(1, int(rate))
         self.window = max(1, int(window_seconds))
-        self.interval = self.window / self.rate
+        self.interval = self.window / self.rate  # nominal spacing, kept for reporting
+        self.burst = min(self.rate, int(burst)) if int(burst or 0) > 0 else self.rate
         self._lock = asyncio.Lock()
-        self._next_at = time.monotonic()
         self.acquired_count = 0
+        self.waited_ms = 0.0
         self._slot_times: list[float] = []
 
-    async def acquire(self) -> None:
+    def _prune(self, now: float) -> None:
+        cutoff = now - self.window
+        if self._slot_times and self._slot_times[0] <= cutoff:
+            self._slot_times = [t for t in self._slot_times if t > cutoff]
+
+    def _delay_for(self, now: float, limit: int, window: float) -> float:
+        """Seconds until a `limit`-per-`window` budget has room for one more."""
+        recent = [t for t in self._slot_times if t > now - window]
+        if len(recent) < limit:
+            return 0.0
+        return max(0.0, recent[len(recent) - limit] + window - now)
+
+    async def acquire(self) -> float:
+        """Take one slot, sleeping only if a budget is full. Returns the wait in ms."""
         async with self._lock:
-            now = time.monotonic()
-            if now < self._next_at:
-                await asyncio.sleep(self._next_at - now)
+            waited = 0.0
+            for _ in range(2):
                 now = time.monotonic()
-            self._next_at = max(now, self._next_at) + self.interval
-            self.acquired_count += 1
+                self._prune(now)
+                delay = max(
+                    self._delay_for(now, self.rate, float(self.window)),
+                    self._delay_for(now, self.burst, self.BURST_WINDOW),
+                )
+                if delay <= 0:
+                    break
+                await asyncio.sleep(delay)
+                waited += delay
+            now = time.monotonic()
+            self._prune(now)
             self._slot_times.append(now)
+            self.acquired_count += 1
+            self.waited_ms += waited * 1000.0
+            return waited * 1000.0
 
     def rate_per_minute(self, window_seconds: float = 60.0) -> float:
         """Observed sustained request rate (requests/min) over the last window."""
@@ -55,13 +85,20 @@ def _gemini_rpm() -> int:
         return 0
 
 
+def _gemini_burst() -> int:
+    try:
+        return int(getattr(get_settings(), "gemini_burst", 0) or 0)
+    except Exception:  # noqa: BLE001
+        return 0
+
+
 def _gemini_limiter() -> AsyncTokenBucket | None:
     rpm = _gemini_rpm()
     if rpm <= 0:
         return None
     # Singleton shared across all client instances so the whole process stays under quota.
     if not hasattr(_gemini_limiter, "_bucket"):
-        _gemini_limiter._bucket = AsyncTokenBucket(rate=rpm)
+        _gemini_limiter._bucket = AsyncTokenBucket(rate=rpm, burst=_gemini_burst())
     return _gemini_limiter._bucket
 
 

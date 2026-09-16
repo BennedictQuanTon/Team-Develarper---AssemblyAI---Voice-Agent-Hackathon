@@ -16,7 +16,8 @@ mkdir -p "$PID_DIR"
 # 1. Check Python Virtual Environment
 if [[ ! -d "$ROOT/.venv" ]]; then
   echo "❌ Missing .venv — please set up Python virtualenv first:"
-  echo "   python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt"
+  echo "   uv venv --python 3.12 && uv pip install -r requirements.txt"
+  echo "   (without uv: python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt)"
   exit 1
 fi
 

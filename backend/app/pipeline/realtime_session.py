@@ -20,7 +20,7 @@ from backend.app.pipeline.llm_live import GeminiLLMClient
 from backend.app.pipeline.profiles import get_voice_profile
 from backend.app.pipeline.session import MAX_TURNS, SessionStore
 from backend.app.pipeline.tts_stream import CartesiaStreamingTTS, StubStreamingTTS
-from backend.app.pipeline.waiter_agent import build_waiter_agent
+from backend.app.pipeline.waiter_agent import build_waiter_agent, prefetch_for_case
 from backend.app.domain.lantern import get_lantern_store
 from backend.app.domain.waiter import WaiterSession
 from rag.cache import RagCache
@@ -155,7 +155,15 @@ class RealtimeSessionController:
         )
 
     async def _silence_watchdog(self) -> None:
-        """Watchdog to force endpoint if user spoke a sentence and stopped speaking for > 900ms."""
+        """Force the endpoint if the guest stopped speaking and AssemblyAI has not
+        finalized the turn.
+
+        Raising this above the ASR's own max_turn_silence sounds right in theory,
+        but `min_end_of_turn_silence_when_confident` is deprecated and ignored
+        whenever `min_turn_silence` is set, so there is no confident-endpoint path
+        to wait for -- and the extra delay measurably slowed barge-in on the
+        transcript path (536ms -> 765ms).
+        """
         while True:
             try:
                 await asyncio.sleep(0.15)
@@ -523,8 +531,18 @@ class RealtimeSessionController:
         filler_case = classify_context_filler(query)
         logger.info("Context-aware filler: %s for query '%s'", filler_case, query)
 
+        # Pre-run the read-only lookups this intent almost always needs. They are
+        # in-memory dict work, so this costs no API call and no rate-limit budget,
+        # and it saves the model a whole round trip asking for them. A wrong guess
+        # is simply unused context.
+        prefetch = prefetch_for_case(self.waiter_session, filler_case, query)
+        if prefetch:
+            logger.info("Prefetched %s for %s", list(prefetch), filler_case)
+
         # Run the agent in the background (network-bound tool loop)
-        agent_task = asyncio.create_task(self.waiter_agent.respond(self.waiter_session, query))
+        agent_task = asyncio.create_task(
+            self.waiter_agent.respond(self.waiter_session, query, prefetch)
+        )
 
         # Speculative: play local context filler clip while the loop computes (no TTS conflict)
         self.is_agent_speaking = True
@@ -653,8 +671,15 @@ class RealtimeSessionController:
             timings_ms={
                 "ttfb_ms": t_first_audio,
                 "e2e_turn_ms": e2e_turn_ms,
+                # from the agent loop: how many round trips the turn cost, and how
+                # much of the wait was our own rate limiter rather than the network
+                **{k: v for k, v in (result.get("timings") or {}).items() if isinstance(v, (int, float))},
             },
-            cache={"n_tool_calls": len(tool_calls)},
+            cache={
+                "n_tool_calls": len(tool_calls),
+                "filler_case": filler_case,
+                "prefetched": list(prefetch),
+            },
             chunk_ids=[],
             phase=6,
         )

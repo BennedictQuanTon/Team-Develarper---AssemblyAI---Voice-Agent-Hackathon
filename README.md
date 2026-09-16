@@ -115,20 +115,31 @@ flowchart LR
 ## 🚀 5. Hướng dẫn Khởi chạy & Kiểm thử
 
 ### Yêu cầu hệ thống:
-- Python 3.10 trở lên.
+- Python 3.10 trở lên, khuyến nghị cài qua [uv](https://docs.astral.sh/uv/) (dùng được trên cả macOS lẫn Windows).
+- Node.js 18+ để build giao diện (`frontend/`).
 - Các API keys: `ASSEMBLYAI_API_KEY`, `GEMINI_API_KEY`, `CARTESIA_API_KEY` (điền trong file `.env`).
 
 ### Khởi động dự án:
 ```bash
-# 1. Kích hoạt môi trường ảo
-source .venv/bin/activate
+# 1. Tạo môi trường ảo & cài thư viện (uv, macOS lẫn Windows)
+uv venv --python 3.12
+uv pip install -r requirements.txt
+#    Không có uv (macOS): python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
 
-# 2. Cài đặt thư viện
-pip install -r requirements.txt
+# 2. Build giao diện (bắt buộc: thiếu frontend/dist thì trang / không chạy)
+cd frontend && npm ci && npm run build && cd ..
 
 # 3. Khởi động Web Server & UI
-uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+uv run uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
+
+Chạy nền kèm các bước kiểm tra `.venv`, `.env`, build giao diện và Ollama:
+
+| | macOS | Mọi hệ điều hành (kể cả Windows) |
+| --- | --- | --- |
+| Khởi động | `./scripts/start.sh` | `uv run python scripts/dev.py start` |
+| Trạng thái | `./scripts/status.sh` | `uv run python scripts/dev.py status` |
+| Dừng | `./scripts/stop.sh` | `uv run python scripts/dev.py stop` |
 
 ### Trải nghiệm qua Giao diện Web:
 1. Mở trình duyệt tại địa chỉ: `http://127.0.0.1:8000/`.
@@ -139,13 +150,15 @@ uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 ### Chạy các Bộ Kiểm thử Tự động:
 ```bash
 # 1. Chạy bài kiểm thử benchmark 3 kịch bản toàn diện (Case 1, 2, 3)
-PYTHONPATH=. python eval/eval_3cases_benchmark.py
+uv run python -m eval.eval_3cases_benchmark
 
 # 2. Chạy smoke test hội thoại thực tế nhiều lượt kèm ngắt lời
-PYTHONPATH=. python eval/smoke_human_conversation.py
+uv run python -m eval.smoke_human_conversation
 
 # 3. Chạy benchmark real-time gốc
-PYTHONPATH=. python eval/run_realtime_bench.py
+uv run python -m eval.run_realtime_bench
+
+# Không có uv (macOS): PYTHONPATH=. python eval/<tên_file>.py
 ```
 
 ---

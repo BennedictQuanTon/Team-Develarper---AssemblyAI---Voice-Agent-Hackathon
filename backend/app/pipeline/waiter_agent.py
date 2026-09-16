@@ -32,10 +32,17 @@ SYSTEM_INSTRUCTION = (
     "- When guests ask for house specialties or recommendations, recommend 1-2 of our signature dishes directly without needing extra tool calls.\n"
     "- Never invent a price, availability, or allergen not listed above. Only use tool results for unknown items.\n"
     "- If a menu item is sold out (86), do not add it; offer the suggested substitute.\n"
-    "- Resolve 'those two' / 'that one' / 'both' / 'the first' via add_items_from_mention with the exact ref word.\n"
+    "- Add only dishes the guest actually asked for. Never add one just because it appeared in a\n"
+    "  lookup result, and never re-add a dish that order_lines already shows in the order.\n"
+    "- Only remove a dish the guest actually names. Never remove one to make room for another.\n"
+    "- After you refused a sold-out dish, 'make it X instead' replaces that sold-out dish. It was never\n"
+    "  added, so just add X and remove nothing.\n"
+    "- Use order_items to order: it adds dishes, applies modifiers and can place the order in one call.\n"
+    "- Pass pronouns like 'those two' / 'that one' / 'the first' straight through as the item ref.\n"
+    "- Set place=true only when the guest has asked to finalise; otherwise leave it false and read the order back.\n"
     "- For allergens not on the menu, say you must check the kitchen and do not guess.\n"
     "- Keep every spoken reply under ~25 words, conversational, no markdown, no emoji.\n"
-    "- Confirm by reading back the order before place_order.\n"
+    "- Order tool results already carry order_lines and total - read those back in your reply; never call readback separately.\n"
     "- Never give medical or diagnostic advice."
 )
 
@@ -75,8 +82,43 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "order_items",
+        "description": (
+            "Preferred way to order: add one or more dishes with quantities and modifiers, "
+            "and optionally place the order, in a single call. Use this instead of separate "
+            "add_item / add_items_from_mention / set_modifier / place_order calls."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "description": "The dishes to add.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "ref": {
+                                "type": "string",
+                                "description": "Dish sku or name, or a pronoun such as 'the first' / 'those two'.",
+                            },
+                            "qty": {"type": "integer", "default": 1},
+                            "modifiers": {"type": "array", "items": {"type": "string"}},
+                        },
+                        "required": ["ref"],
+                    },
+                },
+                "place": {
+                    "type": "boolean",
+                    "description": "True only when the guest has asked to finalise the order.",
+                    "default": False,
+                },
+            },
+            "required": ["items"],
+        },
+    },
+    {
         "name": "add_item",
-        "description": "Add a dish to the order by sku or name.",
+        "description": "Add a single dish by sku or name. Prefer order_items.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -146,6 +188,28 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
 ]
 
 
+MAX_ROUNDS = 6
+# Headroom for a compound tool call: a nested item array does not fit in 90 tokens
+# and would truncate silently. The spoken reply is held short by SYSTEM_INSTRUCTION.
+MAX_OUTPUT_TOKENS = 256
+
+
+def _format_prefetch(prefetch: dict[str, Any]) -> str:
+    """Render locally computed read-only lookups for the first round.
+
+    These come straight from the deterministic toolkit, so they carry the same
+    authority as a tool response and save the model the round trip it would
+    otherwise spend asking for them.
+    """
+    lines = [
+        "Reference only - lookups already run for you, so you do not need the tool. "
+        "These are candidates, NOT an order: add nothing the guest did not actually ask for."
+    ]
+    for name, result in prefetch.items():
+        lines.append(f"- {name}: {json.dumps(result, ensure_ascii=False)}")
+    return "\n".join(lines)
+
+
 class WaiterAgent:
     """Gemini-backed function-calling loop."""
 
@@ -156,71 +220,116 @@ class WaiterAgent:
         self.api_key = (api_key or settings.gemini_api_key).strip()
         self.model = (model or settings.gemini_model or "gemini-3.5-flash-lite").strip()
         self.available = bool(self.api_key)
+        # Built once: a fresh Client per turn pays a TLS handshake, and a tool spec
+        # rebuilt per turn is a new object for no reason. Both stay byte-identical
+        # across turns so the prompt prefix remains cacheable.
+        self._client: Any = None
+        self._tools: list[Any] | None = None
+
+    def _get_client(self) -> Any:
+        if self._client is None:
+            from google import genai
+
+            self._client = genai.Client(api_key=self.api_key)
+        return self._client
 
     def _tool_spec(self) -> list[Any]:
-        from google.genai import types
+        if self._tools is None:
+            from google.genai import types
 
-        return [
-            types.Tool(
-                function_declarations=[
-                    types.FunctionDeclaration(
-                        name=s["name"],
-                        description=s["description"],
-                        parameters=types.Schema.model_validate(s["parameters"]),
-                    )
-                    for s in TOOL_SCHEMAS
-                ]
-            )
-        ]
+            self._tools = [
+                types.Tool(
+                    function_declarations=[
+                        types.FunctionDeclaration(
+                            name=s["name"],
+                            description=s["description"],
+                            parameters=types.Schema.model_validate(s["parameters"]),
+                        )
+                        for s in TOOL_SCHEMAS
+                    ]
+                )
+            ]
+        return self._tools
 
     async def respond(
         self,
         ss: WaiterSession,
         user_text: str,
+        prefetch: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Run one conversational turn. Returns {
-           reply: str, tool_calls: [...], basket: snapshot, mentions: [...]
+           reply: str, tool_calls: [...], basket: snapshot, timings: {...}
         }"""
         if not self.available:
             raise RuntimeError("Gemini not available (no API key)")
 
-        from google import genai
+        import asyncio as _a
+        import time as _time
+
         from google.genai import types
 
-        client = genai.Client(api_key=self.api_key)
+        client = self._get_client()
         config = types.GenerateContentConfig(
             system_instruction=SYSTEM_INSTRUCTION,
             temperature=0.3,
-            max_output_tokens=90,
+            max_output_tokens=MAX_OUTPUT_TOKENS,
             tools=self._tool_spec(),
         )
 
-        contents: list[Any] = [types.Content(role="user", parts=[types.Part.from_text(text=user_text)])]
+        first_parts = []
+        if prefetch:
+            first_parts.append(types.Part.from_text(text=_format_prefetch(prefetch)))
+        first_parts.append(types.Part.from_text(text=user_text))
+        contents: list[Any] = [types.Content(role="user", parts=first_parts)]
+
         tool_log: list[dict[str, Any]] = []
+        text = ""
+        rounds = 0
+        bucket_wait_ms = 0.0
+        llm_ms = 0.0
+        tool_ms = 0.0
 
-        for _ in range(6):
-            lim = _gemini_limiter()
-            if lim is not None:
-                await lim.acquire()
-            import asyncio as _a
+        def _result(reply: str) -> dict[str, Any]:
+            return {
+                "reply": reply,
+                "tool_calls": tool_log,
+                "basket": ss.snapshot(),
+                "timings": {
+                    "llm_rounds": rounds,
+                    "llm_total_ms": round(llm_ms, 1),
+                    "bucket_wait_ms": round(bucket_wait_ms, 1),
+                    "tool_ms": round(tool_ms, 1),
+                    "prefetch_used": bool(prefetch),
+                },
+            }
 
-            while True:
+        for _ in range(MAX_ROUNDS):
+            rounds += 1
+            r = None
+            for attempt in range(3):
+                lim = _gemini_limiter()
+                if lim is not None:
+                    bucket_wait_ms += await lim.acquire() or 0.0
+                t_call = _time.perf_counter()
                 try:
                     r = await _a.to_thread(
                         lambda: client.models.generate_content(
                             model=self.model, contents=contents, config=config
                         )
                     )
+                    llm_ms += (_time.perf_counter() - t_call) * 1000.0
                     break
                 except Exception as exc:  # noqa: BLE001
+                    llm_ms += (_time.perf_counter() - t_call) * 1000.0
                     err = str(exc)
                     is_ratelimit = ("429" in err) or ("RESOURCE_EXHAUSTED" in err) or ("quota" in err.lower())
-                    if not is_ratelimit:
+                    if not is_ratelimit or attempt == 2:
                         raise
-                    await _a.sleep(5.0)
-                    continue
-            if r.candidates and r.candidates[0].content:
-                parts = r.candidates[0].content.parts
+                    logger.warning("Gemini rate-limited, retry %d/2", attempt + 1)
+                    await _a.sleep(2.0 * (2**attempt))
+
+            if r is not None and r.candidates and r.candidates[0].content:
+                parts = r.candidates[0].content.parts or []
             else:
                 parts = []
 
@@ -232,14 +341,11 @@ class WaiterAgent:
                     for it in ss.store.list_menu():
                         if it.name.lower() in text.lower():
                             ss._record_mentions([it])
-                return {
-                    "reply": text,
-                    "tool_calls": tool_log,
-                    "basket": ss.snapshot(),
-                }
+                return _result(text)
 
             # execute calls
             function_parts: list[Any] = []
+            t_tools = _time.perf_counter()
             for call in calls:
                 name = call.name
                 args = call.args or {}
@@ -250,15 +356,12 @@ class WaiterAgent:
                         name=name, response={"result": result}
                     )
                 )
+            tool_ms += (_time.perf_counter() - t_tools) * 1000.0
             # append model's tool-call turn and feed results
             contents.append(r.candidates[0].content)
             contents.append(types.Content(role="user", parts=function_parts))
 
-        return {
-            "reply": text if text else "Let me read that back for you.",
-            "tool_calls": tool_log,
-            "basket": ss.snapshot(),
-        }
+        return _result(text if text else "Let me read that back for you.")
 
 def _exec_waiter_tool(ss: WaiterSession, name: str, args: dict[str, Any]) -> dict[str, Any]:
     try:
@@ -268,6 +371,8 @@ def _exec_waiter_tool(ss: WaiterSession, name: str, args: dict[str, Any]) -> dic
             return ss.recommend_dishes(args.get("tags", ""), int(args.get("party_size", 2) or 2), int(args.get("limit", 2) or 2))
         if name == "check_availability":
             return ss.check_availability(args.get("sku", ""))
+        if name == "order_items":
+            return ss.order_items(args.get("items") or [], bool(args.get("place", False)))
         if name == "add_item":
             return ss.add_item(args.get("sku", ""), int(args.get("qty", 1) or 1), args.get("modifiers"))
         if name == "add_items_from_mention":
@@ -288,6 +393,66 @@ def _exec_waiter_tool(ss: WaiterSession, name: str, args: dict[str, Any]) -> dic
         logger.warning("tool %s error: %s", name, exc)
         return {"error": str(exc)}
     return {"error": f"unknown tool {name}"}
+
+
+_STOPWORDS = frozenset(
+    "a an the and or of for to i we you my our is are do does can could would like "
+    "want get have has had it its that this these those please just some any with "
+    "me us them there here what whats when where how much many on in at be am".split()
+)
+
+# Read-only tools only. A wrong guess costs a few unused input tokens; a mutating
+# guess would corrupt the order, so nothing here may write.
+PREFETCH_TOOLS: dict[str, tuple[str, ...]] = {
+    "case_specialty_rec": ("recommend_dishes",),
+    "case_dish_check": ("search_menu",),
+    "case_table_check": ("get_floor",),
+    # Deliberately no prefetch for case_order_process: those turns always call a
+    # mutating tool, whose result already carries order_lines/total, so prefetching
+    # readback saves no round trip and puts the same total in context twice. The
+    # model summed the two copies and quoted $31.00 on a $15.50 order.
+}
+
+
+def _query_terms(query: str) -> str:
+    """Content words from an utterance, so search_menu is not fed 'the' and 'i'."""
+    words = [w.strip(".,!?;:'\"") for w in (query or "").lower().split()]
+    return " ".join(w for w in words if len(w) >= 3 and w not in _STOPWORDS)
+
+
+def prefetch_for_case(ss: WaiterSession, case: str, query: str) -> dict[str, Any]:
+    """Run the read-only lookups this intent almost always needs.
+
+    These are in-memory dict lookups costing no API call and no rate-limit budget,
+    and handing the results over saves the model the round trip it would otherwise
+    spend asking for them. A wrong guess is simply unused.
+
+    search_menu and recommend_dishes both push onto the mention stack, so the stack
+    is restored afterwards: what the waiter actually said is recorded from the reply
+    text instead, and a prefetch the model ignored must not shift 'the first'.
+    """
+    names = PREFETCH_TOOLS.get(case, ())
+    if not names:
+        return {}
+    mentions_before = list(ss.mentioned)
+    out: dict[str, Any] = {}
+    try:
+        for name in names:
+            try:
+                if name == "recommend_dishes":
+                    tags = ",".join(ss.guest_tags) or "couple,mild"
+                    out[name] = ss.recommend_dishes(tags, ss.party_size, 2)
+                elif name == "search_menu":
+                    terms = _query_terms(query)
+                    if terms:
+                        out[name] = ss.search_menu(terms, 3)
+                elif name == "get_floor":
+                    out[name] = ss.get_floor()
+            except Exception:  # noqa: BLE001
+                continue  # a prefetch is an optimisation; it must never break a turn
+    finally:
+        ss.mentioned = mentions_before
+    return out
 
 
 class OllamaWaiterAgent:
@@ -318,8 +483,12 @@ class OllamaWaiterAgent:
         self,
         ss: WaiterSession,
         user_text: str,
+        prefetch: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         import httpx
+
+        if prefetch:
+            user_text = _format_prefetch(prefetch) + "\n\n" + user_text
 
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": SYSTEM_INSTRUCTION},
@@ -395,7 +564,9 @@ class RuleBasedWaiterAgent:
     def __init__(self) -> None:
         self.available = False
 
-    async def respond(self, ss: WaiterSession, user_text: str) -> dict[str, Any]:
+    async def respond(
+        self, ss: WaiterSession, user_text: str, prefetch: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         t = (user_text or "").lower()
         log: list[dict[str, Any]] = []
 

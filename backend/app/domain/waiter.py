@@ -40,6 +40,15 @@ class BasketLine:
         }
 
 
+# Pronoun refs `add_items_from_mention` resolves; `order_items` routes on them.
+MENTION_REFS = frozenset({
+    "both", "two", "those", "those two", "both of them", "the two",
+    "cả hai", "hết", "hai món đó",
+    "that one", "that", "it", "the last one", "món đó",
+    "the first", "first", "the first one", "the second", "second",
+})
+
+
 class WaiterSession:
     """One ordering conversation: basket + mention stack + ticket type + party."""
 
@@ -178,7 +187,7 @@ class WaiterSession:
         line = BasketLine(sku=it.sku, name=it.name, price=it.price, qty=1 if qty <= 0 else qty, modifiers=modifiers or [])
         self.basket.append(line)
         self._record_mentions([it])
-        return {"added": line.as_dict(), "basket_count": len(self.basket), "total": self.total()}
+        return {"added": line.as_dict(), "basket_count": len(self.basket), **self._order_summary()}
 
     def _substitute(self, it: MenuItem) -> dict[str, Any] | None:
         same_cat = [x for x in self.store.list_menu() if x.category == it.category and x.available and x.sku != it.sku]
@@ -214,7 +223,7 @@ class WaiterSession:
                 added.append(res["added"])
             else:
                 added.append({"sku": m["sku"], "error": res.get("error")})
-        return {"added": added, "total": self.total()}
+        return {"added": added, **self._order_summary()}
 
     def set_modifier(self, line_or_sku: str, modifiers: list[str] | None) -> dict[str, Any]:
         idx = None
@@ -233,7 +242,7 @@ class WaiterSession:
         if target is None:
             return {"error": "There's nothing in the order yet."}
         target.modifiers = modifiers or []
-        return {"updated": target.as_dict()}
+        return {"updated": target.as_dict(), **self._order_summary()}
 
     def remove_item(self, sku_or_name: str) -> dict[str, Any]:
         it = self.store.find_item(sku_or_name)
@@ -243,7 +252,7 @@ class WaiterSession:
         removed = before - len(self.basket)
         if removed == 0:
             return {"error": "That item isn't in the order."}
-        return {"removed": removed, "basket_count": len(self.basket), "total": self.total()}
+        return {"removed": removed, "basket_count": len(self.basket), **self._order_summary()}
 
     def get_floor(self) -> dict[str, Any]:
         tables = self.store.list_tables()
@@ -259,7 +268,7 @@ class WaiterSession:
             return {"error": f"Table {table_id} isn't free or too small."}
         self.table_id = table_id
         self.party_size = party_size
-        return {"seated": {"id": t.id, "name": t.name, "seats": t.seats}}
+        return {"seated": {"id": t.id, "name": t.name, "seats": t.seats}, **self.get_floor()}
 
     def readback(self) -> dict[str, Any]:
         if not self.basket:
@@ -290,6 +299,92 @@ class WaiterSession:
             "ticket_id": f"LAN-{self.session_id[-6:].upper()}-{len(self.basket):02d}",
             **rb,
         }
+
+    def _order_summary(self) -> dict[str, Any]:
+        """Compact readback carried on every mutating result.
+
+        A round trip is the dominant cost of a turn, so the model must never have
+        to spend one just asking what is in the basket.
+        """
+        return {
+            "order_lines": [
+                f"{l.qty}x {l.name}" + (f" ({', '.join(l.modifiers)})" if l.modifiers else "")
+                for l in self.basket
+            ],
+            "total": self.total(),
+        }
+
+    def _matching_line(self, ref: str, mods: list[str]) -> BasketLine | None:
+        """An identical line already in the basket, by sku or name plus modifiers."""
+        it = self.store.find_item(ref)
+        sku = it.sku if it else None
+        for line in self.basket:
+            same_item = (sku is not None and line.sku == sku) or line.name.lower() == ref.lower()
+            if same_item and sorted(line.modifiers) == sorted(mods):
+                return line
+        return None
+
+    def order_items(self, items: list[dict[str, Any]] | None, place: bool = False) -> dict[str, Any]:
+        """Add several dishes, set their modifiers and optionally place the order,
+        in one call.
+
+        Split across `add_item` / `set_modifier` / `place_order` this costs one
+        Gemini round trip per step; folded together it costs one for the turn.
+        """
+        results: list[dict[str, Any]] = []
+        for spec in items or []:
+            if not isinstance(spec, dict):
+                continue
+            ref = str(spec.get("ref") or spec.get("sku") or spec.get("name") or "").strip()
+            if not ref:
+                continue
+            try:
+                qty = int(spec.get("qty") or 1)
+            except (TypeError, ValueError):
+                qty = 1
+            mods = spec.get("modifiers") or []
+            if isinstance(mods, str):
+                mods = [m.strip() for m in mods.split(",") if m.strip()]
+            mods = [str(m) for m in mods]
+
+            # The model tends to restate the whole intended order rather than the
+            # delta ("make it a seabass instead" -> [existing chicken, new seabass]),
+            # which silently duplicated lines. When it names a dish already in the
+            # basket with the same modifiers and gives no explicit qty, treat it as
+            # a restatement, not a second helping. An explicit qty still orders more.
+            explicit_qty = "qty" in spec and spec.get("qty") not in (None, "")
+            if not explicit_qty and ref.lower() not in MENTION_REFS:
+                existing = self._matching_line(ref, mods)
+                if existing is not None:
+                    results.append({
+                        "ref": ref,
+                        "already_in_order": existing.as_dict(),
+                        "note": "already in the order; not added again",
+                    })
+                    continue
+
+            before = len(self.basket)
+            if ref.lower() in MENTION_REFS:
+                res = self.add_items_from_mention(ref)
+                # add_items_from_mention cannot carry modifiers; apply them to what it added
+                if mods:
+                    for line in self.basket[before:]:
+                        line.modifiers = list(mods)
+                    # re-read, so the nested result cannot contradict the basket
+                    res = {
+                        **res,
+                        "added": [l.as_dict() for l in self.basket[before:]],
+                        **self._order_summary(),
+                    }
+            else:
+                res = self.add_item(ref, qty, list(mods))
+            results.append({"ref": ref, **res})
+
+        out: dict[str, Any] = {"items": results}
+        if place:
+            out["place_result"] = self.place_order()
+        out.update(self._order_summary())
+        return out
 
     # ---- view --------------------------------------------------------------
     def _item_view(self, it: MenuItem) -> dict[str, Any]:
