@@ -1,18 +1,11 @@
-# Phase 0: core server
-fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
-pydantic>=2.9.0
-pydantic-settings>=2.6.0
-python-dotenv>=1.0.1
-pyyaml>=6.0.2
-httpx>=0.27.0
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+pydantic-settings>=2.3
+assemblyai>=1.0
+httpx>=0.27
+websockets>=12
+python-dotenv>=1.0
 
-# Phase 1: local RAG ingest (no vendor API keys)
-# DefaultEmbeddingFunction (ONNX) — avoids heavy torch/sentence-transformers install
-chromadb>=0.5.23
-rank-bm25>=0.2.2
-
-# Phase 4: live vendor clients
-assemblyai>=0.37.0
-google-genai>=1.0.0
-websockets>=12.0
+# Shared restaurant data utilities
+pyyaml>=6.0

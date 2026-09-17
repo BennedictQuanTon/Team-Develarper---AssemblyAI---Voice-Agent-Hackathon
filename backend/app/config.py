@@ -1,53 +1,28 @@
-from functools import lru_cache
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-
-
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
-
-    assemblyai_api_key: str = ""
-    gemini_api_key: str = ""
-    cartesia_api_key: str = ""
-    cartesia_voice_id: str = ""
-    voice_profile: str = "friendly_waiter"
-    agent_mode: str = "waiter"  # waiter | rag (legacy travel FAQ)
-    gemini_model: str = "gemini-3.5-flash-lite"
-    gemini_rpm: int = 15  # per-minute request cap for the free/tiered Gemini plan
-    llm_provider: str = "gemini"  # gemini | ollama
-    ollama_model: str = "qwen2.5:3b"
-    ollama_base_url: str = "http://localhost:11434"
-    assemblyai_speech_model: str = "universal-3-5-pro"
-    assemblyai_mode: str = "min_latency"
-
-    chroma_persist_dir: Path = ROOT_DIR / "data" / "chroma"
-    bm25_index_path: Path = ROOT_DIR / "data" / "bm25" / "index.pkl"
-    # Legacy travel RAG is retained behind agent_mode=rag until separately retired.
-    danang_json_path: Path = ROOT_DIR / "legacy" / "travel" / "data" / "knowledge_base.v1.json"
-    # Runtime logs are intentionally separate from curated benchmark reports.
-    metrics_dir: Path = ROOT_DIR / "var" / "metrics"
-    voice_profiles_path: Path = ROOT_DIR / "config" / "voice" / "profiles.yaml"
-
-    app_host: str = "0.0.0.0"
-    app_port: int = 8000
-    log_level: str = "INFO"
-
-    @property
-    def keys_configured(self) -> dict[str, bool]:
-        return {
-            "assemblyai": bool(self.assemblyai_api_key.strip()),
-            "gemini": bool(self.gemini_api_key.strip()),
-            "cartesia": bool(self.cartesia_api_key.strip()),
-        }
+@dataclass(frozen=True)
+class Settings:
+    app_env: str = os.getenv("APP_ENV", "development")
+    app_host: str = os.getenv("APP_HOST", "0.0.0.0")
+    app_port: int = int(os.getenv("APP_PORT", "8000"))
+    log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    allow_stub_providers: bool = os.getenv("ALLOW_STUB_PROVIDERS", "false").lower() == "true"
+    assemblyai_api_key: str = os.getenv("ASSEMBLYAI_API_KEY", "")
+    assemblyai_speech_model: str = os.getenv("ASSEMBLYAI_SPEECH_MODEL", "universal-3-5-pro")
+    llm_provider: str = os.getenv("LLM_PROVIDER", "ollama")
+    ollama_model: str = os.getenv("OLLAMA_MODEL", "qwen3:4b")
+    ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_thinking: bool = os.getenv("OLLAMA_THINKING", "false").lower() == "true"
+    tts_provider: str = os.getenv("TTS_PROVIDER", "kokoro")
+    kokoro_model_id: str = os.getenv("KOKORO_MODEL_ID", "hexgrad/Kokoro-82M")
+    kokoro_device: str = os.getenv("KOKORO_DEVICE", "auto")
+    database_path: Path = Path(os.getenv("DATABASE_PATH", "var/lantern.sqlite3"))
+    metrics_dir: Path = Path(os.getenv("METRICS_DIR", "var/metrics"))
 
 
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
+settings = Settings()

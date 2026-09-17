@@ -1,0 +1,5 @@
+-r requirements.txt
+kokoro>=0.9
+misaki[ja,zh]>=0.8
+soundfile>=0.12
+numpy>=1.26

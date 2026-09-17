@@ -1,14 +1,24 @@
-profiles:
-  friendly_waiter:
-    # Default English voice from Cartesia docs; override via CARTESIA_VOICE_ID
-    cartesia_voice_id: "db6b0ed5-d5d3-463d-ae85-518a07d3c2b4"
-    speaking_rate: 1.05
-    style_prompt: "Warm, attentive fine-dining waiter. Clear and upbeat."
-    answer_template: "Keep answers under 25 words. Confirm dishes, modifiers, availability, or the next action."
-  calm_concierge:
-    cartesia_voice_id: "db6b0ed5-d5d3-463d-ae85-518a07d3c2b4"
-    speaking_rate: 0.95
-    style_prompt: "Calm hotel concierge. Soft and professional."
-    answer_template: "Formal but brief under 25 words. Offer one next step."
-
-default_profile: friendly_waiter
+en:
+  lang_code: a
+  voice: af_heart
+es:
+  lang_code: e
+  voice: ef_dora
+fr:
+  lang_code: f
+  voice: ff_siwis
+hi:
+  lang_code: h
+  voice: hf_alpha
+it:
+  lang_code: i
+  voice: if_sara
+ja:
+  lang_code: j
+  voice: jf_alpha
+zh:
+  lang_code: z
+  voice: zf_xiaobei
+pt-BR:
+  lang_code: p
+  voice: pf_dora
