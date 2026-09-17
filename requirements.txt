@@ -16,3 +16,7 @@ rank-bm25>=0.2.2
 assemblyai>=0.37.0
 google-genai>=1.0.0
 
+# Local LLM (default provider): Ollama through LangChain. Core + the Ollama partner package only;
+# not the `langchain` meta-package and not langgraph.
+langchain-core>=1.2.21,<2
+langchain-ollama>=1.1.0,<1.2

@@ -370,10 +370,12 @@ class WaiterSession:
                 if mods:
                     for line in self.basket[before:]:
                         line.modifiers = list(mods)
-                    # re-read, so the nested result cannot contradict the basket
+                    # Re-read so the nested result matches the modified basket lines, but keep the
+                    # per-dish failures: dropping them reported a sold-out dish as a clean success.
+                    failures = [e for e in res.get("added") or [] if isinstance(e, dict) and e.get("error")]
                     res = {
                         **res,
-                        "added": [l.as_dict() for l in self.basket[before:]],
+                        "added": [l.as_dict() for l in self.basket[before:]] + failures,
                         **self._order_summary(),
                     }
             else:
