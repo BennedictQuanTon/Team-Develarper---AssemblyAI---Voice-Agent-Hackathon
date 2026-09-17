@@ -1,7 +1,7 @@
-"""Waiter agent — Gemini function-calling loop over the deterministic toolkit.
+"""Waiter agents — LLM function calling over the deterministic toolkit.
 
-The LLM decides tools, the toolkit computes truth. Tool schema (JSON Schema)
-is mirrored for plumbing into google.genai `FunctionDeclaration` / `Tool`.
+The LLM decides tools, the toolkit computes truth. `OllamaWaiterAgent` (a local model through
+LangChain) is the default; `WaiterAgent` (Gemini) is the fallback, and both share `TOOL_SCHEMAS`.
 
 If GEMINI_API_KEY is absent, a deterministic `RuleBasedWaiterAgent` keeps the
 golden path working locally (no API) so the UI/playbook can be tested offline.
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass, field
 from typing import Any
 
 from backend.app.domain.lantern import get_lantern_store
@@ -372,7 +373,7 @@ def _exec_waiter_tool(ss: WaiterSession, name: str, args: dict[str, Any]) -> dic
         if name == "check_availability":
             return ss.check_availability(args.get("sku", ""))
         if name == "order_items":
-            return ss.order_items(args.get("items") or [], bool(args.get("place", False)))
+            return ss.order_items(args.get("items") or [], _as_bool(args.get("place", False)))
         if name == "add_item":
             return ss.add_item(args.get("sku", ""), int(args.get("qty", 1) or 1), args.get("modifiers"))
         if name == "add_items_from_mention":
@@ -455,29 +456,165 @@ def prefetch_for_case(ss: WaiterSession, case: str, query: str) -> dict[str, Any
     return out
 
 
+_TOOL_NAMES = frozenset(schema["name"] for schema in TOOL_SCHEMAS)
+_FALLBACK_REPLY = "Sorry, could you say that again?"
+_PARSE_NUDGE = "Your last tool call had invalid JSON arguments. Call the tool again with valid JSON arguments."
+_EMPTY_NUDGE = "Reply to the guest, or call one of the tools by its exact name."
+
+
+def _as_bool(value: Any) -> bool:
+    """A small model may send `"false"` for a boolean, and `bool("false")` is True."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes", "on"}
+    return False
+
+
+def _coerce_tool_args(name: str, args: Any) -> dict[str, Any]:
+    """Normalise the argument shapes a small model gets wrong before they reach the toolkit."""
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except ValueError:
+            args = {}
+    if not isinstance(args, dict):
+        return {}
+    args = dict(args)
+    if name == "order_items":
+        items = args.get("items")
+        if isinstance(items, str):
+            try:
+                items = json.loads(items)
+            except ValueError:
+                items = []
+        if isinstance(items, dict):
+            items = [items]
+        args["items"] = items if isinstance(items, list) else []
+        args["place"] = _as_bool(args.get("place", False))
+    return args
+
+
+def _record_reply_mentions(ss: WaiterSession, text: str) -> None:
+    """Dishes the waiter named become the targets of "that one" / "the first" in the next turn."""
+    lowered = text.lower()
+    for item in ss.store.list_menu():
+        if item.name.lower() in lowered:
+            ss._record_mentions([item])
+
+
+def _message_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = [part if isinstance(part, str) else part.get("text", "") for part in content if isinstance(part, (str, dict))]
+        return "".join(parts).strip()
+    return ""
+
+
+def ollama_params(settings: Any = None, *, model: str | None = None, base_url: str | None = None) -> Any:
+    from backend.app.config import get_settings
+    from backend.app.pipeline.llm_ollama import OllamaParams, parse_keep_alive, parse_optional_bool
+
+    settings = settings or get_settings()
+    return OllamaParams(
+        model=(model or settings.ollama_model or "qwen2.5:3b").strip(),
+        base_url=(base_url or settings.ollama_base_url or "http://localhost:11434").rstrip("/"),
+        temperature=float(settings.ollama_temperature),
+        num_ctx=int(settings.ollama_num_ctx),
+        num_predict=int(settings.ollama_num_predict),
+        keep_alive=parse_keep_alive(settings.ollama_keep_alive),
+        reasoning=parse_optional_bool(settings.ollama_reasoning),
+        request_timeout_s=float(settings.ollama_request_timeout_s),
+    )
+
+
+@dataclass
+class _TurnStats:
+    prefetch_used: bool = False
+    rounds: int = 0
+    llm_total_ms: float = 0.0
+    tool_ms: float = 0.0
+    parse_errors: int = 0
+    empty_responses: int = 0
+    salvaged_tool_calls: int = 0
+    template_reply: int = 0
+    server: dict[str, float] = field(default_factory=dict)
+    first_prompt_tokens: int | None = None
+
+    def add_server(self, timings: dict[str, float]) -> None:
+        if self.first_prompt_tokens is None and "prompt_tokens" in timings:
+            self.first_prompt_tokens = int(timings["prompt_tokens"])
+        for key, value in timings.items():
+            self.server[key] = self.server.get(key, 0) + value
+
+    def as_timings(self) -> dict[str, Any]:
+        timings: dict[str, Any] = {
+            "llm_rounds": self.rounds,
+            "llm_total_ms": round(self.llm_total_ms, 1),
+            "tool_ms": round(self.tool_ms, 1),
+            "bucket_wait_ms": 0.0,  # no quota locally; kept so rows line up with Gemini turns
+            "prefetch_used": self.prefetch_used,
+            "template_reply": self.template_reply,
+            "parse_errors": self.parse_errors,
+            "empty_responses": self.empty_responses,
+            "salvaged_tool_calls": self.salvaged_tool_calls,
+        }
+        for key in ("load_ms", "prompt_eval_ms", "eval_ms", "server_total_ms", "prompt_tokens", "output_tokens"):
+            if key in self.server:
+                name = "ollama_server_ms" if key == "server_total_ms" else f"ollama_{key}"
+                value = self.server[key]
+                timings[name] = int(value) if key.endswith("tokens") else round(value, 1)
+        if self.first_prompt_tokens is not None:
+            timings["ollama_first_prompt_tokens"] = self.first_prompt_tokens
+        if "server_total_ms" in self.server:
+            # What HTTP, streaming and LangChain cost on top of Ollama's own work.
+            timings["llm_overhead_ms"] = round(self.llm_total_ms - self.server["server_total_ms"], 1)
+        return timings
+
+
 class OllamaWaiterAgent:
-    """Local Qwen / Ollama-backed function-calling loop with zero cloud latency and no rate limits."""
+    """The default waiter agent: a local model on Ollama, called through LangChain.
 
-    def __init__(self, model: str | None = None, base_url: str | None = None) -> None:
+    Round trips are the dominant cost on a local model, so a turn is built to need as few as possible:
+    read-only lookups arrive prefetched, order changes go through the compound `order_items` tool, and a
+    clean order change can be confirmed from the tool result instead of a second model call.
+    """
+
+    provider_label = "ollama_langchain_tools"
+
+    def __init__(
+        self,
+        model: str | None = None,
+        base_url: str | None = None,
+        *,
+        chat_model: Any = None,
+        template_replies: bool | None = None,
+        max_rounds: int = MAX_ROUNDS,
+        settings: Any = None,
+    ) -> None:
         from backend.app.config import get_settings
+        from backend.app.pipeline import llm_ollama
 
-        settings = get_settings()
-        self.model = (model or getattr(settings, "ollama_model", "") or "qwen2.5:3b").strip()
-        self.base_url = (base_url or getattr(settings, "ollama_base_url", "") or "http://localhost:11434").rstrip("/")
+        settings = settings or get_settings()
+        self.params = ollama_params(settings, model=model, base_url=base_url)
+        self.model = self.params.model
+        self.base_url = self.params.base_url
         self.available = True
+        self.template_replies = (
+            bool(settings.waiter_template_replies) if template_replies is None else bool(template_replies)
+        )
+        self.max_rounds = max(1, int(max_rounds))
+        self._tools = llm_ollama.to_openai_tools(TOOL_SCHEMAS)
+        if chat_model is not None:
+            self._runnable = chat_model.bind_tools(self._tools)
+        else:
+            self._runnable = llm_ollama.get_bound_model(self.params, self._tools)
 
     def _tool_spec(self) -> list[dict[str, Any]]:
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": s["name"],
-                    "description": s["description"],
-                    "parameters": s["parameters"],
-                },
-            }
-            for s in TOOL_SCHEMAS
-        ]
+        return self._tools
 
     async def respond(
         self,
@@ -485,73 +622,130 @@ class OllamaWaiterAgent:
         user_text: str,
         prefetch: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        import time as _time
+
         import httpx
+        import ollama
+        from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-        if prefetch:
-            user_text = _format_prefetch(prefetch) + "\n\n" + user_text
+        from backend.app.pipeline import llm_ollama
+        from backend.app.pipeline.waiter_templates import render_confirmation
 
-        messages: list[dict[str, Any]] = [
-            {"role": "system", "content": SYSTEM_INSTRUCTION},
-            {"role": "user", "content": user_text},
-        ]
+        stats = _TurnStats(prefetch_used=bool(prefetch))
+        context = _format_prefetch(prefetch) if prefetch else None
+        messages: list[Any] = llm_ollama.build_messages(SYSTEM_INSTRUCTION, user_text, context)
         tool_log: list[dict[str, Any]] = []
+        consecutive_parse_errors = 0
+        nudged_empty = False
+        overflow_warned = False
 
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            for _ in range(6):
-                payload = {
-                    "model": self.model,
-                    "messages": messages,
-                    "tools": self._tool_spec(),
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.3,
-                        "num_predict": 90,
-                    },
-                }
-                res = await client.post(f"{self.base_url}/api/chat", json=payload)
-                if res.status_code != 200:
-                    raise RuntimeError(f"Ollama API error {res.status_code}: {res.text[:200]}")
-                data = res.json()
-                msg = data.get("message", {})
-                text = (msg.get("content") or "").strip()
-                calls = msg.get("tool_calls") or []
+        for _round in range(self.max_rounds):
+            stats.rounds += 1
+            started = _time.perf_counter()
+            try:
+                ai = await self._runnable.ainvoke(messages)
+            except llm_ollama.OutputParserException as exc:
+                stats.llm_total_ms += (_time.perf_counter() - started) * 1000
+                stats.parse_errors += 1
+                consecutive_parse_errors += 1
+                logger.warning("Ollama returned unparseable tool arguments: %s", exc)
+                if consecutive_parse_errors >= 2:
+                    return self._result(ss, _FALLBACK_REPLY, tool_log, stats)
+                messages.append(HumanMessage(content=_PARSE_NUDGE))
+                continue
+            except (ConnectionError, httpx.TransportError, ollama.ResponseError) as exc:
+                # Mark Ollama down so the next session falls back; realtime_session apologises for this turn.
+                llm_ollama.set_last_probe(
+                    llm_ollama.OllamaProbe(False, False, f"request failed: {type(exc).__name__}", _time.time())
+                )
+                raise
+            stats.llm_total_ms += (_time.perf_counter() - started) * 1000
+            consecutive_parse_errors = 0
 
-                if not calls:
-                    if text:
-                        for it in ss.store.list_menu():
-                            if it.name.lower() in text.lower():
-                                ss._record_mentions([it])
-                    return {
-                        "reply": text,
-                        "tool_calls": tool_log,
-                        "basket": ss.snapshot(),
-                    }
+            server = llm_ollama.ollama_timings_ms(getattr(ai, "response_metadata", None))
+            stats.add_server(server)
+            prompt_tokens = server.get("prompt_tokens")
+            if (
+                not overflow_warned
+                and prompt_tokens is not None
+                and prompt_tokens + self.params.num_predict > 0.9 * self.params.num_ctx
+            ):
+                overflow_warned = True
+                logger.warning(
+                    "Prompt is %d tokens of a %d-token context; Ollama truncates from the front, which drops "
+                    "the system prompt. Raise OLLAMA_NUM_CTX.",
+                    prompt_tokens,
+                    self.params.num_ctx,
+                )
 
-                # Record assistant tool call turn
-                messages.append(msg)
+            calls = list(ai.tool_calls or [])
+            text = _message_text(ai.content)
+            if not calls and text:
+                salvaged = llm_ollama.salvage_tool_calls(text, _TOOL_NAMES)
+                if salvaged:
+                    stats.salvaged_tool_calls += len(salvaged)
+                    calls, text = salvaged, ""
+                    ai = AIMessage(content="", tool_calls=salvaged)
 
-                # Execute calls and feed results back into context
-                for call in calls:
-                    fn = call.get("function", {})
-                    name = fn.get("name")
-                    args = fn.get("arguments", {})
-                    if isinstance(args, str):
-                        try:
-                            args = json.loads(args)
-                        except Exception:
-                            args = {}
-                    result = _exec_waiter_tool(ss, name, args)
-                    tool_log.append({"tool": name, "args": args, "result": result})
-                    messages.append({
-                        "role": "tool",
-                        "content": json.dumps(result),
-                    })
+            if not calls:
+                if text:
+                    _record_reply_mentions(ss, text)
+                    return self._result(ss, text, tool_log, stats)
+                if getattr(ai, "invalid_tool_calls", None):
+                    stats.parse_errors += 1
+                    consecutive_parse_errors += 1
+                    if consecutive_parse_errors >= 2:
+                        return self._result(ss, _FALLBACK_REPLY, tool_log, stats)
+                    messages.append(HumanMessage(content=_PARSE_NUDGE))
+                    continue
+                # Small Qwen models sometimes answer with nothing at all.
+                stats.empty_responses += 1
+                if nudged_empty:
+                    return self._result(ss, _FALLBACK_REPLY, tool_log, stats)
+                nudged_empty = True
+                messages.append(HumanMessage(content=_EMPTY_NUDGE))
+                continue
 
-        return {
-            "reply": text if text else "Let me read that back for you.",
-            "tool_calls": tool_log,
-            "basket": ss.snapshot(),
-        }
+            messages.append(ai)
+            round_log: list[dict[str, Any]] = []
+            tools_started = _time.perf_counter()
+            for index, call in enumerate(calls):
+                name = call.get("name") or ""
+                args = _coerce_tool_args(name, call.get("args"))
+                result = _exec_waiter_tool(ss, name, args)
+                entry = {"tool": name, "args": args, "result": result}
+                tool_log.append(entry)
+                round_log.append(entry)
+                messages.append(
+                    ToolMessage(
+                        content=json.dumps(result, ensure_ascii=False, default=str),
+                        tool_call_id=call.get("id") or f"call-{_round}-{index}",
+                        name=name,
+                    )
+                )
+            stats.tool_ms += (_time.perf_counter() - tools_started) * 1000
+
+            if self.template_replies:
+                reply = render_confirmation(round_log)
+                if reply:
+                    stats.template_reply = 1
+                    _record_reply_mentions(ss, reply)
+                    return self._result(ss, reply, tool_log, stats)
+
+        return self._result(ss, self._rounds_exhausted_reply(ss), tool_log, stats)
+
+    @staticmethod
+    def _rounds_exhausted_reply(ss: WaiterSession) -> str:
+        from backend.app.pipeline.waiter_templates import speak_order_lines
+
+        readback = ss.readback()
+        if readback.get("empty"):
+            return _FALLBACK_REPLY
+        return f"So far I have {speak_order_lines(readback['lines'])}, ${readback['total']:.2f}. Anything else?"
+
+    @staticmethod
+    def _result(ss: WaiterSession, reply: str, tool_log: list[dict[str, Any]], stats: _TurnStats) -> dict[str, Any]:
+        return {"reply": reply, "tool_calls": tool_log, "basket": ss.snapshot(), "timings": stats.as_timings()}
 
 
 class RuleBasedWaiterAgent:
@@ -645,3 +839,11 @@ def build_waiter_agent(provider: str | None = None) -> WaiterAgent | OllamaWaite
         return WaiterAgent()
     return RuleBasedWaiterAgent()
 
+
+def waiter_provider_label(agent: Any) -> str:
+    """The label turn metrics and events report for whichever agent actually handled the turn."""
+    if isinstance(agent, WaiterAgent):
+        return "gemini_tools"
+    if isinstance(agent, RuleBasedWaiterAgent):
+        return "rulebased"
+    return str(getattr(agent, "provider_label", type(agent).__name__))
