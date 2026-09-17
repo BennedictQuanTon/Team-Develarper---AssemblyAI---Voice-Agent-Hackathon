@@ -22,9 +22,23 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.5-flash-lite"
     gemini_rpm: int = 15  # per-minute request cap for the free/tiered Gemini plan
     gemini_burst: int = 6  # max requests in any 10s window; lets one turn fire back to back
-    llm_provider: str = "gemini"  # gemini | ollama
+    # The team runs the waiter on a local model (issue #13); Gemini is the fallback.
+    llm_provider: str = "ollama"  # ollama | gemini
     ollama_model: str = "qwen2.5:3b"
     ollama_base_url: str = "http://localhost:11434"
+    # -1 keeps the model loaded; Ollama's default unloads it after five idle minutes.
+    ollama_keep_alive: str = "-1"
+    # Must stay fixed for the life of the server: a different num_ctx reloads the whole model.
+    ollama_num_ctx: int = 4096
+    # A nested order_items call does not fit in 90 tokens and truncates silently.
+    ollama_num_predict: int = 256
+    ollama_temperature: float = 0.3
+    ollama_reasoning: str = ""  # "" = don't send `think` (qwen2.5 has no thinking mode); "false" for qwen3
+    ollama_request_timeout_s: float = 45.0
+    ollama_probe_timeout_s: float = 1.0
+    ollama_warmup: bool = True
+    # Speak the confirmation of a clean order change from the tool result instead of a second LLM call.
+    waiter_template_replies: bool = False
     assemblyai_speech_model: str = "universal-3-5-pro"
     assemblyai_mode: str = "min_latency"
 
