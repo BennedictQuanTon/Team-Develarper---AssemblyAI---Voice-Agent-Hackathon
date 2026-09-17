@@ -20,7 +20,7 @@ from backend.app.pipeline.llm_live import GeminiLLMClient
 from backend.app.pipeline.profiles import get_voice_profile
 from backend.app.pipeline.session import MAX_TURNS, SessionStore
 from backend.app.pipeline.tts_stream import CartesiaStreamingTTS, StubStreamingTTS
-from backend.app.pipeline.waiter_agent import build_waiter_agent, prefetch_for_case
+from backend.app.pipeline.waiter_agent import build_waiter_agent, prefetch_for_case, waiter_provider_label
 from backend.app.domain.lantern import get_lantern_store
 from backend.app.domain.waiter import WaiterSession
 from rag.cache import RagCache
@@ -655,6 +655,9 @@ class RealtimeSessionController:
 
         e2e_turn_ms = round((time.perf_counter() - t_start) * 1000, 2)
         session = self.sessions.append_turn(self.session_id, query, reply)
+        # From the agent loop: rounds, model time and, locally, Ollama's own load/prompt/eval timings.
+        agent_timings = {k: v for k, v in (result.get("timings") or {}).items() if isinstance(v, (int, float))}
+        provider = self._waiter_provider()
 
         spans = TurnSpans(
             turn_id=turn_id,
@@ -663,18 +666,8 @@ class RealtimeSessionController:
             transcript=query,
             answer=reply,
             profile=self.profile["name"],
-            provider={
-                "asr": "assemblyai_realtime" if self.has_aai else "stub_realtime",
-                "llm": "gemini_tools" if self.has_gemini else "rulebased",
-                "tts": "cartesia_websocket" if self.has_cartesia else "stub_tts",
-            },
-            timings_ms={
-                "ttfb_ms": t_first_audio,
-                "e2e_turn_ms": e2e_turn_ms,
-                # from the agent loop: how many round trips the turn cost, and how
-                # much of the wait was our own rate limiter rather than the network
-                **{k: v for k, v in (result.get("timings") or {}).items() if isinstance(v, (int, float))},
-            },
+            provider=provider,
+            timings_ms={"ttfb_ms": t_first_audio, "e2e_turn_ms": e2e_turn_ms, **agent_timings},
             cache={
                 "n_tool_calls": len(tool_calls),
                 "filler_case": filler_case,
@@ -693,15 +686,8 @@ class RealtimeSessionController:
                 "answer": reply,
                 "ttfb_ms": t_first_audio,
                 "e2e_turn_ms": e2e_turn_ms,
-                "timings_ms": {
-                    "ttfb_ms": t_first_audio,
-                    "e2e_turn_ms": e2e_turn_ms,
-                },
-                "provider": {
-                    "asr": "assemblyai_realtime" if self.has_aai else "stub_realtime",
-                    "llm": "gemini_tools" if self.has_gemini else "rulebased",
-                    "tts": "cartesia_websocket" if self.has_cartesia else "stub_tts",
-                },
+                "timings_ms": {"ttfb_ms": t_first_audio, "e2e_turn_ms": e2e_turn_ms, **agent_timings},
+                "provider": provider,
                 "tool_calls": [{"tool": t.get("tool"), "args": t.get("args", {})} for t in tool_calls],
                 "chunk_ids": [],
                 "chunks": [],
@@ -711,6 +697,15 @@ class RealtimeSessionController:
                 "basket": self.waiter_session.snapshot(),
             }
         )
+
+    def _waiter_provider(self) -> dict[str, str]:
+        """The providers that actually served a waiter turn. The LLM label comes from the agent, not the keys."""
+        return {
+            "asr": "assemblyai_realtime" if self.has_aai else "stub_realtime",
+            "llm": waiter_provider_label(self.waiter_agent),
+            "llm_model": str(getattr(self.waiter_agent, "model", "") or ""),
+            "tts": "cartesia_websocket" if self.has_cartesia else "stub_tts",
+        }
 
     async def _send_json(self, data: dict[str, Any]) -> None:
         try:

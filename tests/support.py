@@ -109,6 +109,10 @@ def reset_caches() -> None:
     if llm_ollama is not None:
         llm_ollama.reset_model_cache()
         llm_ollama.set_last_probe(None)
+    waiter_agent = sys.modules.get("backend.app.pipeline.waiter_agent")
+    if waiter_agent is not None and hasattr(waiter_agent, "WaiterLLMRuntime"):
+        waiter_agent._runtime = waiter_agent.WaiterLLMRuntime()
+        waiter_agent._last_fallback_reason = None
     main = sys.modules.get("backend.app.main")
     if main is not None and hasattr(main, "get_orchestrator"):
         main.get_orchestrator.cache_clear()
@@ -148,6 +152,31 @@ class IsolatedAsyncTestCase(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.tmp_dir = isolate(self)
+
+
+def run_with_timeout(fn: Any, timeout_s: float = 60.0) -> Any:
+    """Run a blocking conversation on a worker thread and fail the test instead of hanging the suite.
+
+    Starlette's test websocket has no receive timeout, so a turn that never completes would block CI forever.
+    """
+    import threading
+
+    box: dict[str, Any] = {}
+
+    def target() -> None:
+        try:
+            box["value"] = fn()
+        except BaseException as exc:  # noqa: BLE001 - re-raised on the test thread
+            box["error"] = exc
+
+    worker = threading.Thread(target=target, daemon=True)
+    worker.start()
+    worker.join(timeout_s)
+    if worker.is_alive():
+        raise AssertionError(f"timed out after {timeout_s:.0f}s waiting for the conversation")
+    if "error" in box:
+        raise box["error"]
+    return box.get("value")
 
 
 def fresh_store() -> Any:

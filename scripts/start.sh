@@ -62,7 +62,8 @@ if command -v lsof >/dev/null 2>&1; then
 fi
 
 # 6. Check & Launch Ollama Service (if using local LLM)
-LLM_PROVIDER_CFG="$(grep -E '^LLM_PROVIDER=' "$ROOT/.env" 2>/dev/null | cut -d '=' -f2 | tr -d ' "' || echo "ollama")"
+# The process environment wins over .env, as it does for the server.
+LLM_PROVIDER_CFG="${LLM_PROVIDER:-$(grep -E '^LLM_PROVIDER=' "$ROOT/.env" 2>/dev/null | cut -d '=' -f2 | tr -d ' "' || echo "ollama")}"
 OLLAMA_MODEL_CFG="$(grep -E '^OLLAMA_MODEL=' "$ROOT/.env" 2>/dev/null | cut -d '=' -f2 | tr -d ' "' || echo "qwen2.5:3b")"
 OLLAMA_BASE_URL_CFG="$(grep -E '^OLLAMA_BASE_URL=' "$ROOT/.env" 2>/dev/null | cut -d '=' -f2 | tr -d ' "' || echo "http://localhost:11434")"
 OLLAMA_PID_FILE="$PID_DIR/ollama.pid"
@@ -109,6 +110,8 @@ fi
 # 7. Launch Uvicorn in background
 source "$ROOT/.venv/bin/activate"
 export PYTHONPATH="$ROOT"
+# Without these the server read LLM_PROVIDER on its own and could run a different model than this script started.
+export LLM_PROVIDER="${LLM_PROVIDER_CFG:-ollama}" OLLAMA_MODEL="$OLLAMA_MODEL_CFG" OLLAMA_BASE_URL="$OLLAMA_BASE_URL_CFG"
 
 nohup "$ROOT/.venv/bin/python" -m uvicorn backend.app.main:app \
   --host "$HOST" \

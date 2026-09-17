@@ -17,6 +17,7 @@ from backend.app.metrics.spans import summarize_jsonl
 from backend.app.pipeline.orchestrator import Orchestrator
 from backend.app.pipeline.realtime_session import RealtimeSessionController
 from backend.app.pipeline.session import SessionStore
+from backend.app.pipeline.waiter_agent import refresh_ollama_probe, start_waiter_llm, waiter_llm_status
 from rag.cache import RagCache
 from rag.retrieve import DEFAULT_TOP_K, ask, hybrid_retrieve, warmup_retriever
 from rag.store import get_collection
@@ -58,7 +59,12 @@ async def lifespan(_app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         print(f"[startup] RAG warmup skipped: {exc}")
     get_orchestrator()
-    yield
+    # Probe Ollama and warm the waiter model in the background; never blocks startup.
+    waiter_llm = await start_waiter_llm(settings)
+    try:
+        yield
+    finally:
+        await waiter_llm.aclose()
 
 
 app = FastAPI(
@@ -110,6 +116,8 @@ def health() -> JSONResponse:
             "voice_profile": settings.voice_profile,
             "assemblyai_mode": settings.assemblyai_mode,
             "gemini_model": settings.gemini_model,
+            # Which model the waiter actually uses, as opposed to the one that was configured.
+            "llm": waiter_llm_status(settings),
             "chroma_chunk_count": chroma_count,
             "cache": get_rag_cache().snapshot(),
             "metrics_file": str(metrics_path),
@@ -344,6 +352,7 @@ async def ws_turn(websocket: WebSocket) -> None:
 async def ws_realtime(websocket: WebSocket) -> None:
     """Full-duplex real-time streaming endpoint: bi-directional audio + live barge-in."""
     await websocket.accept()
+    await refresh_ollama_probe(get_settings())
     controller = RealtimeSessionController(
         websocket,
         settings=get_settings(),

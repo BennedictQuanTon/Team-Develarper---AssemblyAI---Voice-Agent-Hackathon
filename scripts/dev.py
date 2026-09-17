@@ -9,7 +9,8 @@
 
 The preflight mirrors start.sh: .venv present, .env created from .env.example, frontend built with
 `npm ci` + `npm run build` when frontend/dist is missing, and Ollama started (model pulled) when
-LLM_PROVIDER=ollama. Unlike start.sh, an unset LLM_PROVIDER means gemini, as in config.py, and `stop`
+LLM_PROVIDER=ollama. An unset LLM_PROVIDER means ollama, as in config.py and start.sh; the provider and
+model are exported to the server, and the model that actually answers is read back from /health. `stop`
 frees port 3000 only when a node process (the Vite dev server) holds it. Standard library only; on
 macOS the .sh scripts keep working as before.
 """
@@ -184,13 +185,17 @@ def start(args: argparse.Namespace) -> int:
         print(f"Port {args.port} is already in use. Free it with: uv run python scripts/dev.py stop")
         return 1
 
-    provider = setting("LLM_PROVIDER", "gemini")
+    provider = setting("LLM_PROVIDER", "ollama")
     if provider == "ollama":
         ensure_ollama()
     cmd = [str(VENV_PYTHON), "-m", "uvicorn", "backend.app.main:app", "--host", args.host, "--port", str(args.port)]
     if args.reload:
         cmd.append("--reload")
     env = {**os.environ, "PYTHONPATH": str(ROOT), "PYTHONUTF8": "1"}  # server logs contain emoji
+    # Hand the server the same provider this preflight used, so the two can't disagree.
+    env["LLM_PROVIDER"] = provider
+    env["OLLAMA_MODEL"] = setting("OLLAMA_MODEL", "qwen2.5:3b")
+    env["OLLAMA_BASE_URL"] = setting("OLLAMA_BASE_URL", "http://localhost:11434")
 
     if args.foreground:
         print(f"Serving {url}/  (Ctrl+C stops)")
@@ -205,12 +210,16 @@ def start(args: argparse.Namespace) -> int:
     print("Starting The Lantern", end="", flush=True)
     deadline = time.monotonic() + 30  # the first start loads Chroma/ONNX for the RAG warmup
     while time.monotonic() < deadline and proc.poll() is None:
-        if http_json(f"{url}/health") is not None:
-            model = setting("OLLAMA_MODEL", "qwen2.5:3b") if provider == "ollama" else setting(
-                "GEMINI_MODEL", "gemini-3.5-flash-lite"
-            )
+        health = http_json(f"{url}/health")
+        if health is not None:
+            llm = health.get("llm") or {}
+            active = str(llm.get("provider_active", provider))
+            model = llm.get("model") or "?"
+            note = ""
+            if llm.get("provider_requested", provider) == "ollama" and not active.startswith("ollama"):
+                note = f"  (ollama requested but unavailable: {(llm.get('ollama') or {}).get('detail', 'unknown')})"
             print(
-                f" OK\n  Web UI: {url}/\n  Health: {url}/health\n  LLM:    {provider} ({model})\n"
+                f" OK\n  Web UI: {url}/\n  Health: {url}/health\n  LLM:    {active} ({model}){note}\n"
                 f"  Logs:   {LOG_FILE.relative_to(ROOT)}\n  Stop:   uv run python scripts/dev.py stop"
             )
             return 0

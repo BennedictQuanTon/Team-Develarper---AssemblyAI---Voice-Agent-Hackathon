@@ -9,8 +9,11 @@ golden path working locally (no API) so the UI/playbook can be tested offline.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -828,16 +831,191 @@ class RuleBasedWaiterAgent:
             return nums.get(w, 2)
 
 
-def build_waiter_agent(provider: str | None = None) -> WaiterAgent | OllamaWaiterAgent | RuleBasedWaiterAgent:
+_KNOWN_PROVIDERS = ("ollama", "gemini")
+_last_fallback_reason: str | None = None
+
+
+def requested_provider(settings: Any = None, provider: str | None = None) -> str:
     from backend.app.config import get_settings
 
+    settings = settings or get_settings()
+    chosen = (provider or getattr(settings, "llm_provider", "") or "ollama").strip().lower()
+    if chosen not in _KNOWN_PROVIDERS:
+        logger.warning("Unknown LLM_PROVIDER %r; using ollama", chosen)
+        return "ollama"
+    return chosen
+
+
+def _ollama_unavailable_reason() -> str | None:
+    """Why the Ollama agent can't be used right now, or None if it can.
+
+    Reads only the cached startup probe, so building an agent never blocks the event loop. A server that
+    was never probed (scripts, benchmarks) gets the Ollama agent and finds out on its first request.
+    """
+    try:
+        import langchain_ollama  # noqa: F401
+
+        from backend.app.pipeline import llm_ollama
+    except ImportError as exc:
+        return f"langchain-ollama is not installed ({exc})"
+    probe = llm_ollama.get_last_probe()
+    if probe is None or probe.healthy:
+        return None
+    return probe.detail
+
+
+def build_waiter_agent(provider: str | None = None) -> WaiterAgent | OllamaWaiterAgent | RuleBasedWaiterAgent:
+    """Local Ollama by default; Gemini when asked for or when Ollama isn't usable; rule-based without keys.
+
+    A missing provider never breaks a session, and /health reports which agent is actually active.
+    """
+    from backend.app.config import get_settings
+
+    global _last_fallback_reason
     settings = get_settings()
-    p = (provider or getattr(settings, "llm_provider", "") or "gemini").lower()
-    if p == "ollama":
-        return OllamaWaiterAgent()
+    if requested_provider(settings, provider) == "ollama":
+        reason = _ollama_unavailable_reason()
+        if reason is None:
+            _last_fallback_reason = None
+            return OllamaWaiterAgent()
+        if reason != _last_fallback_reason:
+            _last_fallback_reason = reason
+            fallback = "Gemini" if settings.keys_configured.get("gemini") else "the rule-based agent"
+            logger.warning("Ollama unavailable (%s); falling back to %s", reason, fallback)
     if settings.keys_configured.get("gemini"):
         return WaiterAgent()
     return RuleBasedWaiterAgent()
+
+
+class WaiterLLMRuntime:
+    """What the server started for the waiter model: the warm-up task and its outcome."""
+
+    def __init__(self) -> None:
+        self.warmup_task: asyncio.Task[None] | None = None
+        self.warm = False
+        self.warmup_ms: float | None = None
+        self.warmup_error: str | None = None
+
+    async def _warm_up(self, settings: Any) -> None:
+        from backend.app.pipeline import llm_ollama
+
+        runnable = llm_ollama.get_bound_model(ollama_params(settings), llm_ollama.to_openai_tools(TOOL_SCHEMAS))
+        try:
+            timings = await llm_ollama.warm_up(runnable, SYSTEM_INSTRUCTION)
+        except Exception as exc:  # noqa: BLE001 - warm-up is best effort; the first real turn tries again
+            self.warmup_error = f"{type(exc).__name__}: {exc}"
+            logger.warning("Ollama warm-up failed: %s", self.warmup_error)
+            return
+        self.warm = True
+        self.warmup_ms = timings.get("warmup_ms")
+        logger.info("Ollama warm-up done in %s ms (load %s ms)", self.warmup_ms, timings.get("load_ms"))
+
+    async def aclose(self) -> None:
+        task, self.warmup_task = self.warmup_task, None
+        if task is not None and not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+
+_runtime = WaiterLLMRuntime()
+
+
+def get_waiter_llm_runtime() -> WaiterLLMRuntime:
+    return _runtime
+
+
+async def start_waiter_llm(settings: Any = None) -> WaiterLLMRuntime:
+    """Probe Ollama at startup and, if it is healthy, warm the model up in the background.
+
+    The warm-up is not awaited, so the server answers /health straight away. The first guest then gets a
+    model that is already loaded with the same num_ctx and has the system prompt and tools cached.
+    """
+    from backend.app.config import get_settings
+
+    global _runtime
+    settings = settings or get_settings()
+    await _runtime.aclose()
+    _runtime = WaiterLLMRuntime()
+    if settings.agent_mode != "waiter" or requested_provider(settings) != "ollama":
+        return _runtime
+    try:
+        from backend.app.pipeline import llm_ollama
+    except ImportError as exc:
+        logger.warning("Ollama agent unavailable: %s", exc)
+        return _runtime
+    probe = await llm_ollama.probe_ollama(
+        settings.ollama_base_url, settings.ollama_model, timeout_s=settings.ollama_probe_timeout_s
+    )
+    llm_ollama.set_last_probe(probe)
+    if not probe.healthy:
+        logger.warning("Ollama not ready at startup: %s", probe.detail)
+        return _runtime
+    if settings.ollama_warmup:
+        _runtime.warmup_task = asyncio.create_task(_runtime._warm_up(settings))
+    return _runtime
+
+
+async def refresh_ollama_probe(settings: Any = None, *, retry_after_s: float = 5.0) -> Any:
+    """Re-probe a failed Ollama before a new session, so an Ollama started after the server is picked up.
+
+    A healthy probe is kept (a failing request marks Ollama down by itself), and a server that never
+    probed is left alone.
+    """
+    from backend.app.config import get_settings
+
+    settings = settings or get_settings()
+    if settings.agent_mode != "waiter" or requested_provider(settings) != "ollama":
+        return None
+    try:
+        from backend.app.pipeline import llm_ollama
+    except ImportError:
+        return None
+    probe = llm_ollama.get_last_probe()
+    if probe is None or probe.healthy or time.time() - probe.checked_at < retry_after_s:
+        return probe
+    probe = await llm_ollama.probe_ollama(
+        settings.ollama_base_url, settings.ollama_model, timeout_s=settings.ollama_probe_timeout_s
+    )
+    llm_ollama.set_last_probe(probe)
+    if probe.healthy:
+        logger.info("Ollama is reachable again; new sessions use the local model")
+    return probe
+
+
+def waiter_llm_status(settings: Any = None) -> dict[str, Any]:
+    """The waiter model as /health reports it: what was asked for and what is actually answering."""
+    from backend.app.config import get_settings
+
+    settings = settings or get_settings()
+    agent = build_waiter_agent()
+    status: dict[str, Any] = {
+        "provider_requested": requested_provider(settings),
+        "provider_active": waiter_provider_label(agent),
+        "model": getattr(agent, "model", None),
+        "template_replies": bool(settings.waiter_template_replies),
+    }
+    if status["provider_requested"] == "ollama":
+        probe = None
+        try:
+            from backend.app.pipeline import llm_ollama
+
+            probe = llm_ollama.get_last_probe()
+        except ImportError:
+            pass
+        runtime = get_waiter_llm_runtime()
+        status["ollama"] = {
+            "base_url": settings.ollama_base_url,
+            "probed": probe is not None,
+            "reachable": probe.reachable if probe else None,
+            "model_present": probe.model_present if probe else None,
+            "detail": probe.detail if probe else "not probed",
+            "checked_at": probe.checked_at if probe else None,
+            "warm": runtime.warm,
+            "warmup_ms": runtime.warmup_ms,
+            "warmup_error": runtime.warmup_error,
+        }
+    return status
 
 
 def waiter_provider_label(agent: Any) -> str:
