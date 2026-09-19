@@ -6,26 +6,123 @@ from ...domain.restaurant.models import IntentProposal
 
 
 class OllamaClient:
-    def __init__(self, base_url: str, model: str, thinking: bool = False):
+    _KNOWN_ALIASES = {
+        "スズキ": "MAIN_SEABASS",
+        "sea bass": "MAIN_SEABASS",
+        "seabass": "MAIN_SEABASS",
+    }
+    def __init__(
+        self,
+        base_url: str,
+        model: str,
+        thinking: bool = False,
+        *,
+        timeout_seconds: float = 20.0,
+        client: httpx.AsyncClient | None = None,
+    ):
         self.base_url, self.model, self.thinking = base_url.rstrip('/'), model, thinking
+        self._owns_client = client is None
+        self._client = client or httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds, connect=3.0))
 
-    async def _chat(self, prompt: str) -> str:
-        payload = {"model": self.model, "prompt": prompt, "stream": False, "think": self.thinking, "options": {"temperature": 0}}
-        async with httpx.AsyncClient(timeout=45) as client:
-            response = await client.post(f"{self.base_url}/api/generate", json=payload)
-            response.raise_for_status()
-            return response.json().get("response", "")
+    async def close(self) -> None:
+        if self._owns_client:
+            await self._client.aclose()
+
+    async def _chat(self, prompt: str, *, schema: dict | str = "json", max_tokens: int = 192) -> tuple[str, dict]:
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False,
+            "think": self.thinking,
+            "format": schema,
+            "keep_alive": "15m",
+            "options": {"temperature": 0, "num_predict": max_tokens, "num_ctx": 4096},
+        }
+        response = await self._client.post(f"{self.base_url}/api/generate", json=payload)
+        response.raise_for_status()
+        body = response.json()
+        return body.get("response", ""), body
+
+    @staticmethod
+    def _compact_menu(menu: list[dict]) -> list[dict]:
+        return [
+            {
+                "sku": item.get("sku"),
+                "name": item.get("name"),
+                "available": item.get("available", True),
+                "modifiers": item.get("modifiers", []),
+                "allergens": item.get("allergens", []),
+            }
+            for item in menu
+        ]
+
+    @classmethod
+    def _entity_hints(cls, transcript: str, menu: list[dict]) -> list[dict]:
+        lowered = transcript.casefold()
+        hinted_skus = {
+            sku for phrase, sku in cls._KNOWN_ALIASES.items() if phrase.casefold() in lowered
+        }
+        for item in menu:
+            name = str(item.get("name") or "")
+            if name and name.casefold() in lowered:
+                hinted_skus.add(str(item.get("sku")))
+        return [item for item in menu if item.get("sku") in hinted_skus]
+
+    @staticmethod
+    def _script_language(transcript: str) -> str | None:
+        codepoints = [ord(char) for char in transcript]
+        if any(0x3040 <= value <= 0x30FF for value in codepoints):
+            return "ja"
+        if any(0x0900 <= value <= 0x097F for value in codepoints):
+            return "hi"
+        if any(0x4E00 <= value <= 0x9FFF for value in codepoints):
+            return "zh"
+        return None
+
+    async def warmup(self) -> None:
+        await self._chat(
+            'Return exactly {"ready":true}.',
+            schema={"type": "object", "properties": {"ready": {"type": "boolean"}}, "required": ["ready"]},
+            max_tokens=16,
+        )
 
     async def extract_intent(self, transcript: str, context: dict) -> IntentProposal:
-        prompt = "Return JSON only matching this schema: {source_language,action,items:[{sku,quantity,modifiers}],allergies,dietary_constraints,substitution_response,needs_clarification,clarification_question}. Menu SKUs: %s\nTranscript: %s" % (json.dumps(context.get("menu", [])), transcript)
-        raw = await self._chat(prompt)
+        menu = self._compact_menu(context.get("menu", []))
+        hints = self._entity_hints(transcript, menu)
+        current = context.get("current_state") or {}
+        prompt = (
+            "Extract restaurant intent. Follow these rules in order. "
+            "1) ENTITY_HINTS are deterministic menu matches: use their SKU; never ask to confirm them. "
+            "2) A matched available dish with only listed modifiers MUST be action=create_or_update_order. "
+            "3) Unknown dishes or unsupported modifiers MUST be action=clarify with no items. "
+            "4) Set source_language to the language of USER. Use only listed SKUs and modifiers. "
+            "Examples: 'one grilled seabass no chili' => create_or_update_order, MAIN_SEABASS, quantity 1, modifier no chili. "
+            "'スズキを一つ、唐辛子抜きで' => create_or_update_order, MAIN_SEABASS, quantity 1, modifier no chili, source_language ja. "
+            "Do not explain outside the JSON fields.\n"
+            f"ENTITY_HINTS={json.dumps(hints, ensure_ascii=False, separators=(',', ':'))}\n"
+            f"MENU={json.dumps(menu, ensure_ascii=False, separators=(',', ':'))}\n"
+            f"STATE={json.dumps(current, ensure_ascii=False, separators=(',', ':'))}\n"
+            f"USER={transcript}"
+        )
+        raw, _ = await self._chat(prompt, schema=IntentProposal.model_json_schema(), max_tokens=224)
         try:
-            return IntentProposal.model_validate_json(raw)
+            intent = IntentProposal.model_validate_json(raw)
         except Exception:
             start, end = raw.find("{"), raw.rfind("}")
             if start >= 0 and end > start:
-                return IntentProposal.model_validate_json(raw[start:end + 1])
-            raise ValueError("Ollama returned malformed intent JSON")
+                intent = IntentProposal.model_validate_json(raw[start:end + 1])
+            else:
+                raise ValueError("Ollama returned malformed intent JSON")
+        script_language = self._script_language(transcript)
+        if script_language:
+            intent = intent.model_copy(update={"source_language": script_language})
+        return intent
 
     async def localize_verified_response(self, facts: dict, language: str) -> str:
-        return await self._chat(f"Localize this verified restaurant response into {language}. Preserve facts and numbers. Return text only.\n{json.dumps(facts)}")
+        schema = {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}
+        raw, _ = await self._chat(
+            f"Localize these verified facts into {language}. Preserve facts and numbers. Return JSON only.\n{json.dumps(facts, ensure_ascii=False)}",
+            schema=schema,
+            max_tokens=96,
+        )
+        return str(json.loads(raw)["text"])

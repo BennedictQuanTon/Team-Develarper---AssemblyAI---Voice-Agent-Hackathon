@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import base64
 import json
-from pathlib import Path
+import time
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
@@ -11,7 +13,9 @@ from .domain.restaurant.store import get_lantern_store
 from .domain.restaurant.workflow import OrderWorkflow
 from .services.kitchen_events import KitchenEventBroker
 from .services.realtime_session import RealtimeSession
+from .providers.asr.assemblyai_stream import AssemblyAIRealtimeProvider, TranscriptEvent
 from .providers.llm.ollama import OllamaClient
+from .providers.tts.kokoro import KokoroProvider
 
 app = FastAPI(title="The Lantern — Multilingual Voice Service")
 store = get_lantern_store()
@@ -19,6 +23,31 @@ repository = SQLiteOrderRepository(settings.database_path)
 workflow = OrderWorkflow(repository, store)
 broker = KitchenEventBroker()
 llm = OllamaClient(settings.ollama_base_url, settings.ollama_model, settings.ollama_thinking) if settings.llm_provider == "ollama" else None
+tts = KokoroProvider(settings.kokoro_model_id, settings.kokoro_device)
+provider_state = {"llm_warm": False, "tts_warm": False, "llm_error": None, "tts_error": None}
+
+
+@app.on_event("startup")
+async def warm_local_providers() -> None:
+    if llm:
+        try:
+            await llm.warmup()
+            provider_state["llm_warm"] = True
+        except Exception as exc:  # noqa: BLE001
+            provider_state["llm_error"] = str(exc)
+    if settings.tts_provider == "kokoro":
+        try:
+            await asyncio.to_thread(tts.warmup, "en")
+            provider_state["tts_warm"] = True
+        except Exception as exc:  # noqa: BLE001
+            provider_state["tts_error"] = str(exc)
+
+
+@app.on_event("shutdown")
+async def close_local_providers() -> None:
+    if llm:
+        await llm.close()
+    repository.close()
 
 
 class DecisionRequest(BaseModel):
@@ -42,7 +71,12 @@ def health():
 
 @app.get("/ready")
 def ready():
-    return {"ready": True, "providers": {"asr": settings.assemblyai_speech_model, "llm": settings.ollama_model, "tts": settings.kokoro_model_id}}
+    return {
+        "ready": bool(provider_state["llm_warm"] and provider_state["tts_warm"] and settings.assemblyai_api_key),
+        "providers": {"asr": settings.assemblyai_speech_model, "llm": settings.ollama_model, "tts": settings.kokoro_model_id},
+        "provider_state": provider_state,
+        "tts_device": tts.resolved_device,
+    }
 
 
 @app.get("/api")
@@ -112,19 +146,121 @@ async def realtime(websocket: WebSocket):
         return
     await websocket.accept()
     session = RealtimeSession(table_id, workflow, llm)
-    await websocket.send_json({"type": "session_ready", "table_id": table_id, "providers": {"asr": settings.assemblyai_speech_model, "llm": settings.ollama_model, "tts": settings.kokoro_model_id}, "has_tts": settings.tts_provider == "kokoro", "has_cartesia": False})
+    send_lock = asyncio.Lock()
+    cancel_event = asyncio.Event()
+    response_task: asyncio.Task | None = None
+
+    async def send(payload: dict) -> None:
+        async with send_lock:
+            await websocket.send_json(payload)
+
+    async def deliver_transcript(text: str, language_code: str, turn_cancel: asyncio.Event) -> None:
+        started = time.perf_counter()
+        await send({"type": "final_transcript", "text": text, "language_code": language_code})
+        await send({"type": "workflow_update", "status": "interpreting"})
+        try:
+            result = await session.handle_transcript(text, language_code)
+            await send(result)
+            response_text = result.get("response_text")
+            if response_text and result.get("tts_supported"):
+                first_audio_ms: float | None = None
+                async for pcm_chunk in tts.stream_async(response_text, result.get("language_code", "en"), turn_cancel):
+                    if turn_cancel.is_set():
+                        break
+                    if first_audio_ms is None:
+                        first_audio_ms = round((time.perf_counter() - started) * 1000, 2)
+                    await send(
+                        {
+                            "type": "audio_chunk",
+                            "pcm_b64": base64.b64encode(pcm_chunk).decode("ascii"),
+                            "sample_rate": tts.sample_rate,
+                            "language_code": result.get("language_code", "en"),
+                            "ttfb_ms": first_audio_ms,
+                        }
+                    )
+            await send(
+                {
+                    "type": "turn_complete",
+                    "pipeline_ms": result.get("pipeline_ms"),
+                    "voice_ttfb_ms": first_audio_ms if response_text and result.get("tts_supported") else None,
+                }
+            )
+        except asyncio.CancelledError:
+            return
+        except Exception as exc:  # noqa: BLE001
+            await send({"type": "error", "message": str(exc)})
+
+    def start_response(text: str, language_code: str = "en") -> None:
+        nonlocal response_task, cancel_event
+        if response_task and not response_task.done():
+            cancel_event.set()
+            response_task.cancel()
+        cancel_event = asyncio.Event()
+        response_task = asyncio.create_task(deliver_transcript(text, language_code, cancel_event))
+
+    async def on_transcript(event: TranscriptEvent) -> None:
+        if not event.is_final:
+            await send({"type": "interim_transcript", "text": event.text, "language_code": event.language_code})
+            return
+        start_response(event.text, event.language_code or "en")
+
+    async def on_speech_started() -> None:
+        cancel_event.set()
+        if response_task and not response_task.done():
+            response_task.cancel()
+        await send({"type": "barge_in", "reason": "assemblyai_vad"})
+
+    async def on_asr_error(message: str) -> None:
+        await send({"type": "provider_unavailable", "provider": "assemblyai", "message": message})
+
+    asr = None
+    asr_ready = asyncio.Event()
+    asr_connect_task: asyncio.Task | None = None
+    if settings.assemblyai_api_key:
+        asr = AssemblyAIRealtimeProvider(
+            settings.assemblyai_api_key,
+            store.keyterms(),
+            on_transcript=on_transcript,
+            on_speech_started=on_speech_started,
+            on_error=on_asr_error,
+        )
+
+        async def connect_asr() -> None:
+            try:
+                await asyncio.wait_for(asr.connect(), timeout=10)
+                asr_ready.set()
+                await send({"type": "provider_ready", "provider": "assemblyai"})
+            except Exception as exc:  # noqa: BLE001
+                await send({"type": "provider_unavailable", "provider": "assemblyai", "message": str(exc)})
+
+        asr_connect_task = asyncio.create_task(connect_asr())
+    await send({"type": "session_ready", "table_id": table_id, "providers": {"asr": settings.assemblyai_speech_model, "llm": settings.ollama_model, "tts": settings.kokoro_model_id}, "provider_state": provider_state, "asr_status": "connecting" if asr else "unavailable", "has_tts": provider_state["tts_warm"], "has_cartesia": False})
     try:
         while True:
             message = await websocket.receive()
+            if message.get("type") == "websocket.disconnect":
+                break
             if message.get("text"):
                 payload = json.loads(message["text"])
                 if payload.get("type") == "transcript":
-                    result = await session.handle_transcript(payload.get("text", ""), payload.get("language_code", "en"))
-                    await websocket.send_json(result)
+                    start_response(payload.get("text", ""), payload.get("language_code", "en"))
+                elif payload.get("type") in {"barge_in", "interrupt"}:
+                    await on_speech_started()
             elif message.get("bytes"):
-                await websocket.send_json({"type": "audio_received", "sample_rate": 16000})
+                if asr and asr_ready.is_set():
+                    await asr.send_audio(message["bytes"])
+                else:
+                    await send({"type": "provider_unavailable", "provider": "assemblyai", "message": "speech recognition is not connected"})
     except WebSocketDisconnect:
-        return
+        pass
+    finally:
+        cancel_event.set()
+        if response_task and not response_task.done():
+            response_task.cancel()
+        if asr_connect_task and not asr_connect_task.done():
+            asr_connect_task.cancel()
+        if asr and asr_ready.is_set():
+            await asr.close()
 
 
 @app.websocket("/ws/ops")

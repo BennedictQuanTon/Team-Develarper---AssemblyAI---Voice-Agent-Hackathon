@@ -1,0 +1,397 @@
+{
+  "schema_version": 1,
+  "benchmark": "lantern-new-architecture",
+  "dataset": "eval/datasets/restaurant/new_architecture_strengths.v1.json",
+  "status": "PASS",
+  "readiness": {
+    "checks": [
+      {
+        "name": "python_version",
+        "passed": true,
+        "detail": "3.11.15",
+        "metrics": {}
+      },
+      {
+        "name": "env_file",
+        "passed": true,
+        "detail": ".env exists",
+        "metrics": {}
+      },
+      {
+        "name": "assemblyai_key",
+        "passed": true,
+        "detail": "configured",
+        "metrics": {}
+      },
+      {
+        "name": "assemblyai_package",
+        "passed": true,
+        "detail": "installed",
+        "metrics": {}
+      },
+      {
+        "name": "assemblyai_model",
+        "passed": true,
+        "detail": "universal-3-5-pro",
+        "metrics": {}
+      },
+      {
+        "name": "assemblyai_stream_wiring",
+        "passed": true,
+        "detail": "implemented methods: ['close', 'connect', 'send_audio']; required: ['close', 'connect', 'send_audio']",
+        "metrics": {}
+      },
+      {
+        "name": "ollama_provider",
+        "passed": true,
+        "detail": "ollama",
+        "metrics": {}
+      },
+      {
+        "name": "ollama_configuration",
+        "passed": true,
+        "detail": "qwen3:4b",
+        "metrics": {}
+      },
+      {
+        "name": "ollama_runtime",
+        "passed": true,
+        "detail": "available models: ['qwen3:4b']",
+        "metrics": {}
+      },
+      {
+        "name": "ollama_model_downloaded",
+        "passed": true,
+        "detail": "requested=qwen3:4b; available models: ['qwen3:4b']",
+        "metrics": {}
+      },
+      {
+        "name": "tts_provider",
+        "passed": true,
+        "detail": "kokoro",
+        "metrics": {}
+      },
+      {
+        "name": "kokoro_model",
+        "passed": true,
+        "detail": "hexgrad/Kokoro-82M",
+        "metrics": {}
+      },
+      {
+        "name": "kokoro_package",
+        "passed": true,
+        "detail": "installed",
+        "metrics": {}
+      },
+      {
+        "name": "misaki_package",
+        "passed": true,
+        "detail": "installed",
+        "metrics": {}
+      },
+      {
+        "name": "kokoro_cuda",
+        "passed": true,
+        "detail": "torch=2.14.0+cpu; cuda_available=False",
+        "metrics": {}
+      },
+      {
+        "name": "table_t4",
+        "passed": true,
+        "detail": "T4 is provisioned in floor data",
+        "metrics": {}
+      }
+    ],
+    "blockers": [],
+    "ready_for_full_live": true
+  },
+  "offline": {
+    "status": "PASS",
+    "duration_ms": 74.82,
+    "cases": [
+      {
+        "id": "en-valid-modifier",
+        "passed": true,
+        "accepted": true,
+        "errors": [],
+        "source_language": "en",
+        "latency_ms": 1.146
+      },
+      {
+        "id": "ja-original-script",
+        "passed": true,
+        "accepted": true,
+        "errors": [],
+        "source_language": "ja",
+        "latency_ms": 0.532
+      },
+      {
+        "id": "invalid-sku",
+        "passed": true,
+        "accepted": false,
+        "errors": [
+          "unknown sku: MAIN_DRAGON_LOBSTER"
+        ],
+        "source_language": "en",
+        "latency_ms": 0.024
+      },
+      {
+        "id": "invalid-modifier",
+        "passed": true,
+        "accepted": false,
+        "errors": [
+          "unsupported modifier for MAIN_SEABASS: chocolate sauce"
+        ],
+        "source_language": "en",
+        "latency_ms": 0.015
+      }
+    ],
+    "strengths": [
+      {
+        "name": "canonical_validation",
+        "passed": true,
+        "detail": "4/4 cases passed",
+        "metrics": {}
+      },
+      {
+        "name": "stale_revision_rejected",
+        "passed": true,
+        "detail": "stale expected_revision created no decision",
+        "metrics": {}
+      },
+      {
+        "name": "monotonic_revisions",
+        "passed": true,
+        "detail": "revisions advanced 1 -> 2",
+        "metrics": {}
+      },
+      {
+        "name": "immutable_history",
+        "passed": true,
+        "detail": "revision 1 retained quantity=1 after revision 2",
+        "metrics": {}
+      },
+      {
+        "name": "sqlite_restart_recovery",
+        "passed": true,
+        "detail": "revision history recovered after connection restart",
+        "metrics": {}
+      },
+      {
+        "name": "multilingual_tts_routing",
+        "passed": true,
+        "detail": "8 configured languages plus caption-only fallback",
+        "metrics": {}
+      }
+    ],
+    "safety_probes": [
+      {
+        "id": "allergen-cross-check",
+        "passed": true,
+        "rejected": true,
+        "errors": [
+          "allergen conflict for MAIN_RIVERPRAWN: shellfish"
+        ]
+      }
+    ],
+    "language_routing": [
+      {
+        "language": "en",
+        "passed": true,
+        "tts_supported": true,
+        "resolved": "en"
+      },
+      {
+        "language": "es",
+        "passed": true,
+        "tts_supported": true,
+        "resolved": "es"
+      },
+      {
+        "language": "fr",
+        "passed": true,
+        "tts_supported": true,
+        "resolved": "fr"
+      },
+      {
+        "language": "hi",
+        "passed": true,
+        "tts_supported": true,
+        "resolved": "hi"
+      },
+      {
+        "language": "it",
+        "passed": true,
+        "tts_supported": true,
+        "resolved": "it"
+      },
+      {
+        "language": "ja",
+        "passed": true,
+        "tts_supported": true,
+        "resolved": "ja"
+      },
+      {
+        "language": "zh",
+        "passed": true,
+        "tts_supported": true,
+        "resolved": "zh"
+      },
+      {
+        "language": "pt-BR",
+        "passed": true,
+        "tts_supported": true,
+        "resolved": "pt-BR"
+      },
+      {
+        "language": "de",
+        "passed": true,
+        "tts_supported": false,
+        "resolved": "de"
+      }
+    ]
+  },
+  "live": {
+    "ollama": {
+      "reachable": true,
+      "model": "qwen3:4b",
+      "model_ready": true,
+      "available_models": [
+        "qwen3:4b"
+      ],
+      "error": null,
+      "warmup_ms": 422.95
+    },
+    "llm_cases": [
+      {
+        "id": "en-valid-modifier",
+        "passed": true,
+        "latency_ms": 1285.51,
+        "expected_action": "create_or_update_order",
+        "actual": {
+          "source_language": "en",
+          "action": "create_or_update_order",
+          "items": [
+            {
+              "sku": "MAIN_SEABASS",
+              "quantity": 1,
+              "modifiers": [
+                "no chili"
+              ]
+            }
+          ],
+          "allergies": [],
+          "dietary_constraints": [],
+          "substitution_response": "",
+          "needs_clarification": false,
+          "clarification_question": ""
+        }
+      },
+      {
+        "id": "ja-original-script",
+        "passed": true,
+        "latency_ms": 1227.21,
+        "expected_action": "create_or_update_order",
+        "actual": {
+          "source_language": "ja",
+          "action": "create_or_update_order",
+          "items": [
+            {
+              "sku": "MAIN_SEABASS",
+              "quantity": 1,
+              "modifiers": [
+                "no chili"
+              ]
+            }
+          ],
+          "allergies": [],
+          "dietary_constraints": [],
+          "substitution_response": "",
+          "needs_clarification": false,
+          "clarification_question": ""
+        }
+      },
+      {
+        "id": "invalid-sku",
+        "passed": true,
+        "latency_ms": 341.88,
+        "expected_action": "clarify",
+        "actual": {
+          "source_language": "en",
+          "action": "clarify",
+          "items": [],
+          "allergies": [],
+          "dietary_constraints": [],
+          "substitution_response": null,
+          "needs_clarification": false,
+          "clarification_question": null
+        }
+      },
+      {
+        "id": "invalid-modifier",
+        "passed": true,
+        "latency_ms": 1381.89,
+        "expected_action": "clarify",
+        "actual": {
+          "source_language": "en",
+          "action": "clarify",
+          "items": [],
+          "allergies": [],
+          "dietary_constraints": [],
+          "substitution_response": "No chocolate sauce is available for Grilled Seabass. Please specify a valid modifier or dish.",
+          "needs_clarification": true,
+          "clarification_question": "What modifier would you like for Grilled Seabass? Options: no chili, extra lime, butter baste."
+        }
+      }
+    ],
+    "tts_cases": [
+      {
+        "language": "en",
+        "passed": true,
+        "warmup_ms": 6891.6,
+        "first_chunk_ms": 857.4,
+        "pcm_bytes": 152400,
+        "sample_rate": 24000,
+        "device": "cpu",
+        "latency_ms": 859.04
+      },
+      {
+        "language": "es",
+        "passed": true,
+        "warmup_ms": 768.61,
+        "first_chunk_ms": 940.65,
+        "pcm_bytes": 166800,
+        "sample_rate": 24000,
+        "device": "cpu",
+        "latency_ms": 942.07
+      }
+    ],
+    "assemblyai": {
+      "executed": false,
+      "reason": "streaming transport is implemented and contract-tested, but this suite has no committed 16 kHz PCM speech fixture"
+    },
+    "application_probe": {
+      "executed": true,
+      "passed": true,
+      "measurement_boundary": "final transcript submitted to first playable PCM; AssemblyAI transcription time excluded",
+      "session_ready_ms": 0.15,
+      "workflow_ms": 1810.12,
+      "first_audio_ms": 2648.98,
+      "turn_complete_ms": 2658.82,
+      "server_pipeline_ms": 1579.3,
+      "server_voice_ttfb_ms": 2418.38,
+      "audio_chunks": 32,
+      "target_first_audio_ms": 4000
+    },
+    "status": "PASS"
+  },
+  "v1_comparison": {
+    "source": "reports/restaurant/llm-provider-comparison/historical-pre-2026-09-13/results.json",
+    "model": "qwen2.5:3b",
+    "avg_llm_ms": 2022.47,
+    "best_e2e_ms": 4886.59,
+    "avg_e2e_ms": 6553.48,
+    "perceived_filler_ttfb_ms": 800.0,
+    "note": "The 800ms figure was a prerecorded filler; the measured answer E2E average was 6553.48ms."
+  }
+}

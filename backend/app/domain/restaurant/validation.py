@@ -6,6 +6,8 @@ from .store import LanternStore
 
 def validate_intent(intent: IntentProposal, store: LanternStore) -> list[str]:
     errors: list[str] = []
+    if intent.action in {"create_or_update_order", "remove_item"} and not intent.items:
+        errors.append(f"{intent.action} requires at least one item")
     for item in intent.items:
         menu_item = store.get_item(item.sku)
         if menu_item is None:
@@ -13,6 +15,11 @@ def validate_intent(intent: IntentProposal, store: LanternStore) -> list[str]:
             continue
         if not menu_item.available:
             errors.append(f"unavailable item: {item.sku}")
+        declared_allergies = {allergy.strip().lower() for allergy in intent.allergies if allergy.strip()}
+        item_allergens = {allergen.lower() for allergen in menu_item.allergens if allergen.lower() != "none"}
+        conflicts = sorted(declared_allergies & item_allergens)
+        if conflicts:
+            errors.append(f"allergen conflict for {item.sku}: {', '.join(conflicts)}")
         allowed = {m.lower() for m in menu_item.modifiers}
         for modifier in item.modifiers:
             if modifier.lower() not in allowed:

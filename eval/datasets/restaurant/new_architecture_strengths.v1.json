@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "description": "Canonical text cases for the Lantern revision-safe multilingual architecture.",
+  "cases": [
+    {
+      "id": "en-valid-modifier",
+      "transcript": "One grilled seabass with no chili, please.",
+      "intent": {
+        "source_language": "en",
+        "action": "create_or_update_order",
+        "items": [{"sku": "MAIN_SEABASS", "quantity": 1, "modifiers": ["no chili"]}],
+        "allergies": [],
+        "dietary_constraints": [],
+        "substitution_response": null,
+        "needs_clarification": false,
+        "clarification_question": null
+      },
+      "expect_validation": "accept",
+      "live_expectation": {"action": "create_or_update_order", "skus": ["MAIN_SEABASS"], "source_language": "en"}
+    },
+    {
+      "id": "ja-original-script",
+      "transcript": "スズキを一つ、唐辛子抜きでお願いします。",
+      "intent": {
+        "source_language": "ja",
+        "action": "create_or_update_order",
+        "items": [{"sku": "MAIN_SEABASS", "quantity": 1, "modifiers": ["no chili"]}],
+        "allergies": [],
+        "dietary_constraints": [],
+        "substitution_response": null,
+        "needs_clarification": false,
+        "clarification_question": null
+      },
+      "expect_validation": "accept",
+      "live_expectation": {"action": "create_or_update_order", "skus": ["MAIN_SEABASS"], "source_language": "ja"}
+    },
+    {
+      "id": "invalid-sku",
+      "transcript": "Bring me the dragon lobster.",
+      "intent": {
+        "source_language": "en",
+        "action": "create_or_update_order",
+        "items": [{"sku": "MAIN_DRAGON_LOBSTER", "quantity": 1, "modifiers": []}],
+        "allergies": [],
+        "dietary_constraints": [],
+        "substitution_response": null,
+        "needs_clarification": false,
+        "clarification_question": null
+      },
+      "expect_validation": "reject",
+      "live_expectation": {"action": "clarify", "skus": [], "source_language": "en"}
+    },
+    {
+      "id": "invalid-modifier",
+      "transcript": "One seabass with chocolate sauce.",
+      "intent": {
+        "source_language": "en",
+        "action": "create_or_update_order",
+        "items": [{"sku": "MAIN_SEABASS", "quantity": 1, "modifiers": ["chocolate sauce"]}],
+        "allergies": [],
+        "dietary_constraints": [],
+        "substitution_response": null,
+        "needs_clarification": false,
+        "clarification_question": null
+      },
+      "expect_validation": "reject",
+      "live_expectation": {"action": "clarify", "skus": [], "source_language": "en"}
+    }
+  ],
+  "safety_probes": [
+    {
+      "id": "allergen-cross-check",
+      "transcript": "I am allergic to shellfish. Give me grilled river prawns.",
+      "intent": {
+        "source_language": "en",
+        "action": "create_or_update_order",
+        "items": [{"sku": "MAIN_RIVERPRAWN", "quantity": 1, "modifiers": []}],
+        "allergies": ["shellfish"],
+        "dietary_constraints": [],
+        "substitution_response": null,
+        "needs_clarification": false,
+        "clarification_question": null
+      },
+      "expect_validation": "reject"
+    }
+  ],
+  "tts_samples": {
+    "en": "Your order is waiting for kitchen confirmation.",
+    "es": "Su pedido está esperando la confirmación de la cocina.",
+    "ja": "ご注文はキッチンの確認待ちです。"
+  }
+}
