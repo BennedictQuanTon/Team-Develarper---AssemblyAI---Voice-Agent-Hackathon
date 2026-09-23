@@ -13,4 +13,17 @@ button { width: 100%; margin-top: 18px; padding: 13px 18px; border: 0; border-ra
 button:disabled { cursor: not-allowed; opacity: 0.45; }
 p { margin: 0; line-height: 1.55; }
 .transcript p { min-height: 48px; }
+.shell.wide { width: min(1100px, calc(100% - 32px)); }
+nav { text-align: right; margin-bottom: 12px; }
+nav a { color: #285b3a; font-weight: 700; }
+.order-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
+.order-grid .card { margin: 0; }
+.total { margin-top: 8px; }
+.actions { display: flex; gap: 8px; }
+.actions button { width: auto; flex: 1; }
+.replacement { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.replacement button { grid-column: 1 / -1; margin-top: 0; }
+input, select { width: 100%; margin-top: 12px; padding: 12px; border: 1px solid #b9aa92; border-radius: 9px; background: #fff; font: inherit; }
+select { min-width: 0; }
+#notice { margin-top: 8px; color: #8a5a22; }
 @media (max-width: 520px) { .shell { padding-top: 24px; } .row { align-items: flex-start; flex-direction: column; gap: 3px; } .row span { text-align: left; } }

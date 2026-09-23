@@ -99,6 +99,7 @@ class ProviderLatencyContractTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(intent.items[0].sku, "MAIN_SEABASS")
         self.assertFalse(captured["think"])
+        self.assertEqual(captured["keep_alive"], -1)
         self.assertEqual(captured["options"]["temperature"], 0)
         self.assertLessEqual(captured["options"]["num_predict"], 224)
         self.assertIsInstance(captured["format"], dict)

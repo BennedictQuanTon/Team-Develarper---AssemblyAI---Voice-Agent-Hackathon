@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,7 @@ class SQLiteOrderRepository:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(self.path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        self._lock = threading.RLock()
         self.conn.execute("PRAGMA journal_mode=WAL")
         self._init()
 
@@ -27,12 +29,17 @@ class SQLiteOrderRepository:
         """)
         self.conn.commit()
 
-    def create_revision(self, order_id: str, table_id: str, guest_session_id: str, language: str, transcript: str, items: list[dict[str, Any]], allergies: list[str], status: str = "pending_kitchen") -> dict[str, Any]:
+    def create_revision(self, order_id: str, table_id: str, guest_session_id: str, language: str, transcript: str, items: list[dict[str, Any]], allergies: list[str], status: str = "pending_kitchen", expected_revision: int | None = None) -> dict[str, Any]:
         now = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()
-        with self.conn:
+        with self._lock, self.conn:
             self.conn.execute("BEGIN IMMEDIATE")
-            row = self.conn.execute("SELECT current_revision FROM order_sessions WHERE order_id=?", (order_id,)).fetchone()
-            rev = int(row[0]) + 1 if row else 1
+            row = self.conn.execute("SELECT current_revision,table_id,guest_session_id FROM order_sessions WHERE order_id=?", (order_id,)).fetchone()
+            if row and (row["table_id"] != table_id or row["guest_session_id"] != guest_session_id):
+                raise ValueError("order belongs to another guest session")
+            current_revision = int(row["current_revision"]) if row else 0
+            if expected_revision is not None and current_revision != expected_revision:
+                raise ValueError(f"stale revision: current={current_revision}")
+            rev = current_revision + 1
             parent = rev - 1 if row else None
             self.conn.execute("INSERT OR IGNORE INTO order_sessions VALUES (?,?,?,?,?,?,?,?)", (order_id, table_id, guest_session_id, language, rev, status, now, now))
             self.conn.execute("UPDATE order_sessions SET current_revision=?, response_language=?, status=?, updated_at=? WHERE order_id=?", (rev, language, status, now, order_id))
@@ -41,22 +48,34 @@ class SQLiteOrderRepository:
         return self.get_order(order_id)
 
     def get_order(self, order_id: str) -> dict[str, Any] | None:
-        row = self.conn.execute("SELECT * FROM order_sessions WHERE order_id=?", (order_id,)).fetchone()
-        if not row:
-            return None
-        out = dict(row)
-        out["revisions"] = [dict(r) for r in self.conn.execute("SELECT * FROM order_revisions WHERE order_id=? ORDER BY revision", (order_id,)).fetchall()]
-        return out
+        with self._lock:
+            row = self.conn.execute("SELECT * FROM order_sessions WHERE order_id=?", (order_id,)).fetchone()
+            if not row:
+                return None
+            out = dict(row)
+            out["revisions"] = [dict(r) for r in self.conn.execute("SELECT * FROM order_revisions WHERE order_id=? ORDER BY revision", (order_id,)).fetchall()]
+            current = out["revisions"][-1]
+            out["items"] = json.loads(current["items_json"])
+            out["allergies"] = json.loads(current["allergies_json"])
+            decision = self.conn.execute("SELECT * FROM kitchen_decisions WHERE order_id=? ORDER BY decision_id DESC LIMIT 1", (order_id,)).fetchone()
+            if decision:
+                out["latest_decision"] = dict(decision)
+                out["latest_decision"]["substitutions"] = json.loads(decision["substitute_json"] or "[]")
+            else:
+                out["latest_decision"] = None
+            return out
 
     def decide(self, order_id: str, decision: dict[str, Any]) -> dict[str, Any]:
         now = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()
-        with self.conn:
+        with self._lock, self.conn:
             self.conn.execute("BEGIN IMMEDIATE")
             row = self.conn.execute("SELECT current_revision,status FROM order_sessions WHERE order_id=?", (order_id,)).fetchone()
             if not row:
                 raise KeyError(order_id)
             if int(row["current_revision"]) != int(decision["expected_revision"]):
                 raise ValueError(f"stale revision: current={row['current_revision']}")
+            if row["status"] in {"cancelled", "ready", "rejected"}:
+                raise ValueError("this order is closed")
             action = decision["action"]
             status = {"accept": "committed", "reject": "rejected", "request_clarification": "clarification_required", "propose_substitute": "substitution_proposed", "mark_ready": "ready", "set_eta": row["status"]}.get(action, row["status"])
             self.conn.execute("UPDATE order_sessions SET status=?,updated_at=? WHERE order_id=?", (status, now, order_id))
@@ -65,4 +84,6 @@ class SQLiteOrderRepository:
         return self.get_order(order_id)
 
     def list_orders(self) -> list[dict[str, Any]]:
-        return [dict(r) for r in self.conn.execute("SELECT * FROM order_sessions ORDER BY updated_at DESC").fetchall()]
+        with self._lock:
+            ids = [r[0] for r in self.conn.execute("SELECT order_id FROM order_sessions ORDER BY updated_at DESC").fetchall()]
+            return [self.get_order(order_id) for order_id in ids]

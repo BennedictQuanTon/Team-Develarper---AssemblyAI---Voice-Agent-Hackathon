@@ -35,7 +35,7 @@ class OllamaClient:
             "stream": False,
             "think": self.thinking,
             "format": schema,
-            "keep_alive": "15m",
+            "keep_alive": -1,
             "options": {"temperature": 0, "num_predict": max_tokens, "num_ctx": 4096},
         }
         response = await self._client.post(f"{self.base_url}/api/generate", json=payload)
@@ -91,14 +91,18 @@ class OllamaClient:
         hints = self._entity_hints(transcript, menu)
         current = context.get("current_state") or {}
         prompt = (
-            "Extract restaurant intent. Follow these rules in order. "
-            "1) ENTITY_HINTS are deterministic menu matches: use their SKU; never ask to confirm them. "
-            "2) A matched available dish with only listed modifiers MUST be action=create_or_update_order. "
-            "3) Unknown dishes or unsupported modifiers MUST be action=clarify with no items. "
-            "4) Set source_language to the language of USER. Use only listed SKUs and modifiers. "
-            "Examples: 'one grilled seabass no chili' => create_or_update_order, MAIN_SEABASS, quantity 1, modifier no chili. "
-            "'スズキを一つ、唐辛子抜きで' => create_or_update_order, MAIN_SEABASS, quantity 1, modifier no chili, source_language ja. "
-            "Do not explain outside the JSON fields.\n"
+            "Extract one restaurant action as schema-valid JSON. "
+            "Use menu SKUs and allowed modifiers exactly; ENTITY_HINTS are deterministic matches. "
+            "For a new/additional dish, emit create_or_update_order with only the requested NEW items, not the full basket. "
+            "For a correction such as 'X instead of Y', emit replace_item with one new item X and replaces_sku=Y from STATE.items. "
+            "For a removal, emit remove_item with the SKU from STATE.items. "
+            "For cancellation, emit cancel_order with no items. "
+            "For menu questions or recommendations, emit menu_query or recommend with no items. "
+            "Resolve references such as 'those two' from STATE.last_recommendations; resolve corrections from STATE.items. "
+            "For a kitchen substitute proposal, emit accept_substitute or reject_substitute only when the guest accepts or rejects it. "
+            "If a known menu item is sold out, still return its SKU so deterministic code can explain and suggest an alternative. "
+            "Unknown dishes or unsupported modifiers require clarify with no items. "
+            "Set source_language to USER's language. Do not explain outside the JSON fields.\n"
             f"ENTITY_HINTS={json.dumps(hints, ensure_ascii=False, separators=(',', ':'))}\n"
             f"MENU={json.dumps(menu, ensure_ascii=False, separators=(',', ':'))}\n"
             f"STATE={json.dumps(current, ensure_ascii=False, separators=(',', ':'))}\n"
@@ -121,7 +125,7 @@ class OllamaClient:
     async def localize_verified_response(self, facts: dict, language: str) -> str:
         schema = {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}
         raw, _ = await self._chat(
-            f"Localize these verified facts into {language}. Preserve facts and numbers. Return JSON only.\n{json.dumps(facts, ensure_ascii=False)}",
+            f"Translate text into {language}. Keep every preserve_names_exactly entry, currency symbol and number unchanged. Do not add facts. Return JSON only.\n{json.dumps(facts, ensure_ascii=False)}",
             schema=schema,
             max_tokens=96,
         )

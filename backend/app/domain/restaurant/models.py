@@ -5,7 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-Action = Literal["menu_query", "recommend", "create_or_update_order", "remove_item", "accept_substitute", "reject_substitute", "cancel_order", "clarify"]
+Action = Literal["menu_query", "recommend", "create_or_update_order", "replace_item", "remove_item", "accept_substitute", "reject_substitute", "cancel_order", "clarify"]
 
 
 class IntentItem(BaseModel):
@@ -21,6 +21,7 @@ class IntentProposal(BaseModel):
     allergies: list[str] = []
     dietary_constraints: list[str] = []
     substitution_response: str | None = None
+    replaces_sku: str | None = None
     needs_clarification: bool = False
     clarification_question: str | None = None
 
