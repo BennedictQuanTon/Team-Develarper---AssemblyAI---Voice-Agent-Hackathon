@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "source": "generated",
+  "product": "restaurant",
+  "suite": "new-architecture",
+  "run_id": "2026-09-19T044721Z",
+  "created_at_utc": "2026-09-19T04:47:21.573286+00:00",
+  "git_commit": "e2b73fede68aed5fbf965110ece849a001e7846d",
+  "git_dirty": true,
+  "metadata": {
+    "mode": "live",
+    "dataset_version": "1.0"
+  }
+}

@@ -1,24 +1,16 @@
 import { defineConfig } from "vite";
-import { resolve } from "path";
 
 export default defineConfig({
-  root: resolve(__dirname, "."),
-  base: "./",
-  build: {
-    outDir: "dist",
-    emptyOutDir: true,
-    target: "es2022",
-  },
   server: {
-    port: 3000,
+    host: "0.0.0.0",
+    port: 5173,
     proxy: {
-      "/ws": {
-        target: "ws://127.0.0.1:8000",
-        ws: true,
-      },
-      "/api": {
-        target: "http://127.0.0.1:8000",
-      },
+      "/api": "http://127.0.0.1:8000",
+      "/floor": "http://127.0.0.1:8000",
+      "/menu": "http://127.0.0.1:8000",
+      "/health": "http://127.0.0.1:8000",
+      "/ready": "http://127.0.0.1:8000",
+      "/ws": { target: "ws://127.0.0.1:8000", ws: true },
     },
   },
 });

@@ -1,0 +1,24 @@
+en:
+  lang_code: a
+  voice: af_heart
+es:
+  lang_code: e
+  voice: ef_dora
+fr:
+  lang_code: f
+  voice: ff_siwis
+hi:
+  lang_code: h
+  voice: hf_alpha
+it:
+  lang_code: i
+  voice: if_sara
+ja:
+  lang_code: j
+  voice: jf_alpha
+zh:
+  lang_code: z
+  voice: zf_xiaobei
+pt-BR:
+  lang_code: p
+  voice: pf_dora

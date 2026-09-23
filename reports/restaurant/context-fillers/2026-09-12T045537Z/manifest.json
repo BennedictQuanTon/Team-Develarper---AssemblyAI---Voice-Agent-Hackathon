@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "source": "migrated",
+  "product": "restaurant",
+  "suite": "context-fillers",
+  "run_id": "2026-09-12T045537Z",
+  "source_files": [
+    "reports/eval_context_fillers.json",
+    "reports/eval_context_fillers_report.md"
+  ],
+  "git_commit": null,
+  "git_dirty": null,
+  "notes": ["Original result timestamp was present in the JSON artifact."]
+}

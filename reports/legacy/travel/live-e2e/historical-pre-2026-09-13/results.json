@@ -1,0 +1,326 @@
+{
+  "phase": "e2e_live",
+  "warmup_ms": {
+    "warmup_ms": 139.133
+  },
+  "rag_accuracy": {
+    "recall_at_3_hits": 8,
+    "recall_at_3_total": 8,
+    "recall_at_3_rate": 1.0,
+    "rag_ms": {
+      "p50": 60.126,
+      "p95": 60.641,
+      "mean": 60.052,
+      "min": 59.316,
+      "max": 60.641,
+      "count": 8
+    },
+    "details": [
+      {
+        "id": "q001",
+        "hit": true,
+        "chunk_ids": [
+          "attr_golden_bridge",
+          "attr_ba_na_hills",
+          "itinerary_3_day"
+        ],
+        "overlap": [
+          "attr_ba_na_hills",
+          "attr_golden_bridge"
+        ],
+        "rag_ms": 60.607
+      },
+      {
+        "id": "q002",
+        "hit": true,
+        "chunk_ids": [
+          "events_dragon_show",
+          "attr_dragon_bridge",
+          "itinerary_1_day"
+        ],
+        "overlap": [
+          "attr_dragon_bridge",
+          "events_dragon_show"
+        ],
+        "rag_ms": 59.675
+      },
+      {
+        "id": "q003",
+        "hit": true,
+        "chunk_ids": [
+          "transport_airport",
+          "faq_how_many_days",
+          "weather_seasons"
+        ],
+        "overlap": [
+          "transport_airport"
+        ],
+        "rag_ms": 60.305
+      },
+      {
+        "id": "q004",
+        "hit": true,
+        "chunk_ids": [
+          "daytrip_hoi_an",
+          "itinerary_3_day",
+          "daytrip_cham_islands"
+        ],
+        "overlap": [
+          "daytrip_hoi_an"
+        ],
+        "rag_ms": 59.618
+      },
+      {
+        "id": "q005",
+        "hit": true,
+        "chunk_ids": [
+          "food_vegetarian",
+          "food_seafood",
+          "faq_cost"
+        ],
+        "overlap": [
+          "food_seafood"
+        ],
+        "rag_ms": 60.118
+      },
+      {
+        "id": "q006",
+        "hit": true,
+        "chunk_ids": [
+          "faq_family",
+          "faq_cost",
+          "overview_danang"
+        ],
+        "overlap": [
+          "faq_family"
+        ],
+        "rag_ms": 59.316
+      },
+      {
+        "id": "q007",
+        "hit": true,
+        "chunk_ids": [
+          "weather_seasons",
+          "itinerary_3_day",
+          "faq_how_many_days"
+        ],
+        "overlap": [
+          "weather_seasons"
+        ],
+        "rag_ms": 60.134
+      },
+      {
+        "id": "q008",
+        "hit": true,
+        "chunk_ids": [
+          "attr_marble_mountains",
+          "shopping_non_nuoc_stone",
+          "beach_non_nuoc"
+        ],
+        "overlap": [
+          "attr_marble_mountains",
+          "beach_non_nuoc"
+        ],
+        "rag_ms": 60.641
+      }
+    ]
+  },
+  "live": {
+    "turns": [
+      {
+        "id": "q002",
+        "question": "When is the Dragon Bridge fire show?",
+        "answer": "Catch the Dragon Bridge fire show on Saturday and Sunday evenings, commonly around 9:00 PM. Arrive early for a great spot!",
+        "chunk_ids": [
+          "events_dragon_show",
+          "attr_dragon_bridge",
+          "itinerary_1_day"
+        ],
+        "relevant_overlap": [
+          "attr_dragon_bridge",
+          "events_dragon_show"
+        ],
+        "grounded_overlap": 0.9091,
+        "gold_keyword_hit": true,
+        "audio_duration_ms": 5109.4,
+        "audio_file": "reports/audio/8834860fdbd7.wav",
+        "audio_ok": true,
+        "timings_ms": {
+          "stt_finalize_ms": 5.73,
+          "rag_ms": 59.968,
+          "rag_internal_ms": {
+            "total": 59.795,
+            "dense": 59.487,
+            "bm25": 59.487,
+            "fusion": 0.01
+          },
+          "llm_ttft_ms": 1403.915,
+          "llm_total_ms": 1403.957,
+          "tts_ttfb_ms": 1513.471,
+          "tts_total_ms": 2205.894,
+          "e2e_turn_ms": 3676.206,
+          "perceived_ttfb_ms": 2984.358,
+          "spoken_cache_hit": false,
+          "streamed_llm": false
+        },
+        "providers": {
+          "asr": "text_passthrough",
+          "llm": "gemini",
+          "tts": "cartesia_sonic"
+        },
+        "filler_id": "checking"
+      },
+      {
+        "id": "q003",
+        "question": "How do I get from Da Nang airport to the beach?",
+        "answer": "Take an official taxi or Grab outside arrivals. The beach strip is usually a 10 to 20 minute car ride away.",
+        "chunk_ids": [
+          "transport_airport",
+          "faq_how_many_days",
+          "weather_seasons"
+        ],
+        "relevant_overlap": [
+          "transport_airport"
+        ],
+        "grounded_overlap": 0.7143,
+        "gold_keyword_hit": true,
+        "audio_duration_ms": 3159.0,
+        "audio_file": "reports/audio/5b54b629d258.wav",
+        "audio_ok": true,
+        "timings_ms": {
+          "stt_finalize_ms": 5.731,
+          "rag_ms": 93.171,
+          "rag_internal_ms": {
+            "total": 92.911,
+            "dense": 91.705,
+            "bm25": 91.705,
+            "fusion": 0.017
+          },
+          "llm_ttft_ms": 953.311,
+          "llm_total_ms": 953.347,
+          "tts_ttfb_ms": 1121.702,
+          "tts_total_ms": 2058.4,
+          "e2e_turn_ms": 3110.873,
+          "perceived_ttfb_ms": 2174.578,
+          "spoken_cache_hit": false,
+          "streamed_llm": false
+        },
+        "providers": {
+          "asr": "text_passthrough",
+          "llm": "gemini",
+          "tts": "cartesia_sonic"
+        },
+        "filler_id": "thinking"
+      },
+      {
+        "id": "q004",
+        "question": "Day trip ideas to Hoi An",
+        "answer": "Take a day trip to Hoi An Ancient Town to see lantern-lit streets and historic architecture. Enjoy exploring Da Nang!",
+        "chunk_ids": [
+          "daytrip_hoi_an",
+          "itinerary_3_day",
+          "daytrip_cham_islands"
+        ],
+        "relevant_overlap": [
+          "daytrip_hoi_an"
+        ],
+        "grounded_overlap": 0.75,
+        "gold_keyword_hit": true,
+        "audio_duration_ms": 4134.2,
+        "audio_file": "reports/audio/0d08cef14e96.wav",
+        "audio_ok": true,
+        "timings_ms": {
+          "stt_finalize_ms": 5.722,
+          "rag_ms": 92.263,
+          "rag_internal_ms": {
+            "total": 92.038,
+            "dense": 91.15,
+            "bm25": 91.15,
+            "fusion": 0.017
+          },
+          "llm_ttft_ms": 967.903,
+          "llm_total_ms": 967.941,
+          "tts_ttfb_ms": 1135.519,
+          "tts_total_ms": 1835.004,
+          "e2e_turn_ms": 2901.131,
+          "perceived_ttfb_ms": 2202.115,
+          "spoken_cache_hit": false,
+          "streamed_llm": false
+        },
+        "providers": {
+          "asr": "text_passthrough",
+          "llm": "gemini",
+          "tts": "cartesia_sonic"
+        },
+        "filler_id": "thinking"
+      }
+    ],
+    "farewell": {
+      "answer": "Anytime. Enjoy Da Nang.",
+      "session_ended": true,
+      "providers": {
+        "asr": "text_passthrough",
+        "llm": "local_farewell",
+        "tts": "local_closing"
+      },
+      "used_paid_apis": false,
+      "audio_duration_ms": 1981.9
+    },
+    "latency": {
+      "e2e_turn_ms": {
+        "p50": 3110.873,
+        "p95": 3676.206,
+        "mean": 3229.403,
+        "min": 2901.131,
+        "max": 3676.206,
+        "count": 3
+      },
+      "rag_ms": {
+        "p50": 92.263,
+        "p95": 93.171,
+        "mean": 81.801,
+        "min": 59.968,
+        "max": 93.171,
+        "count": 3
+      },
+      "llm_total_ms": {
+        "p50": 967.941,
+        "p95": 1403.957,
+        "mean": 1108.415,
+        "min": 953.347,
+        "max": 1403.957,
+        "count": 3
+      },
+      "tts_total_ms": {
+        "p50": 2058.4,
+        "p95": 2205.894,
+        "mean": 2033.099,
+        "min": 1835.004,
+        "max": 2205.894,
+        "count": 3
+      },
+      "perceived_ttfb_ms": {
+        "p50": 2202.115,
+        "p95": 2984.358,
+        "mean": 2453.684,
+        "min": 2174.578,
+        "max": 2984.358,
+        "count": 3
+      }
+    },
+    "pass": {
+      "audio_3_of_3": true,
+      "gold_keywords": true,
+      "grounded": true,
+      "farewell_local": true
+    }
+  },
+  "pass_bar": {
+    "rag_recall_at_least_6_of_8": true,
+    "audio_3_of_3": true,
+    "gold_keywords": true,
+    "grounded": true,
+    "farewell_local": true,
+    "all": true
+  }
+}

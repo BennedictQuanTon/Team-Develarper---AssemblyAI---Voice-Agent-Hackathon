@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "source": "migrated",
+  "product": "legacy-travel",
+  "suite": "live-e2e",
+  "run_id": "historical-pre-2026-09-13",
+  "source_files": ["reports/e2e_live.json"],
+  "git_commit": null,
+  "git_dirty": null,
+  "notes": ["The original report did not include a reliable run timestamp."]
+}

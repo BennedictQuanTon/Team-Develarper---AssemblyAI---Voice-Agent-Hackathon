@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "source": "migrated",
+  "product": "legacy-travel",
+  "suite": "latency-waterfall",
+  "run_id": "historical-pre-2026-09-13",
+  "source_files": ["reports/waterfall_phase3.json"],
+  "git_commit": null,
+  "git_dirty": null,
+  "notes": ["The original report did not include a reliable run timestamp."]
+}

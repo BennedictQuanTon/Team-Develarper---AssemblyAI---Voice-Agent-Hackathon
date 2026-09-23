@@ -1,0 +1,444 @@
+{
+  "timestamp": "2026-09-12T04:55:37Z",
+  "overall_passed": true,
+  "classification_evaluation": {
+    "total_queries": 40,
+    "correct_predictions": 40,
+    "accuracy_rate": 1.0,
+    "accuracy_percentage": "100.0%",
+    "passed": true,
+    "latency_stats_us": {
+      "avg_us": 2.62,
+      "p50_us": 2.67,
+      "p95_us": 5.62,
+      "max_us": 10.08
+    },
+    "latency_stats_ms": {
+      "avg_ms": 0.0026,
+      "p50_ms": 0.0027,
+      "p95_ms": 0.0056
+    },
+    "details": [
+      {
+        "query": "What are your house specialties here?",
+        "expected": "case_specialty_rec",
+        "predicted": "case_specialty_rec",
+        "correct": true,
+        "category": "specialty",
+        "latency_us": 3.83
+      },
+      {
+        "query": "What dishes do you recommend for dinner?",
+        "expected": "case_specialty_rec",
+        "predicted": "case_specialty_rec",
+        "correct": true,
+        "category": "specialty",
+        "latency_us": 2.0
+      },
+      {
+        "query": "What is popular at this restaurant?",
+        "expected": "case_specialty_rec",
+        "predicted": "case_specialty_rec",
+        "correct": true,
+        "category": "specialty",
+        "latency_us": 0.83
+      },
+      {
+        "query": "Can you suggest some signature dishes?",
+        "expected": "case_specialty_rec",
+        "predicted": "case_specialty_rec",
+        "correct": true,
+        "category": "specialty",
+        "latency_us": 0.83
+      },
+      {
+        "query": "What's good for a couple to share?",
+        "expected": "case_specialty_rec",
+        "predicted": "case_specialty_rec",
+        "correct": true,
+        "category": "specialty",
+        "latency_us": 0.29
+      },
+      {
+        "query": "Tell me your favorite dishes on the menu.",
+        "expected": "case_specialty_rec",
+        "predicted": "case_specialty_rec",
+        "correct": true,
+        "category": "specialty",
+        "latency_us": 0.83
+      },
+      {
+        "query": "What's the best thing to eat here?",
+        "expected": "case_specialty_rec",
+        "predicted": "case_specialty_rec",
+        "correct": true,
+        "category": "specialty",
+        "latency_us": 1.0
+      },
+      {
+        "query": "Do you have any recommendations for tonight?",
+        "expected": "case_specialty_rec",
+        "predicted": "case_specialty_rec",
+        "correct": true,
+        "category": "specialty",
+        "latency_us": 1.21
+      },
+      {
+        "query": "What are the house specials today?",
+        "expected": "case_specialty_rec",
+        "predicted": "case_specialty_rec",
+        "correct": true,
+        "category": "specialty",
+        "latency_us": 0.83
+      },
+      {
+        "query": "Suggest something mild and delicious.",
+        "expected": "case_specialty_rec",
+        "predicted": "case_specialty_rec",
+        "correct": true,
+        "category": "specialty",
+        "latency_us": 0.29
+      },
+      {
+        "query": "Do you have the crispy squid available?",
+        "expected": "case_dish_check",
+        "predicted": "case_dish_check",
+        "correct": true,
+        "category": "dish_check",
+        "latency_us": 4.62
+      },
+      {
+        "query": "Is the grilled seabass in stock tonight?",
+        "expected": "case_dish_check",
+        "predicted": "case_dish_check",
+        "correct": true,
+        "category": "dish_check",
+        "latency_us": 4.79
+      },
+      {
+        "query": "Is the squid sold out?",
+        "expected": "case_dish_check",
+        "predicted": "case_dish_check",
+        "correct": true,
+        "category": "dish_check",
+        "latency_us": 3.0
+      },
+      {
+        "query": "Does the pomelo salad contain any peanut allergens?",
+        "expected": "case_dish_check",
+        "predicted": "case_dish_check",
+        "correct": true,
+        "category": "dish_check",
+        "latency_us": 5.08
+      },
+      {
+        "query": "What ingredients are in the chicken clay pot?",
+        "expected": "case_dish_check",
+        "predicted": "case_dish_check",
+        "correct": true,
+        "category": "dish_check",
+        "latency_us": 5.62
+      },
+      {
+        "query": "Do you have any lemongrass chicken left?",
+        "expected": "case_dish_check",
+        "predicted": "case_dish_check",
+        "correct": true,
+        "category": "dish_check",
+        "latency_us": 3.17
+      },
+      {
+        "query": "Is the beef pho available?",
+        "expected": "case_dish_check",
+        "predicted": "case_dish_check",
+        "correct": true,
+        "category": "dish_check",
+        "latency_us": 2.96
+      },
+      {
+        "query": "Does the green curry contain shellfish allergy?",
+        "expected": "case_dish_check",
+        "predicted": "case_dish_check",
+        "correct": true,
+        "category": "dish_check",
+        "latency_us": 4.33
+      },
+      {
+        "query": "Do you have fresh river prawns?",
+        "expected": "case_dish_check",
+        "predicted": "case_dish_check",
+        "correct": true,
+        "category": "dish_check",
+        "latency_us": 2.67
+      },
+      {
+        "query": "Check if the spring rolls are 86.",
+        "expected": "case_dish_check",
+        "predicted": "case_dish_check",
+        "correct": true,
+        "category": "dish_check",
+        "latency_us": 4.83
+      },
+      {
+        "query": "Do you have a table for two available?",
+        "expected": "case_table_check",
+        "predicted": "case_table_check",
+        "correct": true,
+        "category": "table_check",
+        "latency_us": 10.08
+      },
+      {
+        "query": "Can we get a table for four people?",
+        "expected": "case_table_check",
+        "predicted": "case_table_check",
+        "correct": true,
+        "category": "table_check",
+        "latency_us": 3.0
+      },
+      {
+        "query": "Is there any seating available right now?",
+        "expected": "case_table_check",
+        "predicted": "case_table_check",
+        "correct": true,
+        "category": "table_check",
+        "latency_us": 2.92
+      },
+      {
+        "query": "Do you have free tables outside?",
+        "expected": "case_table_check",
+        "predicted": "case_table_check",
+        "correct": true,
+        "category": "table_check",
+        "latency_us": 2.58
+      },
+      {
+        "query": "We have a party of six, can you seat us?",
+        "expected": "case_table_check",
+        "predicted": "case_table_check",
+        "correct": true,
+        "category": "table_check",
+        "latency_us": 3.46
+      },
+      {
+        "query": "Can we sit by the window booth?",
+        "expected": "case_table_check",
+        "predicted": "case_table_check",
+        "correct": true,
+        "category": "table_check",
+        "latency_us": 3.08
+      },
+      {
+        "query": "Is there a free table on the floor?",
+        "expected": "case_table_check",
+        "predicted": "case_table_check",
+        "correct": true,
+        "category": "table_check",
+        "latency_us": 2.79
+      },
+      {
+        "query": "What is the table availability right now?",
+        "expected": "case_table_check",
+        "predicted": "case_table_check",
+        "correct": true,
+        "category": "table_check",
+        "latency_us": 2.67
+      },
+      {
+        "query": "Can I make a reservation for a table of three?",
+        "expected": "case_table_check",
+        "predicted": "case_table_check",
+        "correct": true,
+        "category": "table_check",
+        "latency_us": 3.46
+      },
+      {
+        "query": "Do you have indoor seating for a family?",
+        "expected": "case_table_check",
+        "predicted": "case_table_check",
+        "correct": true,
+        "category": "table_check",
+        "latency_us": 3.0
+      },
+      {
+        "query": "I'll take the first one with no green onions, please place the order.",
+        "expected": "case_order_process",
+        "predicted": "case_order_process",
+        "correct": true,
+        "category": "order_process",
+        "latency_us": 2.33
+      },
+      {
+        "query": "We'll take those two please.",
+        "expected": "case_order_process",
+        "predicted": "case_order_process",
+        "correct": true,
+        "category": "order_process",
+        "latency_us": 1.08
+      },
+      {
+        "query": "I'll take the grilled seabass.",
+        "expected": "case_order_process",
+        "predicted": "case_order_process",
+        "correct": true,
+        "category": "order_process",
+        "latency_us": 1.08
+      },
+      {
+        "query": "Please add the morning glory on the side.",
+        "expected": "case_order_process",
+        "predicted": "case_order_process",
+        "correct": true,
+        "category": "order_process",
+        "latency_us": 1.75
+      },
+      {
+        "query": "Make it a crispy squid instead.",
+        "expected": "case_order_process",
+        "predicted": "case_order_process",
+        "correct": true,
+        "category": "order_process",
+        "latency_us": 1.33
+      },
+      {
+        "query": "That's all, please place the order.",
+        "expected": "case_order_process",
+        "predicted": "case_order_process",
+        "correct": true,
+        "category": "order_process",
+        "latency_us": 1.33
+      },
+      {
+        "query": "Add an extra bowl of rice for me.",
+        "expected": "case_order_process",
+        "predicted": "case_order_process",
+        "correct": true,
+        "category": "order_process",
+        "latency_us": 1.54
+      },
+      {
+        "query": "I'll take the pomelo salad with no peanuts.",
+        "expected": "case_order_process",
+        "predicted": "case_order_process",
+        "correct": true,
+        "category": "order_process",
+        "latency_us": 1.5
+      },
+      {
+        "query": "Put that in my order and check out.",
+        "expected": "case_order_process",
+        "predicted": "case_order_process",
+        "correct": true,
+        "category": "order_process",
+        "latency_us": 1.42
+      },
+      {
+        "query": "Take that one for me please.",
+        "expected": "case_order_process",
+        "predicted": "case_order_process",
+        "correct": true,
+        "category": "order_process",
+        "latency_us": 1.17
+      }
+    ]
+  },
+  "audio_clip_evaluation": {
+    "all_valid": true,
+    "clips": {
+      "case_dish_check": {
+        "filename": "dish_check.wav",
+        "exists": true,
+        "channels": 1,
+        "framerate_hz": 16000,
+        "sample_width_bytes": 2,
+        "bit_depth": 16,
+        "duration_seconds": 2.415,
+        "valid_16k_mono_pcm": true
+      },
+      "case_table_check": {
+        "filename": "table_check.wav",
+        "exists": true,
+        "channels": 1,
+        "framerate_hz": 16000,
+        "sample_width_bytes": 2,
+        "bit_depth": 16,
+        "duration_seconds": 2.415,
+        "valid_16k_mono_pcm": true
+      },
+      "case_order_process": {
+        "filename": "order_process.wav",
+        "exists": true,
+        "channels": 1,
+        "framerate_hz": 16000,
+        "sample_width_bytes": 2,
+        "bit_depth": 16,
+        "duration_seconds": 2.415,
+        "valid_16k_mono_pcm": true
+      },
+      "case_specialty_rec": {
+        "filename": "specialty_rec.wav",
+        "exists": true,
+        "channels": 1,
+        "framerate_hz": 16000,
+        "sample_width_bytes": 2,
+        "bit_depth": 16,
+        "duration_seconds": 2.601,
+        "valid_16k_mono_pcm": true
+      },
+      "case_general": {
+        "filename": "thinking.wav",
+        "exists": true,
+        "channels": 1,
+        "framerate_hz": 16000,
+        "sample_width_bytes": 2,
+        "bit_depth": 16,
+        "duration_seconds": 1.294,
+        "valid_16k_mono_pcm": true
+      }
+    }
+  },
+  "streaming_pcm_evaluation": {
+    "all_stream_ok": true,
+    "tests": {
+      "case_dish_check": {
+        "chunk_count": 24,
+        "total_bytes": 76800,
+        "stream_duration_s": 2.4,
+        "chunk_size_bytes": 3200,
+        "load_latency_us": 68.75,
+        "stream_ready": true
+      },
+      "case_table_check": {
+        "chunk_count": 24,
+        "total_bytes": 76800,
+        "stream_duration_s": 2.4,
+        "chunk_size_bytes": 3200,
+        "load_latency_us": 61.71,
+        "stream_ready": true
+      },
+      "case_order_process": {
+        "chunk_count": 24,
+        "total_bytes": 76800,
+        "stream_duration_s": 2.4,
+        "chunk_size_bytes": 3200,
+        "load_latency_us": 67.54,
+        "stream_ready": true
+      },
+      "case_specialty_rec": {
+        "chunk_count": 24,
+        "total_bytes": 76800,
+        "stream_duration_s": 2.4,
+        "chunk_size_bytes": 3200,
+        "load_latency_us": 74.29,
+        "stream_ready": true
+      },
+      "case_general": {
+        "chunk_count": 13,
+        "total_bytes": 41394,
+        "stream_duration_s": 1.294,
+        "chunk_size_bytes": 3200,
+        "load_latency_us": 57.83,
+        "stream_ready": true
+      }
+    }
+  }
+}

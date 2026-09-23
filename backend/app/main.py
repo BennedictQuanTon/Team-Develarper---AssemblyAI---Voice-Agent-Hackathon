@@ -1,453 +1,309 @@
-from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from functools import lru_cache
-from pathlib import Path
-from typing import Any
+from __future__ import annotations
+
 import asyncio
+import base64
 import json
-
+import time
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from backend.app.config import get_settings
-from backend.app.domain.lantern import get_lantern_store
-from backend.app.metrics.spans import summarize_jsonl
-from backend.app.pipeline.orchestrator import Orchestrator
-from backend.app.pipeline.realtime_session import RealtimeSessionController
-from backend.app.pipeline.session import SessionStore
-from rag.cache import RagCache
-from rag.retrieve import DEFAULT_TOP_K, ask, hybrid_retrieve, warmup_retriever
-from rag.store import get_collection
+from .config import settings
+from .domain.restaurant.repository import SQLiteOrderRepository
+from .domain.restaurant.models import KitchenDecision
+from .domain.restaurant.store import get_lantern_store
+from .domain.restaurant.workflow import OrderWorkflow
+from .services.kitchen_events import KitchenEventBroker
+from .services.realtime_session import RealtimeSession
+from .providers.asr.assemblyai_stream import AssemblyAIRealtimeProvider, TranscriptEvent
+from .providers.llm.ollama import OllamaClient
+from .providers.tts.kokoro import KokoroProvider
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-FRONTEND_DIR = ROOT_DIR / "frontend"
-DIST_DIR = FRONTEND_DIR / "dist"
-
-
-@lru_cache
-def get_rag_cache() -> RagCache:
-    return RagCache()
-
-
-@lru_cache
-def get_sessions() -> SessionStore:
-    return SessionStore()
+app = FastAPI(title="The Lantern — Multilingual Voice Service")
+store = get_lantern_store()
+repository = SQLiteOrderRepository(settings.database_path)
+workflow = OrderWorkflow(repository, store)
+broker = KitchenEventBroker()
+llm = OllamaClient(settings.ollama_base_url, settings.ollama_model, settings.ollama_thinking) if settings.llm_provider == "ollama" else None
+tts = KokoroProvider(settings.kokoro_model_id, settings.kokoro_device)
+provider_state = {"llm_warm": False, "tts_warm": False, "llm_error": None, "tts_error": None}
 
 
-@lru_cache
-def get_orchestrator() -> Orchestrator:
-    get_settings.cache_clear()
-    return Orchestrator(
-        rag_cache=get_rag_cache(),
-        settings=get_settings(),
-        sessions=get_sessions(),
-    )
+@app.on_event("startup")
+async def warm_local_providers() -> None:
+    if llm:
+        try:
+            await llm.warmup()
+            provider_state["llm_warm"] = True
+        except Exception as exc:  # noqa: BLE001
+            provider_state["llm_error"] = str(exc)
+    if settings.tts_provider == "kokoro":
+        try:
+            await asyncio.to_thread(tts.warmup, "en")
+            provider_state["tts_warm"] = True
+        except Exception as exc:  # noqa: BLE001
+            provider_state["tts_error"] = str(exc)
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    settings = get_settings()
-    try:
-        warm = warmup_retriever(
-            chroma_dir=settings.chroma_persist_dir,
-            bm25_path=settings.bm25_index_path,
-        )
-        print(f"[startup] RAG warmup ok: {warm}")
-    except Exception as exc:  # noqa: BLE001
-        print(f"[startup] RAG warmup skipped: {exc}")
-    get_orchestrator()
-    yield
+@app.on_event("shutdown")
+async def close_local_providers() -> None:
+    if llm:
+        await llm.close()
+    repository.close()
 
 
-app = FastAPI(
-    title="Da Nang Realtime Voice Agent",
-    description="AssemblyAI Realtime STT + custom RAG/LLM/TTS orchestration",
-    version="0.5.0-realtime",
-    lifespan=lifespan,
-)
-
-if (DIST_DIR / "assets").is_dir():
-    app.mount("/assets", StaticFiles(directory=str(DIST_DIR / "assets")), name="assets")
-if FRONTEND_DIR.is_dir():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
-
-
-class AskRequest(BaseModel):
-    query: str = Field(min_length=1, max_length=2000)
-    top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=20)
-    use_cache: bool = True
-
-
-class TurnRequest(BaseModel):
-    text: str | None = Field(default=None, max_length=2000)
-    audio_b64: str | None = None
-    profile: str | None = None
-    session_id: str = "default"
-    use_cache: bool = True
-    top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=20)
+class AvailabilityRequest(BaseModel):
+    sku: str
+    available: bool
 
 
 @app.get("/health")
-def health() -> JSONResponse:
-    settings = get_settings()
-    chroma_count: int | None = None
-    try:
-        chroma_count = get_collection(settings.chroma_persist_dir).count()
-    except Exception:
-        chroma_count = None
-
-    metrics_path = settings.metrics_dir / "turns.jsonl"
-    return JSONResponse(
-        {
-            "status": "ok",
-            "phase": 5,
-            "service": "danang-realtime-voice-agent",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "keys_configured": settings.keys_configured,
-            "client_mode": get_orchestrator().client_mode,
-            "voice_profile": settings.voice_profile,
-            "assemblyai_mode": settings.assemblyai_mode,
-            "gemini_model": settings.gemini_model,
-            "chroma_chunk_count": chroma_count,
-            "cache": get_rag_cache().snapshot(),
-            "metrics_file": str(metrics_path),
-            "ui": "/",
-        }
-    )
+def health():
+    return {"status": "ok", "service": "lantern"}
 
 
-@app.get("/")
-def root_page() -> FileResponse:
-    dist_index = DIST_DIR / "index.html"
-    if dist_index.exists():
-        return FileResponse(dist_index)
-    index = FRONTEND_DIR / "index.html"
-    if not index.exists():
-        raise HTTPException(status_code=404, detail="frontend/index.html missing")
-    return FileResponse(index)
-
-
-@app.get("/background.jpg")
-def background_image() -> FileResponse:
-    dist_bg = DIST_DIR / "background.jpg"
-    if dist_bg.exists():
-        return FileResponse(dist_bg)
-    pub_bg = FRONTEND_DIR / "public" / "background.jpg"
-    if pub_bg.exists():
-        return FileResponse(pub_bg)
-    src_bg = FRONTEND_DIR / "src" / "assets" / "background.jpg"
-    if src_bg.exists():
-        return FileResponse(src_bg)
-    raise HTTPException(status_code=404, detail="background.jpg not found")
+@app.get("/ready")
+def ready():
+    return {
+        "ready": bool(provider_state["llm_warm"] and provider_state["tts_warm"] and settings.assemblyai_api_key),
+        "providers": {"asr": settings.assemblyai_speech_model, "llm": settings.ollama_model, "tts": settings.kokoro_model_id},
+        "provider_state": provider_state,
+        "tts_device": tts.resolved_device,
+    }
 
 
 @app.get("/api")
-def api_root() -> dict[str, str]:
-    return {
-        "message": "The Lantern — voice waiter (realtime ordering + recommendations)",
-        "health": "/health",
-        "ui": "/",
-        "guest": "/r/lantern",
-        "menu": "GET /menu",
-        "floor": "GET /floor",
-        "ws": "WS /ws/realtime",
-        "docs": "/docs",
-    }
-
-
-class MenuItemOut(BaseModel):
-    sku: str
-    name: str
-    category: str
-    price: float
-    spicy_level: int
-    available: bool
-    description: str
-    allergens: list[str]
+def api_info():
+    return {"name": "The Lantern", "architecture": "multilingual-local-voice", "version": "1.0"}
 
 
 @app.get("/menu")
-def menu_list() -> dict[str, Any]:
-    store = get_lantern_store()
-    items = store.list_menu(available_only=False)
-    return {
-        "restaurant": "The Lantern",
-        "count": len(items),
-        "items": [i.as_dict() for i in items],
-    }
+def menu(available_only: bool = False):
+    return {"items": [i.as_dict() for i in store.list_menu(available_only=available_only)]}
 
 
 @app.get("/menu/available")
-def menu_available() -> dict[str, Any]:
-    store = get_lantern_store()
-    items = store.list_menu(available_only=True)
-    return {"count": len(items), "items": [i.as_dict() for i in items]}
+def available_menu():
+    return menu(True)
 
 
 @app.get("/floor")
-def floor() -> dict[str, Any]:
-    store = get_lantern_store()
-    tables = store.list_tables()
-    return {
-        "tables": [{"id": t.id, "name": t.name, "seats": t.seats, "status": t.status} for t in tables],
-        "status_counts": store.free_table_statuses(),
-    }
-
-
-class SetAvailableRequest(BaseModel):
-    sku: str
-    available: bool
+def floor():
+    return {"tables": [t.__dict__ for t in store.list_tables()]}
 
 
 @app.post("/menu/set-available")
-def menu_set_available(body: SetAvailableRequest) -> dict[str, Any]:
-    store = get_lantern_store()
-    item = store.set_available(body.sku, body.available)
+def set_available(request: AvailabilityRequest):
+    item = store.set_available(request.sku, request.available)
     if item is None:
-        raise HTTPException(status_code=404, detail=f"Unknown SKU {body.sku}")
+        raise HTTPException(404, "menu item not found")
     return item.as_dict()
 
 
-@app.post("/rag/ask")
-def rag_ask(body: AskRequest) -> dict[str, Any]:
-    settings = get_settings()
+@app.get("/metrics")
+def metrics():
+    return {"service": "lantern", "orders": len(repository.list_orders()), "provider_model": settings.assemblyai_speech_model}
+
+
+@app.get("/api/orders/{order_id}")
+def get_order(order_id: str):
+    order = repository.get_order(order_id)
+    if not order:
+        raise HTTPException(404, "order not found")
+    return workflow.describe_order(order)
+
+
+@app.get("/api/kitchen/orders")
+def kitchen_orders():
+    return {"orders": [workflow.describe_order(order) for order in repository.list_orders()]}
+
+
+@app.post("/api/kitchen/orders/{order_id}/decisions")
+async def kitchen_decision(order_id: str, request: KitchenDecision):
     try:
-        return ask(
-            body.query,
-            chroma_dir=settings.chroma_persist_dir,
-            bm25_path=settings.bm25_index_path,
-            cache=get_rag_cache() if body.use_cache else None,
-            use_cache=body.use_cache,
-            top_k=body.top_k,
-        )
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-
-
-@app.post("/rag/retrieve")
-def rag_retrieve(body: AskRequest) -> dict[str, Any]:
-    settings = get_settings()
-    try:
-        return hybrid_retrieve(
-            body.query,
-            chroma_dir=settings.chroma_persist_dir,
-            bm25_path=settings.bm25_index_path,
-            top_k=body.top_k,
-            cache=get_rag_cache() if body.use_cache else None,
-            use_cache=body.use_cache,
-        )
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-
-
-@app.post("/rag/cache/clear")
-def rag_cache_clear() -> dict[str, Any]:
-    cache = get_rag_cache()
-    cache.clear()
-    return {"cleared": True, "cache": cache.snapshot()}
-
-
-@app.post("/session/reset")
-def session_reset(session_id: str = "default") -> dict[str, Any]:
-    state = get_sessions().reset(session_id)
-    return {"reset": True, "session": state.snapshot()}
-
-
-@app.post("/turn")
-async def turn(body: TurnRequest) -> dict[str, Any]:
-    if not (body.text and body.text.strip()) and not body.audio_b64:
-        raise HTTPException(status_code=400, detail="Provide text or audio_b64")
-    try:
-        turn_text = None if body.audio_b64 else body.text
-        return await get_orchestrator().run_turn(
-            text=turn_text,
-            audio_b64=body.audio_b64,
-            profile_name=body.profile,
-            session_id=body.session_id,
-            use_cache=body.use_cache,
-            top_k=body.top_k,
-        )
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-
-
-@app.get("/metrics/summary")
-def metrics_summary() -> dict[str, Any]:
-    settings = get_settings()
-    return summarize_jsonl(settings.metrics_dir / "turns.jsonl")
-
-
-@app.get("/metrics/turns")
-def metrics_turns(limit: int = 50) -> list[dict[str, Any]]:
-    """Return recent turns with full latency, chunks, and provider telemetry."""
-    settings = get_settings()
-    path = settings.metrics_dir / "turns.jsonl"
-    if not path.is_absolute():
-        path = ROOT_DIR / path
-    if not path.exists():
-        return []
-    turns = []
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        turns.append(json.loads(line))
-                    except Exception:
-                        pass
-    except Exception:
-        return []
-    return turns[-limit:][::-1]
-
-
-@app.websocket("/ws/turn")
-async def ws_turn(websocket: WebSocket) -> None:
-    await websocket.accept()
-    try:
-        while True:
-            payload = await websocket.receive_json()
-            text = payload.get("text")
-            audio_b64 = payload.get("audio_b64")
-            if not (text and str(text).strip()) and not audio_b64:
-                await websocket.send_json({"type": "error", "detail": "Provide text or audio_b64"})
-                continue
-
-            async def on_event(event: dict[str, Any]) -> None:
-                await websocket.send_json(event)
-
-            await websocket.send_json({"type": "status", "stage": "started"})
-            # Prefer audio when both are present — text may be a stale caption.
-            turn_text = None if audio_b64 else text
-            result = await get_orchestrator().run_turn(
-                text=turn_text,
-                audio_b64=audio_b64,
-                profile_name=payload.get("profile"),
-                session_id=str(payload.get("session_id") or "ws"),
-                use_cache=bool(payload.get("use_cache", True)),
-                top_k=int(payload.get("top_k") or DEFAULT_TOP_K),
-                on_event=on_event,
-            )
-            await websocket.send_json({"type": "final", **result})
-    except WebSocketDisconnect:
-        return
-    except Exception as exc:  # noqa: BLE001
-        try:
-            await websocket.send_json({"type": "error", "detail": str(exc)})
-        except Exception:
-            return
+        workflow.validate_kitchen_decision(order_id, request.model_dump())
+        order = repository.decide(order_id, request.model_dump())
+    except KeyError:
+        raise HTTPException(404, "order not found")
+    except ValueError as exc:
+        current = repository.get_order(order_id)
+        code = 409 if "stale revision" in str(exc) else 400
+        raise HTTPException(code, {"detail": str(exc), "current_revision": current["current_revision"] if current else None})
+    described = workflow.describe_order(order)
+    broker.publish({"type": "kitchen_decision", "order": described, "decision": request.model_dump()})
+    return described
 
 
 @app.websocket("/ws/realtime")
-async def ws_realtime(websocket: WebSocket) -> None:
-    """Full-duplex real-time streaming endpoint: bi-directional audio + live barge-in."""
+async def realtime(websocket: WebSocket):
+    table_id = websocket.query_params.get("table_id")
+    if not table_id or not store.get_table(table_id):
+        await websocket.close(code=1008, reason="valid table_id is required")
+        return
+    resume_id = websocket.query_params.get("order_id")
+    resumed = repository.get_order(resume_id) if resume_id else None
+    if resumed and (resumed["table_id"] != table_id or resumed["status"] in {"cancelled", "ready", "rejected"}):
+        resumed = None
     await websocket.accept()
-    controller = RealtimeSessionController(
-        websocket,
-        settings=get_settings(),
-        rag_cache=get_rag_cache(),
-        sessions=get_sessions(),
+    session = RealtimeSession(
+        table_id, workflow, llm,
+        session_id=resumed["guest_session_id"] if resumed else None,
+        order_id=resumed["order_id"] if resumed else None,
     )
+    send_lock = asyncio.Lock()
+    cancel_event = asyncio.Event()
+    response_task: asyncio.Task | None = None
+    guest_queue = broker.subscribe()
+
+    async def send(payload: dict) -> None:
+        async with send_lock:
+            await websocket.send_json(payload)
+
+    async def speak(result: dict, turn_cancel: asyncio.Event, started: float) -> float | None:
+        response_text = result.get("response_text")
+        if not response_text or not result.get("tts_supported"):
+            return None
+        first_audio_ms: float | None = None
+        async for pcm_chunk in tts.stream_async(response_text, result.get("language_code", "en"), turn_cancel):
+            if turn_cancel.is_set():
+                break
+            if first_audio_ms is None:
+                first_audio_ms = round((time.perf_counter() - started) * 1000, 2)
+            await send({
+                "type": "audio_chunk", "pcm_b64": base64.b64encode(pcm_chunk).decode("ascii"),
+                "sample_rate": tts.sample_rate, "language_code": result.get("language_code", "en"),
+                "ttfb_ms": first_audio_ms,
+            })
+        return first_audio_ms
+
+    async def deliver_transcript(text: str, language_code: str, turn_cancel: asyncio.Event) -> None:
+        started = time.perf_counter()
+        await send({"type": "final_transcript", "text": text, "language_code": language_code})
+        await send({"type": "workflow_update", "status": "interpreting"})
+        try:
+            result = await session.handle_transcript(text, language_code)
+            await send(result)
+            if result.get("order_id") and result.get("current_revision"):
+                broker.publish({"type": "order_update", "order": workflow.describe_order(repository.get_order(result["order_id"]))})
+            first_audio_ms = await speak(result, turn_cancel, started)
+            await send(
+                {
+                    "type": "turn_complete",
+                    "pipeline_ms": result.get("pipeline_ms"),
+                    "voice_ttfb_ms": first_audio_ms,
+                }
+            )
+        except asyncio.CancelledError:
+            return
+        except Exception as exc:  # noqa: BLE001
+            await send({"type": "error", "message": str(exc)})
+
+    def start_response(text: str, language_code: str = "en") -> None:
+        nonlocal response_task, cancel_event
+        if response_task and not response_task.done():
+            cancel_event.set()
+            response_task.cancel()
+        cancel_event = asyncio.Event()
+        response_task = asyncio.create_task(deliver_transcript(text, language_code, cancel_event))
+
+    async def on_transcript(event: TranscriptEvent) -> None:
+        if not event.is_final:
+            await send({"type": "interim_transcript", "text": event.text, "language_code": event.language_code})
+            return
+        start_response(event.text, event.language_code or "en")
+
+    async def on_speech_started() -> None:
+        cancel_event.set()
+        if response_task and not response_task.done():
+            response_task.cancel()
+        await send({"type": "barge_in", "reason": "assemblyai_vad"})
+
+    async def on_asr_error(message: str) -> None:
+        await send({"type": "provider_unavailable", "provider": "assemblyai", "message": message})
+
+    async def deliver_kitchen_events() -> None:
+        nonlocal response_task, cancel_event
+        while True:
+            event = await guest_queue.get()
+            if event.get("type") != "kitchen_decision":
+                continue
+            update = await session.handle_kitchen_decision(event["order"], event["decision"])
+            if update is None:
+                continue
+            if response_task and not response_task.done():
+                cancel_event.set()
+                response_task.cancel()
+            cancel_event = asyncio.Event()
+            await send(update)
+            try:
+                await speak(update, cancel_event, time.perf_counter())
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001
+                await send({"type": "provider_unavailable", "provider": "tts", "message": str(exc)})
+
+    asr = None
+    asr_ready = asyncio.Event()
+    asr_connect_task: asyncio.Task | None = None
+    if settings.assemblyai_api_key:
+        asr = AssemblyAIRealtimeProvider(
+            settings.assemblyai_api_key,
+            store.keyterms(),
+            on_transcript=on_transcript,
+            on_speech_started=on_speech_started,
+            on_error=on_asr_error,
+        )
+
+        async def connect_asr() -> None:
+            try:
+                await asyncio.wait_for(asr.connect(), timeout=10)
+                asr_ready.set()
+                await send({"type": "provider_ready", "provider": "assemblyai"})
+            except Exception as exc:  # noqa: BLE001
+                await send({"type": "provider_unavailable", "provider": "assemblyai", "message": str(exc)})
+
+        asr_connect_task = asyncio.create_task(connect_asr())
+    guest_events_task = asyncio.create_task(deliver_kitchen_events())
+    await send({"type": "session_ready", "table_id": table_id, "order": workflow.describe_order(resumed) if resumed else None, "providers": {"asr": settings.assemblyai_speech_model, "llm": settings.ollama_model, "tts": settings.kokoro_model_id}, "provider_state": provider_state, "asr_status": "connecting" if asr else "unavailable", "has_tts": provider_state["tts_warm"], "has_cartesia": False})
     try:
-        await controller.start()
         while True:
             message = await websocket.receive()
-            if "bytes" in message and message["bytes"]:
-                await controller.handle_pcm_audio(message["bytes"])
-            elif "text" in message and message["text"]:
-                try:
-                    import json
-                    payload = json.loads(message["text"])
-                    if isinstance(payload, dict):
-                        await controller.handle_text_command(payload)
-                except Exception:
-                    pass
+            if message.get("type") == "websocket.disconnect":
+                break
+            if message.get("text"):
+                payload = json.loads(message["text"])
+                if payload.get("type") == "transcript":
+                    start_response(payload.get("text", ""), payload.get("language_code", "en"))
+                elif payload.get("type") in {"barge_in", "interrupt"}:
+                    await on_speech_started()
+            elif message.get("bytes"):
+                if asr and asr_ready.is_set():
+                    await asr.send_audio(message["bytes"])
+                else:
+                    await send({"type": "provider_unavailable", "provider": "assemblyai", "message": "speech recognition is not connected"})
     except WebSocketDisconnect:
         pass
-    except Exception as exc:  # noqa: BLE001
-        print(f"[ws/realtime error] {exc}")
     finally:
-        await controller.close()
+        cancel_event.set()
+        if response_task and not response_task.done():
+            response_task.cancel()
+        if asr_connect_task and not asr_connect_task.done():
+            asr_connect_task.cancel()
+        guest_events_task.cancel()
+        broker.unsubscribe(guest_queue)
+        if asr and asr_ready.is_set():
+            await asr.close()
 
 
 @app.websocket("/ws/ops")
-async def ws_ops(websocket: WebSocket) -> None:
-    """Ops monitor: pushes a floor/menu/metrics snapshot to watchers on a cadence,
-    and applies control actions (toggle 86, seat/clear a table) as commands come in.
-    Read-only display, plus small operational controls. Snapshot cadence ~1.5s."""
+async def operations(websocket: WebSocket):
     await websocket.accept()
-    store = get_lantern_store()
-
-    async def send_snapshot():
-        await websocket.send_json(
-            {
-                "type": "ops_snapshot",
-                "floor": {
-                    "tables": [
-                        {"id": t.id, "name": t.name, "seats": t.seats, "status": t.status}
-                        for t in store.list_tables()
-                    ],
-                    "counts": store.free_table_statuses(),
-                },
-                "menu": {
-                    "items": [
-                        {
-                            "sku": m.sku,
-                            "name": m.name,
-                            "price": m.price,
-                            "available": m.available,
-                            "category": m.category,
-                            "fits": m.fits,
-                        }
-                        for m in store.list_menu()
-                    ]
-                },
-                "metrics": summarize_jsonl(get_settings().metrics_dir / "spans.jsonl"),
-                "ts": datetime.now(timezone.utc).isoformat(),
-            }
-        )
-
+    queue = broker.subscribe()
     try:
-        # Send initial snapshot immediately upon connection
-        await send_snapshot()
-
+        await websocket.send_json({"type": "kitchen_snapshot", "orders": [workflow.describe_order(order) for order in repository.list_orders()]})
         while True:
-            try:
-                msg = await asyncio.wait_for(websocket.receive(), timeout=1.5)
-                if "text" in msg and msg["text"]:
-                    try:
-                        payload = json.loads(msg["text"])
-                        cmd = payload.get("command")
-                        if cmd == "set-available":
-                            item = store.set_available(
-                                str(payload.get("sku") or ""),
-                                bool(payload.get("available")),
-                            )
-                            await websocket.send_json(
-                                {"type": "action_result", "ok": item is not None, "sku": payload.get("sku")}
-                            )
-                        elif cmd == "seat":
-                            if store.seat_party(str(payload.get("table_id") or ""), int(payload.get("party_size") or 2)):
-                                await websocket.send_json({"type": "action_result", "ok": True})
-                        elif cmd == "clear":
-                            if store.set_table_status(str(payload.get("table_id") or ""), "free"):
-                                await websocket.send_json({"type": "action_result", "ok": True})
-                    except Exception:  # noqa: BLE001
-                        pass
-            except asyncio.TimeoutError:
-                pass  # Cadence heartbeat tick
-
-            # Send fresh snapshot on cadence or after action
-            await send_snapshot()
-
-    except WebSocketDisconnect:
+            event = await queue.get()
+            await websocket.send_json(event)
+    except (WebSocketDisconnect, RuntimeError):
         pass
-    except Exception as exc:  # noqa: BLE001
-        print(f"[ws/ops error] {exc}")
     finally:
-        try:
-            await websocket.close()
-        except Exception:
-            pass
+        broker.unsubscribe(queue)

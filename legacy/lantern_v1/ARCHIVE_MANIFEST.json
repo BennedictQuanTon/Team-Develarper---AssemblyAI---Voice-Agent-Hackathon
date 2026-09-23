@@ -1,0 +1,354 @@
+{
+  "archive": "lantern_v1",
+  "source_commit": "7284f41ea098a616b6ad36bb5ecff5792757c624",
+  "source_branch": "chore/repository-reorganization",
+  "archived_on_branch": "refactor/new-architecture",
+  "runtime_status": "archive_only",
+  "files": [
+    {
+      "original_path": ".env.example",
+      "archived_path": "legacy/lantern_v1/.env.example",
+      "sha256": "1bf3ce34fbdc48839f07c7c6b0dcf55bdb052685295f89569bc1e42716ed54e7"
+    },
+    {
+      "original_path": "README.md",
+      "archived_path": "legacy/lantern_v1/docs/README-v1.md",
+      "sha256": "c7ccdf58634c32a107a82664ad2b3df3a9ed95aa308a5cbe15abd8644d27cd58"
+    },
+    {
+      "original_path": "requirements.txt",
+      "archived_path": "legacy/lantern_v1/requirements.txt",
+      "sha256": "b18df5331e77d63386a8d853f48fce8edb2f19b602cf5e73c60bf6371f760f06"
+    },
+    {
+      "original_path": "backend/config.py",
+      "archived_path": "legacy/lantern_v1/backend/config.py",
+      "sha256": "20a4e7190a51e6d22a00d8839eaefca32c8595bcdbb189eccf695b6a41c76053"
+    },
+    {
+      "original_path": "backend/main.py",
+      "archived_path": "legacy/lantern_v1/backend/main.py",
+      "sha256": "1773e6093915640978b644d7c087cc7682af0c38d11920c18d5028b990fcb1ca"
+    },
+    {
+      "original_path": "backend/domain/restaurant/order_session.py",
+      "archived_path": "legacy/lantern_v1/backend/domain/restaurant/order_session.py",
+      "sha256": "598c564738e9c32a38d086f99711e3dab6f945b765cc51a835a19c4d23b8ef56"
+    },
+    {
+      "original_path": "backend/pipeline/__init__.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/__init__.py",
+      "sha256": "e7aa57ea90f4a40664b67f11e241ae5b497378fe33803dba25836fe76d81fd9b"
+    },
+    {
+      "original_path": "backend/pipeline/asr_live.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/asr_live.py",
+      "sha256": "1cd069f8479ec205a815c9c50006ee067000c02e1ec986fb3ac085286ed6cbd2"
+    },
+    {
+      "original_path": "backend/pipeline/asr_stream.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/asr_stream.py",
+      "sha256": "ea5c1149d4bcee4f57bab7aa8b98d8d7c8c8affe002494f63d0ac386eaa6c5f5"
+    },
+    {
+      "original_path": "backend/pipeline/asr.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/asr.py",
+      "sha256": "600253d30f228fdda5a39fc9251f4041a4b6521533e23160b869c70d2adeb5f0"
+    },
+    {
+      "original_path": "backend/pipeline/base.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/base.py",
+      "sha256": "696db2cfce2546b070872b621641ef936cf2de23299d8393db8935c9e8b882a5"
+    },
+    {
+      "original_path": "backend/pipeline/factory.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/factory.py",
+      "sha256": "d8062dc26e683ec62a51094f643e4a12f27870c6f42ed58fafe83d2c7dee068e"
+    },
+    {
+      "original_path": "backend/pipeline/filler.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/filler.py",
+      "sha256": "547ea6ae85c066b0addcd870bd522281e5b8aa821102490b6a4d5ba4005c86f9"
+    },
+    {
+      "original_path": "backend/pipeline/llm_live.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/llm_live.py",
+      "sha256": "e000ba162ed4c8d28ec6556eea7c3089aa0160ce44d5cb0adfee22ec8ba347fb"
+    },
+    {
+      "original_path": "backend/pipeline/llm.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/llm.py",
+      "sha256": "992c183b3fa24f5e405ac78a65fab38e55cc7c8c5026599bdbf64d6615e1d770"
+    },
+    {
+      "original_path": "backend/pipeline/orchestrator.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/orchestrator.py",
+      "sha256": "38e9ee9397504c19606a1812b5ab6a88bece579ca0b899b11aadb192604f138e"
+    },
+    {
+      "original_path": "backend/pipeline/profiles.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/profiles.py",
+      "sha256": "2b90a5cc72ba1984052b1b7efc8c1da3ee65724f3f74bccfb37cb08a03d3a937"
+    },
+    {
+      "original_path": "backend/pipeline/realtime_session.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/realtime_session.py",
+      "sha256": "a93131e6b8d79935c04c4818a6e8fcc9771cac38c160f8436dabbb17d6e90a8c"
+    },
+    {
+      "original_path": "backend/pipeline/session.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/session.py",
+      "sha256": "4b7e4df2ab9722e1cbd3bead372d6aa601bed9ec4aa6cf112436ff808582a92f"
+    },
+    {
+      "original_path": "backend/pipeline/tts_live.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/tts_live.py",
+      "sha256": "22a656c488bc26a5d004f83a83452d25244ba0d4acbcc0d2a2eebcb3305a6b31"
+    },
+    {
+      "original_path": "backend/pipeline/tts_stream.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/tts_stream.py",
+      "sha256": "97bd9dbbb93a8669b79b692dfe097337bdcc0615a3ec0dd49c901050ab710e9a"
+    },
+    {
+      "original_path": "backend/pipeline/tts.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/tts.py",
+      "sha256": "d542e288c20882548667b3e58d6e6a562ab011dc12504265951c29e59c4b342b"
+    },
+    {
+      "original_path": "backend/pipeline/waiter_agent.py",
+      "archived_path": "legacy/lantern_v1/backend/pipeline/waiter_agent.py",
+      "sha256": "1398c1106db6545ea8b6a0bcb6178951a0de17ac80f70813c9c750f7f57d516b"
+    },
+    {
+      "original_path": "config/voice/profiles.yaml",
+      "archived_path": "legacy/lantern_v1/config/voice/profiles.yaml",
+      "sha256": "edbb46813cf18fe70a8b4c6f8430900c6d2991e688caa3129e36384a9af0958d"
+    },
+    {
+      "original_path": "docs/benchmarking.md",
+      "archived_path": "legacy/lantern_v1/docs/benchmarking.md",
+      "sha256": "78fa7615071538f390211c27bac9074232f5319cb8979465eb54d5cca54844a8"
+    },
+    {
+      "original_path": "docs/README-v1.md",
+      "archived_path": "legacy/lantern_v1/docs/README-v1.md",
+      "sha256": "c7ccdf58634c32a107a82664ad2b3df3a9ed95aa308a5cbe15abd8644d27cd58"
+    },
+    {
+      "original_path": "docs/system-overview.md",
+      "archived_path": "legacy/lantern_v1/docs/system-overview.md",
+      "sha256": "caae93cc09f2a2716232a416ff21a23cc2e0ef554debfb1efb077973ed4cb2cd"
+    },
+    {
+      "original_path": "eval/__init__.py",
+      "archived_path": "legacy/lantern_v1/eval/__init__.py",
+      "sha256": "79e74385709554e2dd1a44df12e83ee713cfe20bf8bfa64892fa9bf268e354b5"
+    },
+    {
+      "original_path": "eval/context_fillers.py",
+      "archived_path": "legacy/lantern_v1/eval/context_fillers.py",
+      "sha256": "02beae9fc8e7ce8858f7e1014eb4d0572f05b98a22469b49bd12a80d19cd6678"
+    },
+    {
+      "original_path": "eval/llm_provider_comparison.py",
+      "archived_path": "legacy/lantern_v1/eval/llm_provider_comparison.py",
+      "sha256": "e6ee5bc06c8b496cfd98511a4053348487830d17efcd33ffd7a8388526be6f49"
+    },
+    {
+      "original_path": "eval/realtime_waiter.py",
+      "archived_path": "legacy/lantern_v1/eval/realtime_waiter.py",
+      "sha256": "e356962005b1b9e5436a4a92ca8184c88504c0169a80c4824ba9fbd96def7eae"
+    },
+    {
+      "original_path": "eval/regression_vs_baseline.py",
+      "archived_path": "legacy/lantern_v1/eval/regression_vs_baseline.py",
+      "sha256": "32cf8ba84197326060bbe6edce943a6926d1dfe8e5df44532f96971d22205ccf"
+    },
+    {
+      "original_path": "eval/simplified_two_turn.py",
+      "archived_path": "legacy/lantern_v1/eval/simplified_two_turn.py",
+      "sha256": "4e0e0dbc849883e16e8e543f0b229309fbf66ce5231f0ad4afd10a92472d9e7c"
+    },
+    {
+      "original_path": "frontend/index.html",
+      "archived_path": "legacy/lantern_v1/frontend/index.html",
+      "sha256": "d9c2dea851b6ee5ecf5cb6a5977d9e192d9d086597b5d686d3b9298c98fb2f99"
+    },
+    {
+      "original_path": "frontend/package-lock.json",
+      "archived_path": "legacy/lantern_v1/frontend/package-lock.json",
+      "sha256": "b5e7832d74b5035689c7d1827b669ed126c04d5b9a89aaa4ad237d4da77501a1"
+    },
+    {
+      "original_path": "frontend/package.json",
+      "archived_path": "legacy/lantern_v1/frontend/package.json",
+      "sha256": "0ed8417047bcf895eb3cac45bae142346ddd206e9967c34c128e02560e569267"
+    },
+    {
+      "original_path": "frontend/tsconfig.json",
+      "archived_path": "legacy/lantern_v1/frontend/tsconfig.json",
+      "sha256": "6c0224dab2e9a827b4f41406f97eeefcc06e30c19106288737cd12879b7cf465"
+    },
+    {
+      "original_path": "frontend/vite.config.ts",
+      "archived_path": "legacy/lantern_v1/frontend/vite.config.ts",
+      "sha256": "301b52effadb61673248604873bd65e865b7892ae6a5338c1ea409751a1866b1"
+    },
+    {
+      "original_path": "frontend/public/background.jpg",
+      "archived_path": "legacy/lantern_v1/frontend/public/background.jpg",
+      "sha256": "792a79647f283fe62235aad56f4ace693b5b8171ca0f26102845f7668f59853a"
+    },
+    {
+      "original_path": "frontend/public/audio/backchannels/ack.wav",
+      "archived_path": "legacy/lantern_v1/frontend/public/audio/backchannels/ack.wav",
+      "sha256": "b626d9c6df926e2fa9c443592c37ccd7e6a080c1758f86369fa294ea233ce1d2"
+    },
+    {
+      "original_path": "frontend/public/audio/backchannels/backchannels.manifest.json",
+      "archived_path": "legacy/lantern_v1/frontend/public/audio/backchannels/backchannels.manifest.json",
+      "sha256": "2afc5ff67723f1400ac04e49714786ccfb27139bca091255deb006f7f4cfb874"
+    },
+    {
+      "original_path": "frontend/public/audio/backchannels/checking.wav",
+      "archived_path": "legacy/lantern_v1/frontend/public/audio/backchannels/checking.wav",
+      "sha256": "6716e9fd026798fa45c713bb450d2ba4da60d07c5c7b78f4011736c472d8dc65"
+    },
+    {
+      "original_path": "frontend/public/audio/backchannels/closing.wav",
+      "archived_path": "legacy/lantern_v1/frontend/public/audio/backchannels/closing.wav",
+      "sha256": "7e6a556a3b2e98f03cfd3fd24c4533d97a885fddd1cca399b467aacfe11cd20e"
+    },
+    {
+      "original_path": "frontend/public/audio/backchannels/dish_check.wav",
+      "archived_path": "legacy/lantern_v1/frontend/public/audio/backchannels/dish_check.wav",
+      "sha256": "9df58d708c5bcd1410e0ac69c84f5898d2e6f6ca99f034f6b357655d43413e8c"
+    },
+    {
+      "original_path": "frontend/public/audio/backchannels/got_it.wav",
+      "archived_path": "legacy/lantern_v1/frontend/public/audio/backchannels/got_it.wav",
+      "sha256": "5319ffd00c799df22fc21a65c8a828355033fde8a746a7e3dde1be4d15eb3f60"
+    },
+    {
+      "original_path": "frontend/public/audio/backchannels/order_process.wav",
+      "archived_path": "legacy/lantern_v1/frontend/public/audio/backchannels/order_process.wav",
+      "sha256": "e398f2ef80c63041737e73c8f9a463dfe944b46fd698110d00207c7f10ce9a28"
+    },
+    {
+      "original_path": "frontend/public/audio/backchannels/specialty_rec.wav",
+      "archived_path": "legacy/lantern_v1/frontend/public/audio/backchannels/specialty_rec.wav",
+      "sha256": "1dc2648cdf1263beeac9becd800d56f06990ad46bf7be922cc89faf4fc426c35"
+    },
+    {
+      "original_path": "frontend/public/audio/backchannels/table_check.wav",
+      "archived_path": "legacy/lantern_v1/frontend/public/audio/backchannels/table_check.wav",
+      "sha256": "b57de2cb7be7b6f60e4702e59dfdfc07833903ce2298afeef062a219556bede5"
+    },
+    {
+      "original_path": "frontend/public/audio/backchannels/thinking.wav",
+      "archived_path": "legacy/lantern_v1/frontend/public/audio/backchannels/thinking.wav",
+      "sha256": "168dac6e9111d9bc018b343cf62d9e5fdaec066f63306e6958222b6593f88f89"
+    },
+    {
+      "original_path": "frontend/src/main.ts",
+      "archived_path": "legacy/lantern_v1/frontend/src/main.ts",
+      "sha256": "e36c37aa2fc1cf3944ef270fe5fcf2a66e5bf05988726adc768ae29d1ca38371"
+    },
+    {
+      "original_path": "frontend/src/audio/mic_recorder.ts",
+      "archived_path": "legacy/lantern_v1/frontend/src/audio/mic_recorder.ts",
+      "sha256": "65017b1908b2da3e912d0057f7a9d04b41370e3ec82a784974ca9569904fcff1"
+    },
+    {
+      "original_path": "frontend/src/audio/pcm_player.ts",
+      "archived_path": "legacy/lantern_v1/frontend/src/audio/pcm_player.ts",
+      "sha256": "8b15383a192e8168e422ff8d4880ff38996811717c31013c1848ee98c2678a71"
+    },
+    {
+      "original_path": "frontend/src/components/guest_view.ts",
+      "archived_path": "legacy/lantern_v1/frontend/src/components/guest_view.ts",
+      "sha256": "6566fb2cad4c62adfec9fd22bda8f797124a2ba94eabf8e470df188b834a0f12"
+    },
+    {
+      "original_path": "frontend/src/components/logs_view.ts",
+      "archived_path": "legacy/lantern_v1/frontend/src/components/logs_view.ts",
+      "sha256": "398d580d70a1e43702b5544b7d4355744a2f9bc191c6e6464b575df0a8867156"
+    },
+    {
+      "original_path": "frontend/src/components/ops_view.ts",
+      "archived_path": "legacy/lantern_v1/frontend/src/components/ops_view.ts",
+      "sha256": "33492625baea8d2d7aad9a74e0ce78f4324ef9eb7096415d87e28ba4e9fea938"
+    },
+    {
+      "original_path": "frontend/src/components/siri_orb.ts",
+      "archived_path": "legacy/lantern_v1/frontend/src/components/siri_orb.ts",
+      "sha256": "14865ce77c86d4d08cc8f77dbd59451b56529ed0dc3b0ce0a00052bdfff77d7d"
+    },
+    {
+      "original_path": "frontend/src/services/ops_service.ts",
+      "archived_path": "legacy/lantern_v1/frontend/src/services/ops_service.ts",
+      "sha256": "0efbf7ffee0faa81ac032652a3c89219ccccab2458073b46152c374228770590"
+    },
+    {
+      "original_path": "frontend/src/services/voice_service.ts",
+      "archived_path": "legacy/lantern_v1/frontend/src/services/voice_service.ts",
+      "sha256": "d03b8cd99e75ff038658209bcb22e9f72b9f43237930a948a9e692a398ffcefb"
+    },
+    {
+      "original_path": "frontend/src/styles/base.css",
+      "archived_path": "legacy/lantern_v1/frontend/src/styles/base.css",
+      "sha256": "dc53ef9124d2bc843f5e1c62c9506edd74ba4f497a1fb7cce5d6f9eba48893cc"
+    },
+    {
+      "original_path": "frontend/src/styles/components.css",
+      "archived_path": "legacy/lantern_v1/frontend/src/styles/components.css",
+      "sha256": "7c1f230d827c3450328bd43e21396ced200798b546fa53279a417cea713e64b1"
+    },
+    {
+      "original_path": "frontend/src/styles/tokens.css",
+      "archived_path": "legacy/lantern_v1/frontend/src/styles/tokens.css",
+      "sha256": "57be1032198e5943ce5bc8ea87a9d0672c6a7b4b130565f1edc5e78346c920b0"
+    },
+    {
+      "original_path": "frontend/src/types/ops.ts",
+      "archived_path": "legacy/lantern_v1/frontend/src/types/ops.ts",
+      "sha256": "3f3c3df8f3d3d6dd84324bebcda5638782d077b6658a08b3e4bc2b60c8737308"
+    },
+    {
+      "original_path": "frontend/src/types/realtime.ts",
+      "archived_path": "legacy/lantern_v1/frontend/src/types/realtime.ts",
+      "sha256": "3f7498ec004b6eb1220e3bdea5f404c459cf534d328b60cbdb4add97c364e7d5"
+    },
+    {
+      "original_path": "tests/__init__.py",
+      "archived_path": "legacy/lantern_v1/tests/__init__.py",
+      "sha256": "99e1c3289538a142733ca45615de932ab8c7fca71e66a1790bc93ba13f69a9ef"
+    },
+    {
+      "original_path": "tests/contract/__init__.py",
+      "archived_path": "legacy/lantern_v1/tests/contract/__init__.py",
+      "sha256": "05c156e9cd65af8c81d64993ad4c9a7ef47578951bdc452f8cee41dedabbdeef"
+    },
+    {
+      "original_path": "tests/contract/test_restaurant_routes.py",
+      "archived_path": "legacy/lantern_v1/tests/contract/test_restaurant_routes.py",
+      "sha256": "f95f2bd7ab331d4c6a7ea0b27adb4780cff7a8129c3af5399728a577e087ce64"
+    },
+    {
+      "original_path": "tests/unit/__init__.py",
+      "archived_path": "legacy/lantern_v1/tests/unit/__init__.py",
+      "sha256": "2179a264cb1df3c98b8537ac07e39fd1fa28f4234842247846c705727be7682e"
+    },
+    {
+      "original_path": "tests/unit/test_reporting.py",
+      "archived_path": "legacy/lantern_v1/tests/unit/test_reporting.py",
+      "sha256": "3efb8cfe48675174b0e49ed73d44230b25f0586f3c9897de1aa5cf603eda5737"
+    },
+    {
+      "original_path": "tests/unit/test_restaurant_domain.py",
+      "archived_path": "legacy/lantern_v1/tests/unit/test_restaurant_domain.py",
+      "sha256": "4e45eeab28a2ad89a7a6c2b23e3ad50a93a9a07455845d93a1971c39f738ab1e"
+    }
+  ]
+}

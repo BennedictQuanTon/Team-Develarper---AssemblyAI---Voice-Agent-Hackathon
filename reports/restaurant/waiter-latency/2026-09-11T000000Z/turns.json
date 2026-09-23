@@ -1,0 +1,96 @@
+{
+  "case": "full_order_flow",
+  "api": {
+    "asr": "assemblyai_realtime",
+    "llm": "gemini_tools",
+    "tts": "cartesia_websocket"
+  },
+  "turns": [
+    {
+      "turn": 1,
+      "intent": "recommend",
+      "user_query_text": "What do you recommend for a mild couple?",
+      "reply_text": "I'd recommend the refreshing pomelo salad with shrimp and the tender lemongrass chicken. Shall I add both of those to your order?",
+      "reply_clean": true,
+      "tools_called": [],
+      "basket_after": [],
+      "ttfb_ms": 32755.52,
+      "e2e_ms": 34225.95
+    },
+    {
+      "turn": 2,
+      "intent": "those-two",
+      "user_query_text": "We'll take those two please",
+      "reply_text": "Got it, I've added the pomelo salad with shrimp and the lemongrass chicken for you. Anything else?",
+      "reply_clean": true,
+      "tools_called": [],
+      "basket_after": [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken"
+      ],
+      "ttfb_ms": 6330.17,
+      "e2e_ms": 7599.43
+    },
+    {
+      "turn": 3,
+      "intent": "add-morning-glory",
+      "user_query_text": "And add a stir-fried morning glory too",
+      "reply_text": "I have added the stir-fried morning glory to your order.",
+      "reply_clean": true,
+      "tools_called": [],
+      "basket_after": [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Stir-fried Morning Glory"
+      ],
+      "ttfb_ms": 45128.14,
+      "e2e_ms": 45732.91
+    },
+    {
+      "turn": 4,
+      "intent": "place",
+      "user_query_text": "That's all, please place the order",
+      "reply_text": "Please review your order: one pomelo salad with shrimp, one lemongrass chicken, and one stir-fried morning glory, totaling $20.50. Shall I place it now?",
+      "reply_clean": true,
+      "tools_called": [],
+      "basket_after": [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Stir-fried Morning Glory"
+      ],
+      "ttfb_ms": 28148.75,
+      "e2e_ms": 30175.07
+    }
+  ],
+  "state_delta": {
+    "menu_changed": false,
+    "basket_after_each_turn": [
+      [],
+      [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken"
+      ],
+      [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Stir-fried Morning Glory"
+      ],
+      [
+        "Pomelo Salad with Shrimp",
+        "Lemongrass Chicken",
+        "Stir-fried Morning Glory"
+      ]
+    ],
+    "final_total": 20.5,
+    "placed": null
+  },
+  "summary": {
+    "turns_completed": 4,
+    "accuracy_name_ok": true,
+    "total_ok": true,
+    "all_replies_clean": true,
+    "issues": [],
+    "avg_e2e_ms": 29433.34,
+    "avg_ttfb_ms": 28090.65
+  }
+}

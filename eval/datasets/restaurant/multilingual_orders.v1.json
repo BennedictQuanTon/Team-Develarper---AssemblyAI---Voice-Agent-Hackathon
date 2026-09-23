@@ -1,0 +1,8 @@
+{
+  "version": "1.0",
+  "languages": ["en", "es", "fr", "hi", "it", "ja", "zh", "pt-BR"],
+  "cases": [
+    {"id": "ja-allergy", "language": "ja", "transcript": "エビアレルギーです。スズキを一つ", "expected": "clarification_or_safe_order"},
+    {"id": "es-substitute", "language": "es", "transcript": "Quiero lubina", "expected": "substitution_flow"}
+  ]
+}

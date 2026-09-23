@@ -1,1 +1,1 @@
-# Eval runners and gold datasets land in Phase 3–5.
+"""Versioned smoke-test, benchmark, dataset, and reporting utilities."""

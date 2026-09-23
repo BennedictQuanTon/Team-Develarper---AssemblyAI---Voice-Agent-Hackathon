@@ -1,0 +1,57 @@
+{
+  "status": "PASS",
+  "turns": [
+    {
+      "id": "q1",
+      "query": "When is the Dragon Bridge fire show?",
+      "answer": "Saturdayand Sunday around 9:00 PM local time. Arrive 30 to 45minutes early for a good spot!",
+      "keyword_pass": true,
+      "audio_chunks": 35,
+      "voice_to_voice_ttfb_ms": 2396.55,
+      "e2e_turn_ms": 3740.31,
+      "farewell": false
+    },
+    {
+      "id": "q2",
+      "query": "How do I get from the airport to the city?",
+      "answer": "Take anofficial taxi or Grab outside arrivals. It usually takes 10 to 20 minutes to reach centralhotels by car.",
+      "keyword_pass": true,
+      "audio_chunks": 36,
+      "voice_to_voice_ttfb_ms": 2400.63,
+      "e2e_turn_ms": 3782.92,
+      "farewell": false
+    },
+    {
+      "id": "q3",
+      "query": "Thanks, that's all.",
+      "answer": "Anytime. Enjoy Da Nang.",
+      "keyword_pass": true,
+      "audio_chunks": 12,
+      "voice_to_voice_ttfb_ms": 1562.44,
+      "e2e_turn_ms": 2086.28,
+      "farewell": true
+    }
+  ],
+  "metrics": {
+    "voice_to_voice_ttfb_ms": {
+      "p50": 2396.55,
+      "p95": 2400.63,
+      "mean": 2119.87,
+      "min": 1562.44,
+      "max": 2400.63,
+      "count": 3
+    },
+    "e2e_turn_ms": {
+      "p50": 3740.31,
+      "p95": 3782.92,
+      "mean": 3203.17,
+      "min": 2086.28,
+      "max": 3782.92,
+      "count": 3
+    },
+    "barge_in_test": {
+      "success": true,
+      "latency_ms": 627.24
+    }
+  }
+}

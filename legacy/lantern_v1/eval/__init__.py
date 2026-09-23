@@ -1,0 +1,1 @@
+"""Restaurant benchmark suites."""

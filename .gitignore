@@ -27,13 +27,13 @@ build/
 venv/
 .run/
 
-# Local Data & Vector/Keyword Indexes
-data/chroma/
-data/bm25/
+# Local runtime data, logs, and vector/keyword indexes
+var/
+legacy/travel/runtime/
 *.bin
 *.pkl
 
-# Reports, Audio Artifacts & Logs
+# Generated report attachments and logs
 reports/*.jsonl
 reports/*.html
 reports/audio/
@@ -56,6 +56,4 @@ sentence-transformers/
 :memory:.ses
 *.ses
 
-# Local raw graphic source assets (contains 11-13MB .eps)
-white-gray-abstract-gradient-background/
-white-background-gradient-modern-abstract-design-round-shape/
+# Large source design assets are kept under design/source/ when intentionally versioned.

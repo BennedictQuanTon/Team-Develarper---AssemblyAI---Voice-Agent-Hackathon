@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "source": "migrated",
+  "product": "restaurant",
+  "suite": "ollama-langchain-ab",
+  "run_id": "2026-09-20T012552Z",
+  "source_branch": "perf/local-ollama-langchain",
+  "source_commit": "884be1f",
+  "source_files": [
+    "reports/ollama_langchain_ab_2026-09-20.md",
+    "reports/ollama_langchain_ab_2026-09-20/*.json"
+  ],
+  "git_dirty": null,
+  "notes": [
+    "Run ID was normalized to UTC from the earliest recorded +07 benchmark timestamp.",
+    "Historical results were moved without regeneration."
+  ]
+}
