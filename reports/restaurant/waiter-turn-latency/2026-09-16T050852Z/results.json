@@ -1,0 +1,348 @@
+{
+  "benchmark_timestamp": "2026-09-16 12:08:52",
+  "case": "single_native_order_flow",
+  "api_providers": {
+    "asr": "assemblyai_realtime",
+    "llm": "gemini_tools",
+    "tts": "cartesia_websocket"
+  },
+  "turns": [
+    {
+      "turn": 1,
+      "intent": "recommend",
+      "user_query_text": "What would you recommend for a mild couple?",
+      "reply_text": "For a mild couple, I definitely recommend our refreshing Pomelo Salad with Shrimp and our flavorful Lemongrass Chicken.",
+      "functions_used": [],
+      "tools_called": [],
+      "expected_tools": [
+        "recommend_dishes"
+      ],
+      "basket_before": [],
+      "basket_after": [],
+      "timings_ms": {
+        "asr_first_ms": 967.6,
+        "ttfb_ms": 5418.12,
+        "e2e_ms": 8474.35
+      },
+      "comparison_yesterday": {
+        "yesterday_ttfb_ms": 17860.78,
+        "yesterday_e2e_ms": 19232.23,
+        "speedup_ttfb_pct": 69.7,
+        "speedup_e2e_pct": 55.9
+      },
+      "turn_accuracy": {
+        "tool_called_ok": true,
+        "reply_clean": true
+      }
+    },
+    {
+      "turn": 2,
+      "intent": "those-two",
+      "user_query_text": "We'll take those two please",
+      "reply_text": "I've added the lemongrass chicken and pomelo salad, bringing your total to fifteen fifty.",
+      "functions_used": [
+        {
+          "tool": "add_items_from_mention",
+          "args": {
+            "ref": "those two"
+          }
+        }
+      ],
+      "tools_called": [
+        "add_items_from_mention"
+      ],
+      "expected_tools": [
+        "add_items_from_mention",
+        "order_items"
+      ],
+      "basket_before": [],
+      "basket_after": [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp"
+      ],
+      "timings_ms": {
+        "asr_first_ms": 932.23,
+        "ttfb_ms": 7193.89,
+        "e2e_ms": 8996.88
+      },
+      "comparison_yesterday": {
+        "yesterday_ttfb_ms": 25863.29,
+        "yesterday_e2e_ms": 27120.31,
+        "speedup_ttfb_pct": 72.2,
+        "speedup_e2e_pct": 66.8
+      },
+      "turn_accuracy": {
+        "tool_called_ok": true,
+        "reply_clean": true
+      }
+    },
+    {
+      "turn": 3,
+      "intent": "86-squid",
+      "user_query_text": "I'd like the crispy squid too",
+      "reply_text": "Ah, the crispy squid is actually sold out tonight, but I can get you the crispy spring rolls or fried banana instead!",
+      "functions_used": [],
+      "tools_called": [],
+      "expected_tools": [
+        "search_menu",
+        "check_availability"
+      ],
+      "basket_before": [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp"
+      ],
+      "basket_after": [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp"
+      ],
+      "timings_ms": {
+        "asr_first_ms": 1054.37,
+        "ttfb_ms": 4711.55,
+        "e2e_ms": 7386.01
+      },
+      "comparison_yesterday": {
+        "yesterday_ttfb_ms": 28230.36,
+        "yesterday_e2e_ms": 28684.52,
+        "speedup_ttfb_pct": 83.3,
+        "speedup_e2e_pct": 74.3
+      },
+      "turn_accuracy": {
+        "tool_called_ok": true,
+        "reply_clean": true
+      }
+    },
+    {
+      "turn": 4,
+      "intent": "sub-seabass",
+      "user_query_text": "Okay, make it a grilled seabass instead",
+      "reply_text": "I've added the grilled seabass, bringing your total to $31.50 for the lemongrass chicken, pomelo salad with shrimp, and grilled seabass.",
+      "functions_used": [
+        {
+          "tool": "order_items",
+          "args": {
+            "items": [
+              {
+                "ref": "Grilled Seabass"
+              }
+            ]
+          }
+        }
+      ],
+      "tools_called": [
+        "order_items"
+      ],
+      "expected_tools": [
+        "search_menu",
+        "add_item",
+        "order_items"
+      ],
+      "basket_before": [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp"
+      ],
+      "basket_after": [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp",
+        "Grilled Seabass"
+      ],
+      "timings_ms": {
+        "asr_first_ms": 1010.28,
+        "ttfb_ms": 6134.21,
+        "e2e_ms": 8439.42
+      },
+      "comparison_yesterday": {
+        "yesterday_ttfb_ms": 46511.13,
+        "yesterday_e2e_ms": 47639.66,
+        "speedup_ttfb_pct": 86.8,
+        "speedup_e2e_pct": 82.3
+      },
+      "turn_accuracy": {
+        "tool_called_ok": true,
+        "reply_clean": true
+      }
+    },
+    {
+      "turn": 5,
+      "intent": "side-morning-glory",
+      "user_query_text": "And stir-fried morning glory on the side",
+      "reply_text": "I have added the stir-fried morning glory, bringing your total to 36 dollars and 50 cents. Anything else?",
+      "functions_used": [
+        {
+          "tool": "order_items",
+          "args": {
+            "items": [
+              {
+                "ref": "VG_MORNING"
+              }
+            ]
+          }
+        }
+      ],
+      "tools_called": [
+        "order_items"
+      ],
+      "expected_tools": [
+        "search_menu",
+        "add_item",
+        "order_items"
+      ],
+      "basket_before": [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp",
+        "Grilled Seabass"
+      ],
+      "basket_after": [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp",
+        "Grilled Seabass",
+        "Stir-fried Morning Glory"
+      ],
+      "timings_ms": {
+        "asr_first_ms": 1010.2,
+        "ttfb_ms": 5868.55,
+        "e2e_ms": 7493.04
+      },
+      "comparison_yesterday": {
+        "yesterday_ttfb_ms": 85967.16,
+        "yesterday_e2e_ms": 86525.06,
+        "speedup_ttfb_pct": 93.2,
+        "speedup_e2e_pct": 91.3
+      },
+      "turn_accuracy": {
+        "tool_called_ok": true,
+        "reply_clean": true
+      }
+    },
+    {
+      "turn": 6,
+      "intent": "place",
+      "user_query_text": "That's all, please place the order",
+      "reply_text": "Your order is placed. Total is thirty-six fifty.",
+      "functions_used": [
+        {
+          "tool": "place_order",
+          "args": {}
+        }
+      ],
+      "tools_called": [
+        "place_order"
+      ],
+      "expected_tools": [
+        "readback",
+        "place_order",
+        "order_items"
+      ],
+      "basket_before": [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp",
+        "Grilled Seabass",
+        "Stir-fried Morning Glory"
+      ],
+      "basket_after": [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp",
+        "Grilled Seabass",
+        "Stir-fried Morning Glory"
+      ],
+      "timings_ms": {
+        "asr_first_ms": 951.43,
+        "ttfb_ms": 5659.16,
+        "e2e_ms": 6788.35
+      },
+      "comparison_yesterday": {
+        "yesterday_ttfb_ms": 53087.39,
+        "yesterday_e2e_ms": 54130.08,
+        "speedup_ttfb_pct": 89.3,
+        "speedup_e2e_pct": 87.5
+      },
+      "turn_accuracy": {
+        "tool_called_ok": true,
+        "reply_clean": true
+      }
+    }
+  ],
+  "state_delta": {
+    "menu_changed": false,
+    "basket_after_each_turn": [
+      [],
+      [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp"
+      ],
+      [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp"
+      ],
+      [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp",
+        "Grilled Seabass"
+      ],
+      [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp",
+        "Grilled Seabass",
+        "Stir-fried Morning Glory"
+      ],
+      [
+        "Lemongrass Chicken",
+        "Pomelo Salad with Shrimp",
+        "Grilled Seabass",
+        "Stir-fried Morning Glory"
+      ]
+    ],
+    "final_items": [
+      "Lemongrass Chicken",
+      "Pomelo Salad with Shrimp",
+      "Grilled Seabass",
+      "Stir-fried Morning Glory"
+    ],
+    "final_total": 36.5,
+    "expected_total": 36.5
+  },
+  "response_accuracy": {
+    "overall_accuracy_score": 1.0,
+    "overall_accuracy_pct": "100.0%",
+    "basket_items_accuracy": true,
+    "expected_items": [
+      "Pomelo Salad with Shrimp",
+      "Lemongrass Chicken",
+      "Grilled Seabass",
+      "Stir-fried Morning Glory"
+    ],
+    "actual_items": [
+      "Lemongrass Chicken",
+      "Pomelo Salad with Shrimp",
+      "Grilled Seabass",
+      "Stir-fried Morning Glory"
+    ],
+    "total_price_accuracy": true,
+    "expected_total": 36.5,
+    "actual_total": 36.5,
+    "tool_calling_accuracy_rate": 1.0,
+    "clean_speech_rate": 1.0,
+    "all_turns_passed": true
+  },
+  "speed_comparison": {
+    "today_avg_ttfb_ms": 5830.91,
+    "yesterday_avg_ttfb_ms": 42920.02,
+    "ttfb_speedup_pct": 86.4,
+    "today_avg_e2e_ms": 7929.68,
+    "yesterday_avg_e2e_ms": 43888.64,
+    "e2e_speedup_pct": 81.9,
+    "today_wall_seconds": 74.2,
+    "yesterday_wall_seconds": 276.3,
+    "wall_time_speedup_pct": 73.1,
+    "is_faster_today": true
+  },
+  "gemini_stability": {
+    "total_gemini_calls_est": 10,
+    "wall_seconds": 74.2,
+    "observed_rpm": 8.09,
+    "token_bucket_cap_rpm": 15,
+    "under_quota_limit": true,
+    "rate_limit_429_errors": 0,
+    "timeouts_count": 0,
+    "stability_verdict": "STABLE"
+  }
+}

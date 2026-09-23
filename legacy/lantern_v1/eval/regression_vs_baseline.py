@@ -1,22 +1,25 @@
 """Benchmark & Diagnostic Suite: Measure Live Voice Waiter Latency,
-Gemini Function Calling Stability, and Response Accuracy against a saved baseline.
+Gemini Function Calling Stability, and Response Accuracy against Yesterday's Baseline.
 
 Evaluates:
-1. Speed: TTFB (Time-To-First-Byte) & E2E turn latency vs a saved baseline.
+1. Speed: TTFB (Time-To-First-Byte) & E2E turn latency vs Yesterday (reports/waiter_e2e_detail.json).
 2. Gemini Stability: Rate limiter (15 RPM), tool roundtrips, timeouts, 429 quota errors.
 3. Response Accuracy: Semantic intent resolution, function/tool execution correctness,
    basket item tracking, total calculation, clean spoken replies (no JSON/code leakage).
 
-Outputs an immutable restaurant/regression-vs-baseline run directory.
+Outputs:
+- JSON: reports/benchmark_today_eval.json
+- Markdown: reports/benchmark_today_report.md
 
 Usage:
-  PYTHONPATH=. .venv/bin/python eval/benchmarks/restaurant/regression_vs_baseline.py
+  PYTHONPATH=. .venv/bin/python eval/benchmark_today.py
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import json
 import logging
 import statistics
@@ -24,16 +27,15 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import websockets
 
 from backend.app.config import get_settings
-from backend.app.domain.restaurant.store import get_lantern_store
+from backend.app.domain.lantern import get_lantern_store
 from backend.app.pipeline.tts_live import CartesiaTTSClient
-from eval.reporting import create_run, write_results, write_summary
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("benchmark_today")
@@ -41,14 +43,29 @@ logger = logging.getLogger("benchmark_today")
 WS_URL = "ws://127.0.0.1:8000/ws/realtime"
 CHUNK = 1280  # 40ms of 16kHz 16-bit mono PCM
 
+# These lists name ALLOWED TOOLS, not outcomes. Updated 2026-09-16 with the
+# `order_items` compound tool, which folds add + modifier + place into one call,
+# so turns that used to need search_menu + add_item now legitimately call one
+# tool. The outcome checks -- basket contents, final total, clean speech -- are
+# unchanged and are what actually gates this benchmark.
 SCENARIO = [
     ("recommend", "What would you recommend for a mild couple?", ["recommend_dishes"]),
-    ("those-two", "We'll take those two please", ["add_items_from_mention"]),
-    ("86-squid", "I'd like the crispy squid too", ["search_menu", "add_item"]),
-    ("sub-seabass", "Okay, make it a grilled seabass instead", ["search_menu", "add_item"]),
-    ("side-morning-glory", "And stir-fried morning glory on the side", ["search_menu", "add_item"]),
-    ("place", "That's all, please place the order", ["readback", "place_order"]),
+    ("those-two", "We'll take those two please", ["add_items_from_mention", "order_items"]),
+    # The squid is 86'd immediately before this turn, so the correct behaviour is to
+    # refuse it and offer a substitute. The previous list expected `add_item` here,
+    # i.e. it expected the agent to add a sold-out dish -- which is what the old
+    # agent actually did, leaving the final total wrong ($46.00 vs $36.50).
+    ("86-squid", "I'd like the crispy squid too", ["search_menu", "check_availability"]),
+    ("sub-seabass", "Okay, make it a grilled seabass instead", ["search_menu", "add_item", "order_items"]),
+    ("side-morning-glory", "And stir-fried morning glory on the side", ["search_menu", "add_item", "order_items"]),
+    ("place", "That's all, please place the order", ["readback", "place_order", "order_items"]),
 ]
+
+# Turns where calling no tool at all is correct. `86-squid` is here because the
+# availability lookup may have been satisfied by `prefetch_for_case` before the
+# model ran: the answer is still grounded in the deterministic store, but the
+# lookup never appears as a tool call on the wire, so this benchmark cannot see it.
+NO_TOOL_OK = {"recommend", "place", "86-squid"}
 
 EXPECTED_NAMES = {
     "Pomelo Salad with Shrimp",
@@ -60,11 +77,17 @@ EXPECTED_TOTAL = round(6.5 + 9.0 + 16.0 + 5.0, 2)  # $36.50
 
 
 async def synth_pcm(text: str, tts: CartesiaTTSClient) -> bytes:
-    """Pre-synthesize prompt speech into 16kHz PCM bytes to simulate natural voice input."""
-    raw = bytearray()
-    async for chunk in tts.synthesize_stream(text):
-        raw.extend(chunk)
-    return bytes(raw)
+    """Pre-synthesize prompt speech into 16kHz PCM bytes to simulate natural voice input.
+
+    `CartesiaTTSClient` exposes `synthesize` (base64 WAV), not `synthesize_stream`;
+    this script had drifted and raised AttributeError on every turn. Mirrors
+    `eval/waiter_smoke.synth_pcm`, which is the working version.
+    """
+    res = await tts.synthesize(text=text, voice_id="", speaking_rate=1.0, style_prompt="clear")
+    raw = base64.b64decode(res.audio_b64)
+    if len(raw) > 44 and raw[:4] == b"RIFF":
+        return raw[44:]
+    return raw
 
 
 def _clean_text(t: str) -> bool:
@@ -152,9 +175,9 @@ async def _stream_turn(ws, text: str, tts: CartesiaTTSClient) -> tuple[str, floa
     return reply, ttfb_ms, e2e_ms, events, asr_first_ms
 
 
-def load_baseline() -> dict | None:
-    """Load the preserved historical realtime-waiter baseline when available."""
-    path = ROOT / "reports" / "restaurant" / "realtime-waiter" / "historical-pre-2026-09-13" / "turns.json"
+def load_yesterday_baseline() -> dict | None:
+    """Load baseline results from reports/waiter_e2e_detail.json if available."""
+    path = ROOT / "reports" / "waiter_e2e_detail.json"
     if not path.exists():
         return None
     try:
@@ -163,26 +186,52 @@ def load_baseline() -> dict | None:
         return None
 
 
-async def run_benchmark(run_id: str | None = None) -> dict:
-    """Execute the full 6-turn diagnostic benchmark against the live server."""
+def provider_from_events(events: list[dict]) -> dict | None:
+    """The providers the server reports for a turn, instead of assuming which LLM answered."""
+    for event in events:
+        if event.get("type") == "turn_complete" and isinstance(event.get("provider"), dict):
+            return dict(event["provider"])
+    return None
+
+
+def agent_timings_from_events(events: list[dict]) -> dict:
+    """The agent's own timings for a turn (rounds, model time, Ollama load/prompt/eval), if the server sent them."""
+    for event in events:
+        if event.get("type") == "turn_complete":
+            return {k: v for k, v in (event.get("timings_ms") or {}).items() if k not in ("ttfb_ms", "e2e_turn_ms")}
+    return {}
+
+
+def output_paths(out_stem: str | None) -> tuple[Path, Path]:
+    stem = out_stem or "benchmark_today"
+    return ROOT / "reports" / f"{stem}_eval.json", ROOT / "reports" / f"{stem}_report.md"
+
+
+async def run_benchmark(ws_url: str = WS_URL, *, label: str | None = None, out_stem: str | None = None) -> dict:
+    """Execute the full 6-turn diagnostic benchmark against the live server.
+
+    With `out_stem`, results go to reports/<stem>_eval.json and _report.md, and an existing file is never
+    overwritten; without it, the historical benchmark_today_* paths are used.
+    """
+    out_json, out_md = output_paths(out_stem)
+    if out_stem and (out_json.exists() or out_md.exists()):
+        return {"error": f"refusing to overwrite existing results for --out-stem {out_stem!r}"}
     try:
-        async with websockets.connect(WS_URL, open_timeout=3.0) as probe:
+        async with websockets.connect(ws_url, open_timeout=3.0) as probe:
             await probe.recv()
     except Exception as exc:
-        logger.error("Cannot connect to server at %s. Ensure './scripts/start.sh' is running. Error: %s", WS_URL, exc)
-        return {"error": f"Server not reachable at {WS_URL}"}
+        logger.error("Cannot connect to server at %s. Start it first (uv run python scripts/dev.py start). Error: %s", ws_url, exc)
+        return {"error": f"Server not reachable at {ws_url}"}
 
     tts = CartesiaTTSClient()
-    baseline = load_baseline()
+    yesterday = load_yesterday_baseline()
 
     result = {
         "benchmark_timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "case": "single_native_order_flow",
-        "api_providers": {
-            "asr": "assemblyai_realtime",
-            "llm": "gemini_tools",
-            "tts": "cartesia_websocket",
-        },
+        "label": label,
+        # Filled from the server's own turn_complete events; it used to be hardcoded to Gemini.
+        "api_providers": {"asr": "unknown", "llm": "unknown", "tts": "unknown"},
         "turns": [],
         "state_delta": {
             "menu_changed": False,
@@ -205,7 +254,7 @@ async def run_benchmark(run_id: str | None = None) -> dict:
     print(" 🚀 STARTING LIVE VOICE WAITER BENCHMARK & DIAGNOSIS")
     print("=" * 75)
 
-    async with websockets.connect(WS_URL) as ws:
+    async with websockets.connect(ws_url) as ws:
         ready_msg = await ws.recv()  # session_ready
         logger.info("Connected to WebSocket. Session ready: %s", ready_msg[:80])
 
@@ -237,14 +286,21 @@ async def run_benchmark(run_id: str | None = None) -> dict:
 
             basket_after = _extract_basket(events)
             raw_tools = _extract_tools(events)
+            served_by = provider_from_events(events)
+            if served_by and result["api_providers"].get("llm") == "unknown":
+                result["api_providers"] = served_by
             tools_called_names = [t.get("tool") for t in raw_tools] if raw_tools else []
 
             # Determine per-turn accuracy
-            tool_matched = any(tool in expected_tools for tool in tools_called_names) if tools_called_names else (intent == "recommend" or intent == "place")
+            tool_matched = (
+                any(tool in expected_tools for tool in tools_called_names)
+                if tools_called_names
+                else intent in NO_TOOL_OK
+            )
             reply_clean = _clean_text(reply)
 
-            # Check baseline turn latency if available.
-            y_turn = baseline["turns"][i - 1] if (baseline and len(baseline.get("turns", [])) >= i) else None
+            # Check yesterday's turn latency if available
+            y_turn = yesterday["turns"][i - 1] if (yesterday and len(yesterday.get("turns", [])) >= i) else None
             y_ttfb = y_turn.get("ttfb_ms") if y_turn else None
             y_e2e = y_turn.get("e2e_ms") if y_turn else None
 
@@ -266,6 +322,7 @@ async def run_benchmark(run_id: str | None = None) -> dict:
                     "ttfb_ms": ttfb,
                     "e2e_ms": e2e,
                 },
+                "agent_timings_ms": agent_timings_from_events(events),
                 "comparison_yesterday": {
                     "yesterday_ttfb_ms": y_ttfb,
                     "yesterday_e2e_ms": y_e2e,
@@ -345,9 +402,9 @@ async def run_benchmark(run_id: str | None = None) -> dict:
     today_avg_ttfb = round(statistics.mean(valid_ttfbs), 2) if valid_ttfbs else None
     today_avg_e2e = round(statistics.mean(valid_e2es), 2) if valid_e2es else None
 
-    y_avg_ttfb = baseline["summary"].get("avg_ttfb_ms") if (baseline and "summary" in baseline) else 42851.0
-    y_avg_e2e = baseline["summary"].get("avg_e2e_ms") if (baseline and "summary" in baseline) else 43820.0
-    y_wall_sec = baseline["rpm"].get("wall_seconds") if (baseline and "rpm" in baseline) else 262.9
+    y_avg_ttfb = yesterday["summary"].get("avg_ttfb_ms") if (yesterday and "summary" in yesterday) else 42851.0
+    y_avg_e2e = yesterday["summary"].get("avg_e2e_ms") if (yesterday and "summary" in yesterday) else 43820.0
+    y_wall_sec = yesterday["rpm"].get("wall_seconds") if (yesterday and "rpm" in yesterday) else 262.9
 
     overall_ttfb_speedup = round(((y_avg_ttfb - today_avg_ttfb) / y_avg_ttfb) * 100, 1) if (today_avg_ttfb and y_avg_ttfb) else None
     overall_e2e_speedup = round(((y_avg_e2e - today_avg_e2e) / y_avg_e2e) * 100, 1) if (today_avg_e2e and y_avg_e2e) else None
@@ -369,6 +426,7 @@ async def run_benchmark(run_id: str | None = None) -> dict:
     total_calls_est = sum(len(t["functions_used"]) + 1 for t in result["turns"])
     observed_rpm = round(total_calls_est / (wall_seconds / 60.0), 2) if wall_seconds > 0 else 0.0
     stable = (errors_429 == 0) and (timeouts == 0)
+    uses_gemini = result["api_providers"].get("llm") == "gemini_tools"
 
     result["gemini_stability"] = {
         "total_gemini_calls_est": total_calls_est,
@@ -378,15 +436,18 @@ async def run_benchmark(run_id: str | None = None) -> dict:
         "under_quota_limit": observed_rpm <= 15,
         "rate_limit_429_errors": errors_429,
         "timeouts_count": timeouts,
-        "stability_verdict": "STABLE" if stable else "DEGRADED",
+        "stability_verdict": ("STABLE" if stable else "DEGRADED") if uses_gemini else "N/A (no quota on this provider)",
     }
 
     # Write Outputs
-    run = create_run(product="restaurant", suite="regression-vs-baseline", run_id=run_id)
-    out_json = write_results(run, result)
+    out_json.parent.mkdir(parents=True, exist_ok=True)
+    out_json.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+
     md_lines = [
         f"# Live Voice Waiter Benchmark Report — {result['benchmark_timestamp']}",
         "",
+        f"- **Label**: `{label or '-'}` | **LLM**: `{result['api_providers'].get('llm')}` "
+        f"(`{result['api_providers'].get('llm_model', '-')}`)",
         "## 1. Executive Summary",
         f"- **Overall Response Accuracy**: **{result['response_accuracy']['overall_accuracy_pct']}** "
         f"({'PASS' if result['response_accuracy']['all_turns_passed'] else 'FAIL'})",
@@ -422,7 +483,7 @@ async def run_benchmark(run_id: str | None = None) -> dict:
         md_lines.append(f"- **Basket After Turn**: `{t['basket_after']}`")
         md_lines.append("")
 
-    out_md = write_summary(run, "\n".join(md_lines))
+    out_md.write_text("\n".join(md_lines), encoding="utf-8")
 
     # Console Summary Table
     print("\n" + "=" * 75)
@@ -440,9 +501,11 @@ async def run_benchmark(run_id: str | None = None) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="Run Live Voice Waiter Benchmark")
-    parser.add_argument("--run-id", type=str, default=None)
+    parser.add_argument("--label", help="free-text label stored in the results, e.g. ollama_tpl_off")
+    parser.add_argument("--out-stem", help="write reports/<stem>_eval.json and _report.md; never overwrites")
+    parser.add_argument("--ws-url", default=WS_URL, help=f"realtime websocket (default {WS_URL})")
     args = parser.parse_args()
-    res = asyncio.run(run_benchmark(run_id=args.run_id))
+    res = asyncio.run(run_benchmark(args.ws_url, label=args.label, out_stem=args.out_stem))
     if res.get("error"):
         print(f"FAIL: {res['error']}")
         sys.exit(1)

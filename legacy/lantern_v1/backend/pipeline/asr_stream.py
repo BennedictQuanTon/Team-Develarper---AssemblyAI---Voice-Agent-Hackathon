@@ -11,6 +11,10 @@ from backend.app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+# Handshake to AssemblyAI measures 1.4-1.9s from Windows; the SDK default of 1.0s
+# rejects every connection. Paid once per session, so a generous value is free.
+CONNECT_TIMEOUT_S = 10.0
+
 DANANG_KEYTERMS = [
     "Da Nang",
     "Ba Na Hills",
@@ -74,13 +78,22 @@ class AssemblyAIRealtimeStream:
             RealTimeParameters,
             SpeechModel,
         )
+        from assemblyai.streaming.v3.models import RealTimeTranscriberOptions
 
         async with self._lock:
             if self._connected:
                 return
 
             self._audio_buffer.clear()
-            self._transcriber = AsyncRealTimeTranscriber(api_key=self.api_key)
+            # The SDK defaults connect_timeout to 1.0s. The TLS + WebSocket
+            # handshake to AssemblyAI measures 1.4-1.9s from Windows, so every
+            # connect timed out and surfaced as an empty "Connection failed:".
+            self._transcriber = AsyncRealTimeTranscriber(
+                RealTimeTranscriberOptions(
+                    api_key=self.api_key,
+                    connect_timeout=CONNECT_TIMEOUT_S,
+                )
+            )
 
             # Register event handlers
             self._transcriber.on(RealTimeEvents.SpeechStarted, self._handle_speech_started)

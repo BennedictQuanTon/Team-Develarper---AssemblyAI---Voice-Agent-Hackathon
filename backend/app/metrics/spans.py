@@ -80,8 +80,12 @@ def summarize_jsonl(path: Path) -> dict[str, Any]:
         "rag_ms",
         "llm_ttft_ms",
         "llm_total_ms",
+        "llm_rounds",
+        "bucket_wait_ms",
+        "tool_ms",
         "tts_ttfb_ms",
         "tts_total_ms",
+        "ttfb_ms",
         "e2e_turn_ms",
     ]
     return {

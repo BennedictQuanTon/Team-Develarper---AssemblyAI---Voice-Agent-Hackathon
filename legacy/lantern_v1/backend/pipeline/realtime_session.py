@@ -20,11 +20,11 @@ from backend.app.pipeline.llm_live import GeminiLLMClient
 from backend.app.pipeline.profiles import get_voice_profile
 from backend.app.pipeline.session import MAX_TURNS, SessionStore
 from backend.app.pipeline.tts_stream import CartesiaStreamingTTS, StubStreamingTTS
-from backend.app.pipeline.waiter_agent import build_waiter_agent
-from backend.app.domain.restaurant.order_session import WaiterSession
-from backend.app.domain.restaurant.store import get_lantern_store
-from legacy.travel.rag.cache import RagCache
-from legacy.travel.rag.retrieve import DEFAULT_TOP_K, hybrid_retrieve
+from backend.app.pipeline.waiter_agent import build_waiter_agent, prefetch_for_case, waiter_provider_label
+from backend.app.domain.lantern import get_lantern_store
+from backend.app.domain.waiter import WaiterSession
+from rag.cache import RagCache
+from rag.retrieve import DEFAULT_TOP_K, hybrid_retrieve
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +40,9 @@ def _context_filler_pcm_chunks(case_id: str = "case_general", chunk_bytes: int =
         return _FILLER_CACHE[case_id]
 
     wav_name = CONTEXT_FILLER_WAVS.get(case_id, "thinking.wav")
-    path = Path(__file__).resolve().parents[3] / "frontend" / "public" / "audio" / "backchannels" / wav_name
+    path = Path(__file__).resolve().parents[3] / "frontend" / "audio" / "backchannels" / wav_name
     if not path.exists():
-        path = Path(__file__).resolve().parents[3] / "frontend" / "public" / "audio" / "backchannels" / "thinking.wav"
+        path = Path(__file__).resolve().parents[3] / "frontend" / "audio" / "backchannels" / "thinking.wav"
     if not path.exists():
         return []
     try:
@@ -155,7 +155,15 @@ class RealtimeSessionController:
         )
 
     async def _silence_watchdog(self) -> None:
-        """Watchdog to force endpoint if user spoke a sentence and stopped speaking for > 900ms."""
+        """Force the endpoint if the guest stopped speaking and AssemblyAI has not
+        finalized the turn.
+
+        Raising this above the ASR's own max_turn_silence sounds right in theory,
+        but `min_end_of_turn_silence_when_confident` is deprecated and ignored
+        whenever `min_turn_silence` is set, so there is no confident-endpoint path
+        to wait for -- and the extra delay measurably slowed barge-in on the
+        transcript path (536ms -> 765ms).
+        """
         while True:
             try:
                 await asyncio.sleep(0.15)
@@ -523,8 +531,18 @@ class RealtimeSessionController:
         filler_case = classify_context_filler(query)
         logger.info("Context-aware filler: %s for query '%s'", filler_case, query)
 
+        # Pre-run the read-only lookups this intent almost always needs. They are
+        # in-memory dict work, so this costs no API call and no rate-limit budget,
+        # and it saves the model a whole round trip asking for them. A wrong guess
+        # is simply unused context.
+        prefetch = prefetch_for_case(self.waiter_session, filler_case, query)
+        if prefetch:
+            logger.info("Prefetched %s for %s", list(prefetch), filler_case)
+
         # Run the agent in the background (network-bound tool loop)
-        agent_task = asyncio.create_task(self.waiter_agent.respond(self.waiter_session, query))
+        agent_task = asyncio.create_task(
+            self.waiter_agent.respond(self.waiter_session, query, prefetch)
+        )
 
         # Speculative: play local context filler clip while the loop computes (no TTS conflict)
         self.is_agent_speaking = True
@@ -637,6 +655,9 @@ class RealtimeSessionController:
 
         e2e_turn_ms = round((time.perf_counter() - t_start) * 1000, 2)
         session = self.sessions.append_turn(self.session_id, query, reply)
+        # From the agent loop: rounds, model time and, locally, Ollama's own load/prompt/eval timings.
+        agent_timings = {k: v for k, v in (result.get("timings") or {}).items() if isinstance(v, (int, float))}
+        provider = self._waiter_provider()
 
         spans = TurnSpans(
             turn_id=turn_id,
@@ -645,16 +666,13 @@ class RealtimeSessionController:
             transcript=query,
             answer=reply,
             profile=self.profile["name"],
-            provider={
-                "asr": "assemblyai_realtime" if self.has_aai else "stub_realtime",
-                "llm": "gemini_tools" if self.has_gemini else "rulebased",
-                "tts": "cartesia_websocket" if self.has_cartesia else "stub_tts",
+            provider=provider,
+            timings_ms={"ttfb_ms": t_first_audio, "e2e_turn_ms": e2e_turn_ms, **agent_timings},
+            cache={
+                "n_tool_calls": len(tool_calls),
+                "filler_case": filler_case,
+                "prefetched": list(prefetch),
             },
-            timings_ms={
-                "ttfb_ms": t_first_audio,
-                "e2e_turn_ms": e2e_turn_ms,
-            },
-            cache={"n_tool_calls": len(tool_calls)},
             chunk_ids=[],
             phase=6,
         )
@@ -668,15 +686,8 @@ class RealtimeSessionController:
                 "answer": reply,
                 "ttfb_ms": t_first_audio,
                 "e2e_turn_ms": e2e_turn_ms,
-                "timings_ms": {
-                    "ttfb_ms": t_first_audio,
-                    "e2e_turn_ms": e2e_turn_ms,
-                },
-                "provider": {
-                    "asr": "assemblyai_realtime" if self.has_aai else "stub_realtime",
-                    "llm": "gemini_tools" if self.has_gemini else "rulebased",
-                    "tts": "cartesia_websocket" if self.has_cartesia else "stub_tts",
-                },
+                "timings_ms": {"ttfb_ms": t_first_audio, "e2e_turn_ms": e2e_turn_ms, **agent_timings},
+                "provider": provider,
                 "tool_calls": [{"tool": t.get("tool"), "args": t.get("args", {})} for t in tool_calls],
                 "chunk_ids": [],
                 "chunks": [],
@@ -686,6 +697,15 @@ class RealtimeSessionController:
                 "basket": self.waiter_session.snapshot(),
             }
         )
+
+    def _waiter_provider(self) -> dict[str, str]:
+        """The providers that actually served a waiter turn. The LLM label comes from the agent, not the keys."""
+        return {
+            "asr": "assemblyai_realtime" if self.has_aai else "stub_realtime",
+            "llm": waiter_provider_label(self.waiter_agent),
+            "llm_model": str(getattr(self.waiter_agent, "model", "") or ""),
+            "tts": "cartesia_websocket" if self.has_cartesia else "stub_tts",
+        }
 
     async def _send_json(self, data: dict[str, Any]) -> None:
         try:

@@ -1,0 +1,1191 @@
+{
+  "label": "B_ours_tpl_off",
+  "model": "qwen2.5:3b",
+  "template_replies": false,
+  "cold": false,
+  "prefetch_available": true,
+  "timestamp": "2026-09-20T08:26:41",
+  "environment": {
+    "python": "3.12.13",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "git_sha": "969d828f5354d74e12ac5d462711989c7ce8eab8",
+    "repo": "D:\\Temp\\lantern-bench\\ours",
+    "packages": {
+      "langchain-core": "1.6.3",
+      "langchain-ollama": "1.1.0",
+      "ollama": "0.6.2",
+      "httpx": "0.28.1"
+    },
+    "ollama_version": "0.34.2",
+    "model_digest": "357c53fb659c5076de1d65ccb0b397446227b71a42be9d1603d46168015c9e4b",
+    "model_details": {
+      "parent_model": "",
+      "format": "gguf",
+      "family": "qwen2",
+      "families": [
+        "qwen2"
+      ],
+      "parameter_size": "3.1B",
+      "quantization_level": "Q4_K_M",
+      "context_length": 32768,
+      "embedding_length": 2048
+    }
+  },
+  "gpu_gate": {
+    "loaded": true,
+    "size": 2159374499,
+    "size_vram": 2159374499,
+    "fully_on_gpu": true,
+    "context_length": 4096
+  },
+  "summary": {
+    "lead": {
+      "reps": 3,
+      "per_turn": [
+        {
+          "turn": 1,
+          "median_ms": 288.0,
+          "p90_ms": 370.2,
+          "mean_rounds": 1
+        },
+        {
+          "turn": 2,
+          "median_ms": 1806.6,
+          "p90_ms": 1909.5,
+          "mean_rounds": 3
+        }
+      ],
+      "conversation_median_ms": 2094.6,
+      "conversation_p90_ms": 2279.7
+    },
+    "order": {
+      "reps": 3,
+      "per_turn": [
+        {
+          "turn": 1,
+          "median_ms": 636.3,
+          "p90_ms": 651.6,
+          "mean_rounds": 1
+        },
+        {
+          "turn": 2,
+          "median_ms": 833.7,
+          "p90_ms": 862.7,
+          "mean_rounds": 2
+        },
+        {
+          "turn": 3,
+          "median_ms": 641.6,
+          "p90_ms": 699.7,
+          "mean_rounds": 2
+        },
+        {
+          "turn": 4,
+          "median_ms": 1032.2,
+          "p90_ms": 1194.5,
+          "mean_rounds": 2
+        },
+        {
+          "turn": 5,
+          "median_ms": 613.9,
+          "p90_ms": 1189.0,
+          "mean_rounds": 2
+        },
+        {
+          "turn": 6,
+          "median_ms": 701.8,
+          "p90_ms": 809.4,
+          "mean_rounds": 2
+        }
+      ],
+      "conversation_median_ms": 4342.7,
+      "conversation_p90_ms": 5362.6,
+      "accuracy_pass_rate": 0.0
+    }
+  },
+  "runs": [
+    {
+      "scenario": "lead",
+      "turns": [
+        {
+          "text": "What are your house specialties here?",
+          "wall_ms": 288.0,
+          "reply": "Grilled Seabass and Grilled River Prawns are our house specialties. Enjoy!",
+          "tools": [],
+          "prefetched": [
+            "recommend_dishes"
+          ],
+          "llm_rounds": 1,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 1,
+            "llm_total_ms": 287.9,
+            "tool_ms": 0.0,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": true,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 2.6,
+            "ollama_prompt_eval_ms": 63.3,
+            "ollama_eval_ms": 209.7,
+            "ollama_server_ms": 286.0,
+            "ollama_prompt_tokens": 1512,
+            "ollama_output_tokens": 20,
+            "ollama_first_prompt_tokens": 1512,
+            "llm_overhead_ms": 1.9
+          }
+        },
+        {
+          "text": "I'll take the first one with no green onions, please place the order.",
+          "wall_ms": 1806.6,
+          "reply": "Your order is ready, Grilled Seabass (no green onions) to T1. Your total is ₫16,000.00. Your order will be ready in about 20 minutes. Please seat your party at table T1.",
+          "tools": [
+            "set_modifier",
+            "readback",
+            "order_items",
+            "place_order"
+          ],
+          "prefetched": [],
+          "llm_rounds": 3,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 3,
+            "llm_total_ms": 1806.3,
+            "tool_ms": 0.2,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": false,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 7.3,
+            "ollama_prompt_eval_ms": 131.6,
+            "ollama_eval_ms": 1628.4,
+            "ollama_server_ms": 1799.1,
+            "ollama_prompt_tokens": 4423,
+            "ollama_output_tokens": 157,
+            "ollama_first_prompt_tokens": 1319,
+            "llm_overhead_ms": 7.2
+          }
+        }
+      ],
+      "basket": {
+        "basket": [
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass",
+            "price": 16.0,
+            "qty": 1,
+            "modifiers": [
+              "no green onions"
+            ],
+            "line_total": 16.0
+          }
+        ],
+        "total": 16.0,
+        "ticket_type": "dine_in",
+        "table_id": "T1",
+        "party_size": 2,
+        "guest_tags": [],
+        "mentioned": [
+          {
+            "sku": "MAIN_RIVERPRAWN",
+            "name": "Grilled River Prawns"
+          },
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass"
+          }
+        ],
+        "placed": true
+      },
+      "rep": 1,
+      "cold": false
+    },
+    {
+      "scenario": "order",
+      "turns": [
+        {
+          "text": "What would you recommend for a mild couple?",
+          "wall_ms": 276.0,
+          "reply": "Grilled Seabass and Lemongrass Chicken both good for mild and couple.",
+          "tools": [],
+          "prefetched": [
+            "recommend_dishes"
+          ],
+          "llm_rounds": 1,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 1,
+            "llm_total_ms": 275.9,
+            "tool_ms": 0.0,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": true,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 2.8,
+            "ollama_prompt_eval_ms": 63.9,
+            "ollama_eval_ms": 197.1,
+            "ollama_server_ms": 274.0,
+            "ollama_prompt_tokens": 1514,
+            "ollama_output_tokens": 19,
+            "ollama_first_prompt_tokens": 1514,
+            "llm_overhead_ms": 1.9
+          },
+          "intent": "recommend"
+        },
+        {
+          "text": "We'll take those two please",
+          "wall_ms": 862.7,
+          "reply": "Here is your order: 1x Grilled Seabass for $16.00 and 1x Lemongrass Chicken for $9.00. Total is $25.00. Is this correct?",
+          "tools": [
+            "add_items_from_mention"
+          ],
+          "prefetched": [],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 862.5,
+            "tool_ms": 0.1,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": false,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 5.6,
+            "ollama_prompt_eval_ms": 72.3,
+            "ollama_eval_ms": 761.0,
+            "ollama_server_ms": 858.6,
+            "ollama_prompt_tokens": 2789,
+            "ollama_output_tokens": 74,
+            "ollama_first_prompt_tokens": 1309,
+            "llm_overhead_ms": 3.9
+          },
+          "intent": "those-two"
+        },
+        {
+          "text": "I'd like the crispy squid too",
+          "wall_ms": 641.6,
+          "reply": "Crispy Squid just sold out. How about we get Grilled Seabass instead? It's a great choice too.",
+          "tools": [
+            "add_item"
+          ],
+          "prefetched": [
+            "search_menu"
+          ],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 641.3,
+            "tool_ms": 0.1,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": true,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 4.1,
+            "ollama_prompt_eval_ms": 109.9,
+            "ollama_eval_ms": 496.5,
+            "ollama_server_ms": 634.2,
+            "ollama_prompt_tokens": 3181,
+            "ollama_output_tokens": 51,
+            "ollama_first_prompt_tokens": 1531,
+            "llm_overhead_ms": 7.1
+          },
+          "intent": "86-squid"
+        },
+        {
+          "text": "Okay, make it a grilled seabass instead",
+          "wall_ms": 866.5,
+          "reply": "Got it, you'll have Grilled Seabass instead. Your total is now 25.0.",
+          "tools": [
+            "remove_item",
+            "add_item"
+          ],
+          "prefetched": [],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 866.3,
+            "tool_ms": 0.1,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": false,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 5.2,
+            "ollama_prompt_eval_ms": 76.8,
+            "ollama_eval_ms": 761.1,
+            "ollama_server_ms": 861.7,
+            "ollama_prompt_tokens": 2839,
+            "ollama_output_tokens": 84,
+            "ollama_first_prompt_tokens": 1312,
+            "llm_overhead_ms": 4.6
+          },
+          "intent": "sub-seabass"
+        },
+        {
+          "text": "And stir-fried morning glory on the side",
+          "wall_ms": 613.9,
+          "reply": "I found Stir-fried Morning Glory. Would you like to add it to your order?",
+          "tools": [
+            "add_items_from_mention"
+          ],
+          "prefetched": [
+            "search_menu"
+          ],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 613.7,
+            "tool_ms": 0.0,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": true,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 4.4,
+            "ollama_prompt_eval_ms": 96.7,
+            "ollama_eval_ms": 485.8,
+            "ollama_server_ms": 609.0,
+            "ollama_prompt_tokens": 3114,
+            "ollama_output_tokens": 47,
+            "ollama_first_prompt_tokens": 1529,
+            "llm_overhead_ms": 4.7
+          },
+          "intent": "side-morning-glory"
+        },
+        {
+          "text": "That's all, please place the order",
+          "wall_ms": 701.8,
+          "reply": "Here is your order: 1x Lemongrass Chicken and 1x Grilled Seabass (no coriander). Total is $25.00. Ready to place the order?",
+          "tools": [
+            "readback"
+          ],
+          "prefetched": [],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 701.6,
+            "tool_ms": 0.0,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": false,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 4.6,
+            "ollama_prompt_eval_ms": 57.8,
+            "ollama_eval_ms": 615.8,
+            "ollama_server_ms": 697.1,
+            "ollama_prompt_tokens": 2717,
+            "ollama_output_tokens": 60,
+            "ollama_first_prompt_tokens": 1311,
+            "llm_overhead_ms": 4.6
+          },
+          "intent": "place"
+        }
+      ],
+      "basket": {
+        "basket": [
+          {
+            "sku": "MAIN_LEMCHICKEN",
+            "name": "Lemongrass Chicken",
+            "price": 9.0,
+            "qty": 1,
+            "modifiers": [],
+            "line_total": 9.0
+          },
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass",
+            "price": 16.0,
+            "qty": 1,
+            "modifiers": [
+              "no coriander"
+            ],
+            "line_total": 16.0
+          }
+        ],
+        "total": 25.0,
+        "ticket_type": "dine_in",
+        "table_id": null,
+        "party_size": 2,
+        "guest_tags": [],
+        "mentioned": [
+          {
+            "sku": "MAIN_SQUID",
+            "name": "Crispy Squid"
+          },
+          {
+            "sku": "VG_MORNING",
+            "name": "Stir-fried Morning Glory"
+          },
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass"
+          },
+          {
+            "sku": "MAIN_LEMCHICKEN",
+            "name": "Lemongrass Chicken"
+          }
+        ],
+        "placed": false
+      },
+      "accuracy": {
+        "passed": false,
+        "gates": {
+          "dishes_exact": false,
+          "total_exact": false,
+          "sold_out_refused": true,
+          "placed": false,
+          "no_json_spoken": true
+        },
+        "dishes": [
+          "Lemongrass Chicken",
+          "Grilled Seabass"
+        ],
+        "total": 25.0
+      },
+      "rep": 1,
+      "cold": false
+    },
+    {
+      "scenario": "lead",
+      "turns": [
+        {
+          "text": "What are your house specialties here?",
+          "wall_ms": 370.2,
+          "reply": "Grilled Seabass and Grilled River Prawns are our house specialties. Would you like to add any of these?",
+          "tools": [],
+          "prefetched": [
+            "recommend_dishes"
+          ],
+          "llm_rounds": 1,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 1,
+            "llm_total_ms": 370.1,
+            "tool_ms": 0.0,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": true,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 2.6,
+            "ollama_prompt_eval_ms": 63.8,
+            "ollama_eval_ms": 290.7,
+            "ollama_server_ms": 367.7,
+            "ollama_prompt_tokens": 1512,
+            "ollama_output_tokens": 27,
+            "ollama_first_prompt_tokens": 1512,
+            "llm_overhead_ms": 2.4
+          }
+        },
+        {
+          "text": "I'll take the first one with no green onions, please place the order.",
+          "wall_ms": 1909.5,
+          "reply": "Your order is ready. It's a Grilled Seabass (no green onions). Your ticket number is LAN-H-LEAD-01. You'll be seated at table T1. Your total is 16.0. Your order will be ready in about 20 minutes. Please wait.",
+          "tools": [
+            "set_modifier",
+            "readback",
+            "order_items",
+            "place_order"
+          ],
+          "prefetched": [],
+          "llm_rounds": 3,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 3,
+            "llm_total_ms": 1909.1,
+            "tool_ms": 0.2,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": false,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 8.1,
+            "ollama_prompt_eval_ms": 137.5,
+            "ollama_eval_ms": 1722.8,
+            "ollama_server_ms": 1901.4,
+            "ollama_prompt_tokens": 4423,
+            "ollama_output_tokens": 165,
+            "ollama_first_prompt_tokens": 1319,
+            "llm_overhead_ms": 7.7
+          }
+        }
+      ],
+      "basket": {
+        "basket": [
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass",
+            "price": 16.0,
+            "qty": 1,
+            "modifiers": [
+              "no green onions"
+            ],
+            "line_total": 16.0
+          }
+        ],
+        "total": 16.0,
+        "ticket_type": "dine_in",
+        "table_id": "T1",
+        "party_size": 2,
+        "guest_tags": [],
+        "mentioned": [
+          {
+            "sku": "MAIN_RIVERPRAWN",
+            "name": "Grilled River Prawns"
+          },
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass"
+          }
+        ],
+        "placed": true
+      },
+      "rep": 2,
+      "cold": false
+    },
+    {
+      "scenario": "order",
+      "turns": [
+        {
+          "text": "What would you recommend for a mild couple?",
+          "wall_ms": 651.6,
+          "reply": "Grilled Seabass ($16.00): Whole char-grilled seabass with lemongrass and lime leaf.\nGrilled River Prawns ($18.00): Large river prawns over charcoal with tamarind glaze.",
+          "tools": [],
+          "prefetched": [
+            "recommend_dishes"
+          ],
+          "llm_rounds": 1,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 1,
+            "llm_total_ms": 651.4,
+            "tool_ms": 0.0,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": true,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 2.1,
+            "ollama_prompt_eval_ms": 65.4,
+            "ollama_eval_ms": 569.6,
+            "ollama_server_ms": 648.9,
+            "ollama_prompt_tokens": 1514,
+            "ollama_output_tokens": 54,
+            "ollama_first_prompt_tokens": 1514,
+            "llm_overhead_ms": 2.5
+          },
+          "intent": "recommend"
+        },
+        {
+          "text": "We'll take those two please",
+          "wall_ms": 827.2,
+          "reply": "Your order is confirmed: 1x Grilled Seabass and 1x Grilled River Prawns. Total is ₫34,000,000. Is there anything else?",
+          "tools": [
+            "add_items_from_mention"
+          ],
+          "prefetched": [],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 826.9,
+            "tool_ms": 0.1,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": false,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 5.4,
+            "ollama_prompt_eval_ms": 77.2,
+            "ollama_eval_ms": 718.2,
+            "ollama_server_ms": 820.0,
+            "ollama_prompt_tokens": 2792,
+            "ollama_output_tokens": 70,
+            "ollama_first_prompt_tokens": 1309,
+            "llm_overhead_ms": 7.0
+          },
+          "intent": "those-two"
+        },
+        {
+          "text": "I'd like the crispy squid too",
+          "wall_ms": 606.4,
+          "reply": "Crispy Squid just sold out. I suggest you have Grilled Seabass instead.",
+          "tools": [
+            "add_item"
+          ],
+          "prefetched": [
+            "search_menu"
+          ],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 606.1,
+            "tool_ms": 0.1,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": true,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 5.3,
+            "ollama_prompt_eval_ms": 107.0,
+            "ollama_eval_ms": 464.5,
+            "ollama_server_ms": 600.8,
+            "ollama_prompt_tokens": 3181,
+            "ollama_output_tokens": 44,
+            "ollama_first_prompt_tokens": 1531,
+            "llm_overhead_ms": 5.3
+          },
+          "intent": "86-squid"
+        },
+        {
+          "text": "Okay, make it a grilled seabass instead",
+          "wall_ms": 1032.2,
+          "reply": "Your order is now Grilled Seabass and Grilled River Prawns. Total is now 34.0.",
+          "tools": [
+            "remove_item",
+            "add_item"
+          ],
+          "prefetched": [],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 1032.1,
+            "tool_ms": 0.1,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": false,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 5.9,
+            "ollama_prompt_eval_ms": 83.6,
+            "ollama_eval_ms": 910.3,
+            "ollama_server_ms": 1026.6,
+            "ollama_prompt_tokens": 2831,
+            "ollama_output_tokens": 87,
+            "ollama_first_prompt_tokens": 1312,
+            "llm_overhead_ms": 5.5
+          },
+          "intent": "sub-seabass"
+        },
+        {
+          "text": "And stir-fried morning glory on the side",
+          "wall_ms": 579.2,
+          "reply": "I found Stir-fried Morning Glory. Would you like to add it to your order?",
+          "tools": [
+            "add_items_from_mention"
+          ],
+          "prefetched": [
+            "search_menu"
+          ],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 579.0,
+            "tool_ms": 0.0,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": true,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 5.7,
+            "ollama_prompt_eval_ms": 93.8,
+            "ollama_eval_ms": 451.7,
+            "ollama_server_ms": 574.3,
+            "ollama_prompt_tokens": 3114,
+            "ollama_output_tokens": 47,
+            "ollama_first_prompt_tokens": 1529,
+            "llm_overhead_ms": 4.6
+          },
+          "intent": "side-morning-glory"
+        },
+        {
+          "text": "That's all, please place the order",
+          "wall_ms": 646.1,
+          "reply": "Here is your order: 1x Grilled River Prawns, 1x Grilled Seabass. The total is $34.00. Would you like to place this order now?",
+          "tools": [
+            "readback"
+          ],
+          "prefetched": [],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 645.9,
+            "tool_ms": 0.0,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": false,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 5.8,
+            "ollama_prompt_eval_ms": 47.5,
+            "ollama_eval_ms": 567.6,
+            "ollama_server_ms": 640.8,
+            "ollama_prompt_tokens": 2712,
+            "ollama_output_tokens": 60,
+            "ollama_first_prompt_tokens": 1311,
+            "llm_overhead_ms": 5.1
+          },
+          "intent": "place"
+        }
+      ],
+      "basket": {
+        "basket": [
+          {
+            "sku": "MAIN_RIVERPRAWN",
+            "name": "Grilled River Prawns",
+            "price": 18.0,
+            "qty": 1,
+            "modifiers": [],
+            "line_total": 18.0
+          },
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass",
+            "price": 16.0,
+            "qty": 1,
+            "modifiers": [],
+            "line_total": 16.0
+          }
+        ],
+        "total": 34.0,
+        "ticket_type": "dine_in",
+        "table_id": null,
+        "party_size": 2,
+        "guest_tags": [],
+        "mentioned": [
+          {
+            "sku": "MAIN_SQUID",
+            "name": "Crispy Squid"
+          },
+          {
+            "sku": "VG_MORNING",
+            "name": "Stir-fried Morning Glory"
+          },
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass"
+          },
+          {
+            "sku": "MAIN_RIVERPRAWN",
+            "name": "Grilled River Prawns"
+          }
+        ],
+        "placed": false
+      },
+      "accuracy": {
+        "passed": false,
+        "gates": {
+          "dishes_exact": false,
+          "total_exact": false,
+          "sold_out_refused": true,
+          "placed": false,
+          "no_json_spoken": true
+        },
+        "dishes": [
+          "Grilled River Prawns",
+          "Grilled Seabass"
+        ],
+        "total": 34.0
+      },
+      "rep": 2,
+      "cold": false
+    },
+    {
+      "scenario": "lead",
+      "turns": [
+        {
+          "text": "What are your house specialties here?",
+          "wall_ms": 275.7,
+          "reply": "Grilled Seabass and Grilled River Prawns are our house specialties. Enjoy!",
+          "tools": [],
+          "prefetched": [
+            "recommend_dishes"
+          ],
+          "llm_rounds": 1,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 1,
+            "llm_total_ms": 275.6,
+            "tool_ms": 0.0,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": true,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 2.7,
+            "ollama_prompt_eval_ms": 59.6,
+            "ollama_eval_ms": 201.7,
+            "ollama_server_ms": 272.8,
+            "ollama_prompt_tokens": 1512,
+            "ollama_output_tokens": 20,
+            "ollama_first_prompt_tokens": 1512,
+            "llm_overhead_ms": 2.7
+          }
+        },
+        {
+          "text": "I'll take the first one with no green onions, please place the order.",
+          "wall_ms": 1658.5,
+          "reply": "Your order is ready. It's a Grilled Seabass (no green onions). Your ticket ID is LAN-H-LEAD-01. Your table is T1. Your total is 16.0. Please inform your party.",
+          "tools": [
+            "set_modifier",
+            "readback",
+            "order_items"
+          ],
+          "prefetched": [],
+          "llm_rounds": 3,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 3,
+            "llm_total_ms": 1658.2,
+            "tool_ms": 0.2,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": false,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 10.9,
+            "ollama_prompt_eval_ms": 131.7,
+            "ollama_eval_ms": 1472.9,
+            "ollama_server_ms": 1650.1,
+            "ollama_prompt_tokens": 4405,
+            "ollama_output_tokens": 144,
+            "ollama_first_prompt_tokens": 1319,
+            "llm_overhead_ms": 8.1
+          }
+        }
+      ],
+      "basket": {
+        "basket": [
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass",
+            "price": 16.0,
+            "qty": 1,
+            "modifiers": [
+              "no green onions"
+            ],
+            "line_total": 16.0
+          }
+        ],
+        "total": 16.0,
+        "ticket_type": "dine_in",
+        "table_id": "T1",
+        "party_size": 2,
+        "guest_tags": [],
+        "mentioned": [
+          {
+            "sku": "MAIN_RIVERPRAWN",
+            "name": "Grilled River Prawns"
+          },
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass"
+          }
+        ],
+        "placed": true
+      },
+      "rep": 3,
+      "cold": false
+    },
+    {
+      "scenario": "order",
+      "turns": [
+        {
+          "text": "What would you recommend for a mild couple?",
+          "wall_ms": 636.3,
+          "reply": "Grilled Seabass ($16.00): Whole char-grilled seabass with lemongrass and lime leaf.\nGrilled River Prawns ($18.00): Large river prawns over charcoal with tamarind glaze.",
+          "tools": [],
+          "prefetched": [
+            "recommend_dishes"
+          ],
+          "llm_rounds": 1,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 1,
+            "llm_total_ms": 636.2,
+            "tool_ms": 0.0,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": true,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 2.2,
+            "ollama_prompt_eval_ms": 62.0,
+            "ollama_eval_ms": 559.5,
+            "ollama_server_ms": 634.1,
+            "ollama_prompt_tokens": 1514,
+            "ollama_output_tokens": 54,
+            "ollama_first_prompt_tokens": 1514,
+            "llm_overhead_ms": 2.1
+          },
+          "intent": "recommend"
+        },
+        {
+          "text": "We'll take those two please",
+          "wall_ms": 833.7,
+          "reply": "Your order now includes 1x Grilled Seabass and 1x Grilled River Prawns. Total is ₫34,000,000. Is there anything else?",
+          "tools": [
+            "add_items_from_mention"
+          ],
+          "prefetched": [],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 833.5,
+            "tool_ms": 0.1,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": false,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 5.0,
+            "ollama_prompt_eval_ms": 78.3,
+            "ollama_eval_ms": 723.2,
+            "ollama_server_ms": 827.7,
+            "ollama_prompt_tokens": 2792,
+            "ollama_output_tokens": 69,
+            "ollama_first_prompt_tokens": 1309,
+            "llm_overhead_ms": 5.8
+          },
+          "intent": "those-two"
+        },
+        {
+          "text": "I'd like the crispy squid too",
+          "wall_ms": 699.7,
+          "reply": "Crispy Squid just sold out. How about we get Grilled Seabass instead? It's a great choice too.",
+          "tools": [
+            "add_item"
+          ],
+          "prefetched": [
+            "search_menu"
+          ],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 699.5,
+            "tool_ms": 0.1,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": true,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 4.7,
+            "ollama_prompt_eval_ms": 110.3,
+            "ollama_eval_ms": 555.0,
+            "ollama_server_ms": 695.2,
+            "ollama_prompt_tokens": 3181,
+            "ollama_output_tokens": 51,
+            "ollama_first_prompt_tokens": 1531,
+            "llm_overhead_ms": 4.4
+          },
+          "intent": "86-squid"
+        },
+        {
+          "text": "Okay, make it a grilled seabass instead",
+          "wall_ms": 1194.5,
+          "reply": "Grilled Seabass added. Your order now includes Grilled River Prawns and Grilled Seabass. Total is now $34.00. Ready to place the order?",
+          "tools": [
+            "remove_item",
+            "add_item"
+          ],
+          "prefetched": [],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 1194.2,
+            "tool_ms": 0.1,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": false,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 6.7,
+            "ollama_prompt_eval_ms": 83.4,
+            "ollama_eval_ms": 1075.9,
+            "ollama_server_ms": 1189.1,
+            "ollama_prompt_tokens": 2831,
+            "ollama_output_tokens": 101,
+            "ollama_first_prompt_tokens": 1312,
+            "llm_overhead_ms": 5.1
+          },
+          "intent": "sub-seabass"
+        },
+        {
+          "text": "And stir-fried morning glory on the side",
+          "wall_ms": 1189.0,
+          "reply": "Your order is now: 1x Grilled River Prawns, 1x Grilled Seabass, 1x Stir-fried Morning Glory (spicy_ok). Total is 39.0. Ready to place the order?",
+          "tools": [
+            "order_items"
+          ],
+          "prefetched": [
+            "search_menu"
+          ],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 1188.7,
+            "tool_ms": 0.1,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": true,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 6.3,
+            "ollama_prompt_eval_ms": 129.5,
+            "ollama_eval_ms": 1024.7,
+            "ollama_server_ms": 1184.4,
+            "ollama_prompt_tokens": 3280,
+            "ollama_output_tokens": 96,
+            "ollama_first_prompt_tokens": 1529,
+            "llm_overhead_ms": 4.3
+          },
+          "intent": "side-morning-glory"
+        },
+        {
+          "text": "That's all, please place the order",
+          "wall_ms": 809.4,
+          "reply": "Here is your order: 1x Grilled River Prawns, 1x Grilled Seabass, 1x Stir-fried Morning Glory (spicy). Total is $39.00. Ready to place the order?",
+          "tools": [
+            "readback"
+          ],
+          "prefetched": [],
+          "llm_rounds": 2,
+          "llm_rounds_estimated": false,
+          "agent_timings": {
+            "llm_rounds": 2,
+            "llm_total_ms": 809.2,
+            "tool_ms": 0.0,
+            "bucket_wait_ms": 0.0,
+            "prefetch_used": false,
+            "template_reply": 0,
+            "parse_errors": 0,
+            "empty_responses": 0,
+            "salvaged_tool_calls": 0,
+            "ollama_load_ms": 5.3,
+            "ollama_prompt_eval_ms": 60.3,
+            "ollama_eval_ms": 714.7,
+            "ollama_server_ms": 804.4,
+            "ollama_prompt_tokens": 2726,
+            "ollama_output_tokens": 68,
+            "ollama_first_prompt_tokens": 1311,
+            "llm_overhead_ms": 4.8
+          },
+          "intent": "place"
+        }
+      ],
+      "basket": {
+        "basket": [
+          {
+            "sku": "MAIN_RIVERPRAWN",
+            "name": "Grilled River Prawns",
+            "price": 18.0,
+            "qty": 1,
+            "modifiers": [],
+            "line_total": 18.0
+          },
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass",
+            "price": 16.0,
+            "qty": 1,
+            "modifiers": [],
+            "line_total": 16.0
+          },
+          {
+            "sku": "VG_MORNING",
+            "name": "Stir-fried Morning Glory",
+            "price": 5.0,
+            "qty": 1,
+            "modifiers": [
+              "spicy_ok"
+            ],
+            "line_total": 5.0
+          }
+        ],
+        "total": 39.0,
+        "ticket_type": "dine_in",
+        "table_id": null,
+        "party_size": 2,
+        "guest_tags": [],
+        "mentioned": [
+          {
+            "sku": "MAIN_SQUID",
+            "name": "Crispy Squid"
+          },
+          {
+            "sku": "MAIN_SEABASS",
+            "name": "Grilled Seabass"
+          },
+          {
+            "sku": "MAIN_RIVERPRAWN",
+            "name": "Grilled River Prawns"
+          },
+          {
+            "sku": "VG_MORNING",
+            "name": "Stir-fried Morning Glory"
+          }
+        ],
+        "placed": false
+      },
+      "accuracy": {
+        "passed": false,
+        "gates": {
+          "dishes_exact": false,
+          "total_exact": false,
+          "sold_out_refused": true,
+          "placed": false,
+          "no_json_spoken": true
+        },
+        "dishes": [
+          "Grilled River Prawns",
+          "Grilled Seabass",
+          "Stir-fried Morning Glory"
+        ],
+        "total": 39.0
+      },
+      "rep": 3,
+      "cold": false
+    }
+  ]
+}

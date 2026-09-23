@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "source": "migrated",
+  "product": "restaurant",
+  "suite": "waiter-turn-latency",
+  "run_id": "2026-09-16T050852Z",
+  "source_branch": "perf/waiter-turn-latency",
+  "source_commit": "63267bf",
+  "source_files": [
+    "reports/benchmark_today_eval.json",
+    "reports/benchmark_today_report.md",
+    "reports/latency_optimization_2026-09-16.md"
+  ],
+  "git_dirty": null,
+  "notes": [
+    "Run ID was normalized to UTC from the recorded +07 benchmark timestamp.",
+    "Historical results were moved without regeneration."
+  ]
+}

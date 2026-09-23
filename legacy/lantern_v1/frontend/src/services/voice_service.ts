@@ -55,12 +55,14 @@ export class VoiceService {
     if (msg.type === "interim_transcript") {
       this.lastInterimText = msg.text;
       if (this.silenceTimer) clearTimeout(this.silenceTimer);
-      // Client-side fallback silence timer (1.0s)
+      // Last-resort fallback only. The ASR (max_turn_silence 1000ms) and the
+      // server watchdog (1300ms) own turn-taking; this must stay behind both so
+      // it never pre-empts them.
       this.silenceTimer = window.setTimeout(() => {
         if (this.lastInterimText && this.isConnected()) {
           this.sendCommand({ command: "endpoint" });
         }
-      }, 1000);
+      }, 1800);
     } else if (msg.type === "final_transcript" || msg.type === "barge_in") {
       if (this.silenceTimer) clearTimeout(this.silenceTimer);
       this.lastInterimText = "";
