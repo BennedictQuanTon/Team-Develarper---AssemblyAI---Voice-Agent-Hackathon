@@ -118,3 +118,43 @@ export type ClientRealtimeCommand =
   | { command: "endpoint" }
   | { command: "barge_in" }
   | { command: "reset" };
+
+/* ------------------------------------------------------------------ */
+/* V2 runtime contract (backend/app/main.py): what /ws/realtime sends  */
+/* today. The V1 types above stay for the Logs view's telemetry cards. */
+/* ------------------------------------------------------------------ */
+
+export interface V2BasketLine {
+  sku: string;
+  name: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  modifiers?: string[];
+}
+
+export interface V2Order {
+  order_id: string;
+  table_id: string;
+  status: string;
+  placed?: boolean;
+  current_revision: number;
+  basket: V2BasketLine[];
+  total: number;
+  allergies?: string[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type V2ServerMessage =
+  | { type: "session_ready"; table_id: string; order: V2Order | null; asr_status: string; has_tts: boolean;
+      providers?: { asr?: string; llm?: string; tts?: string } }
+  | { type: "provider_ready"; provider: string }
+  | { type: "provider_unavailable"; provider: string; message?: string }
+  | { type: "interim_transcript"; text: string; language_code?: string }
+  | { type: "final_transcript"; text: string; language_code?: string }
+  | ({ type: "workflow_update"; status: string; response_text?: string; source?: string } & Partial<V2Order>)
+  | { type: "audio_chunk"; pcm_b64: string; sample_rate: number; ttfb_ms?: number | null }
+  | { type: "turn_complete"; pipeline_ms?: number | null; voice_ttfb_ms?: number | null }
+  | { type: "barge_in"; reason?: string }
+  | { type: "error"; message?: string };

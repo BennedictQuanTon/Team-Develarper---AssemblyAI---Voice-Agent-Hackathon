@@ -14,9 +14,20 @@ import type {
   OpsMetrics,
   Table,
   FloorZone,
+  KDSStatus,
   KDSTicket,
   ReservationItem,
 } from "../types/ops";
+import type { V2Order } from "../types/realtime";
+
+// The menu's categories are "Starter", "Mains"…; the filter chips say "Appetizer", "Main".
+const CATEGORY_ALIASES: Record<string, string[]> = { appetizer: ["appetizer", "starter"] };
+
+function minutesAgo(iso?: string): string {
+  if (!iso) return "just now";
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  return minutes < 1 ? "just now" : `${minutes}m ago`;
+}
 
 export class OpsView {
   private container: HTMLElement;
@@ -50,6 +61,8 @@ export class OpsView {
 
   public onToggleAvailable?: (sku: string, available: boolean) => void;
   public onTableAction?: (tableId: string, action: "seat" | "clear") => void;
+  /** A KDS bump that the backend must record: "accept" (start cooking) or "mark_ready". */
+  public onKitchenAction?: (orderId: string, action: "accept" | "mark_ready") => void;
 
   // Local state
   private floorData: FloorData | null = null;
@@ -59,45 +72,12 @@ export class OpsView {
   private searchQuery: string = "";
   private selectedCategory: string = "all";
 
-  // Mock KDS tickets with live interaction
-  private kdsTickets: KDSTicket[] = [
-    {
-      id: "K-102",
-      tableId: "T3",
-      tableName: "Table 3",
-      timeStarted: "7m ago",
-      status: "cooking",
-      server: "Julian",
-      items: [
-        { name: "Wagyu Ribeye Steak", quantity: 1, note: "Medium-rare, red wine jus" },
-        { name: "Truffle Potato Puree", quantity: 1 },
-      ],
-    },
-    {
-      id: "K-105",
-      tableId: "T6",
-      tableName: "Table 6",
-      timeStarted: "14m ago",
-      status: "plating",
-      server: "Marcus",
-      items: [
-        { name: "Grilled Chilean Seabass", quantity: 2, note: "Extra lemon butter" },
-        { name: "Seafood Bouillabaisse", quantity: 1 },
-      ],
-    },
-    {
-      id: "K-108",
-      tableId: "T8",
-      tableName: "Table 8",
-      timeStarted: "3m ago",
-      status: "queued",
-      server: "Claire",
-      items: [
-        { name: "Roasted Duck Breast", quantity: 2, note: "Crispy skin" },
-        { name: "French Onion Velouté", quantity: 2 },
-      ],
-    },
-  ];
+  // Live KDS tickets: every order the guest has placed, built from /ws/ops.
+  private kdsTickets: KDSTicket[] = [];
+  private orders = new Map<string, V2Order>();
+  // "Plating" and "served" are kitchen-floor steps the backend doesn't track.
+  private plating = new Set<string>();
+  private served = new Set<string>();
 
   // Mock Reservations with live interaction
   private reservations: ReservationItem[] = [
@@ -420,7 +400,9 @@ export class OpsView {
       const matchSearch = !this.searchQuery || item.name.toLowerCase().includes(this.searchQuery);
       let matchCat = true;
       if (this.selectedCategory !== "all") {
-        matchCat = (item.category || "").toLowerCase().includes(this.selectedCategory.toLowerCase());
+        const wanted = this.selectedCategory.toLowerCase();
+        const category = (item.category || "").toLowerCase();
+        matchCat = (CATEGORY_ALIASES[wanted] ?? [wanted]).some((name) => category.includes(name));
       }
       return matchSearch && matchCat;
     });
@@ -545,26 +527,77 @@ export class OpsView {
     }
   }
 
-  private bumpTicket(ticketId: string): void {
-    const idx = this.kdsTickets.findIndex((t) => t.id === ticketId);
-    if (idx === -1) return;
+  /** Replace every ticket with the placed orders from the /ws/ops snapshot. */
+  public setOrders(orders: V2Order[]): void {
+    this.orders.clear();
+    for (const order of orders) this.orders.set(order.order_id, order);
+    this.rebuildTickets();
+  }
 
-    const current = this.kdsTickets[idx];
-    if (current.status === "queued") {
-      current.status = "cooking";
-    } else if (current.status === "cooking") {
-      current.status = "plating";
-    } else if (current.status === "plating") {
-      current.status = "ready";
-    } else {
-      // Completed, remove ticket
-      this.kdsTickets.splice(idx, 1);
+  /** One order changed (placed, edited, or decided by the kitchen). */
+  public upsertOrder(order: V2Order): void {
+    this.orders.set(order.order_id, order);
+    this.rebuildTickets();
+  }
+
+  /** Refresh the "Xm ago" timers without new data. */
+  public tick(): void {
+    this.rebuildTickets();
+  }
+
+  private ticketStatus(order: V2Order): KDSStatus | null {
+    if (this.served.has(order.order_id)) return null;
+    if (order.status === "ready") return "ready";
+    if (order.status === "committed") return this.plating.has(order.order_id) ? "plating" : "cooking";
+    if (order.status === "pending_kitchen" || order.status === "substitution_proposed") return "queued";
+    return null; // drafts, cancelled and rejected orders are not kitchen work
+  }
+
+  private rebuildTickets(): void {
+    const tickets: KDSTicket[] = [];
+    const orders = [...this.orders.values()].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+    for (const order of orders) {
+      const status = this.ticketStatus(order);
+      if (!status || !order.basket?.length) continue;
+      const tableNumber = order.table_id.replace(/\D/g, "") || order.table_id;
+      const allergy = order.allergies?.length ? `Allergy: ${order.allergies.join(", ")}` : "";
+      tickets.push({
+        id: order.order_id.slice(0, 6).toUpperCase(),
+        tableId: order.table_id,
+        tableName: `Table ${tableNumber}`,
+        timeStarted: minutesAgo(order.created_at),
+        status,
+        server: "Lantern Voice",
+        items: order.basket.map((line, index) => ({
+          name: line.name,
+          quantity: line.quantity,
+          note: [line.modifiers?.join(", "), index === 0 ? allergy : ""].filter(Boolean).join(" · ") || undefined,
+        })),
+      });
     }
-
+    this.kdsTickets = tickets;
     if (this.mKdsActiveEl) {
       this.mKdsActiveEl.textContent = String(this.kdsTickets.length);
     }
     this.renderKDS();
+  }
+
+  private bumpTicket(ticketId: string): void {
+    const order = [...this.orders.values()].find((o) => o.order_id.slice(0, 6).toUpperCase() === ticketId);
+    if (!order) return;
+    const status = this.ticketStatus(order);
+
+    if (status === "queued") {
+      if (order.status === "substitution_proposed") return; // waiting for the guest's answer
+      this.onKitchenAction?.(order.order_id, "accept"); // guest hears "The kitchen confirmed your order."
+    } else if (status === "cooking") {
+      this.plating.add(order.order_id);
+    } else if (status === "plating") {
+      this.onKitchenAction?.(order.order_id, "mark_ready"); // guest hears "Your order is ready."
+    } else {
+      this.served.add(order.order_id);
+    }
+    this.rebuildTickets();
   }
 
   private renderReservations(): void {

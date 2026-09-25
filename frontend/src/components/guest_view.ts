@@ -121,6 +121,11 @@ export class GuestView {
     if (this.guestStatus) this.guestStatus.textContent = "";
   }
 
+  /** Update the small status label above the guest's speech (connection, listening…). */
+  public setGuestStatus(text: string): void {
+    if (this.guestStatus) this.guestStatus.textContent = text;
+  }
+
   public setIdlePrompt(): void {
     if (this.welcomeCard) this.welcomeCard.style.display = "flex";
     if (this.conversationStream) this.conversationStream.style.display = "none";

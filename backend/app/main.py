@@ -4,6 +4,8 @@ import asyncio
 import base64
 import json
 import time
+from typing import Literal
+
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
@@ -56,6 +58,11 @@ class AvailabilityRequest(BaseModel):
     available: bool
 
 
+class TableStatusRequest(BaseModel):
+    table_id: str
+    status: Literal["free", "seated", "reserved"]
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "lantern"}
@@ -89,6 +96,15 @@ def available_menu():
 @app.get("/floor")
 def floor():
     return {"tables": [t.__dict__ for t in store.list_tables()]}
+
+
+@app.post("/floor/status")
+def set_table_status(request: TableStatusRequest):
+    """Seat or clear a table from the operations floor map."""
+    table = store.set_table_status(request.table_id, request.status)
+    if table is None:
+        raise HTTPException(404, "table not found")
+    return table.__dict__
 
 
 @app.post("/menu/set-available")

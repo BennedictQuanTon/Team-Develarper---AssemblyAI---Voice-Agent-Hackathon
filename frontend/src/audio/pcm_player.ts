@@ -27,7 +27,30 @@ export class PCMStreamPlayer {
 
     const audioBuf = this.ctx.createBuffer(1, float32.length, sampleRate);
     audioBuf.getChannelData(0).set(float32);
+    this.schedule(audioBuf);
+  }
 
+  private clips = new Map<string, Promise<AudioBuffer>>();
+
+  /** Fetch and decode a prerecorded clip once, so later plays start without a network round trip. */
+  public preloadClip(url: string): Promise<AudioBuffer> {
+    let clip = this.clips.get(url);
+    if (!clip) {
+      clip = fetch(url)
+        .then((response) => response.arrayBuffer())
+        .then((bytes) => this.ctx.decodeAudioData(bytes));
+      clip.catch(() => this.clips.delete(url));
+      this.clips.set(url, clip);
+    }
+    return clip;
+  }
+
+  /** Queue a prerecorded clip; streamed reply chunks that arrive later play right after it. */
+  public async playClip(url: string): Promise<void> {
+    this.schedule(await this.preloadClip(url));
+  }
+
+  private schedule(audioBuf: AudioBuffer): void {
     const source = this.ctx.createBufferSource();
     source.buffer = audioBuf;
 

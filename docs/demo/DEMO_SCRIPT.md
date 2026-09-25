@@ -33,24 +33,21 @@ curl -s localhost:8000/ready
 
 It must show `"ready":true`, with `llm_warm` and `tts_warm` both `true`.
 
-**Mark Crispy Squid as sold out:**
-
-```bash
-curl -s -X POST localhost:8000/menu/set-available -H 'Content-Type: application/json' -d '{"sku":"MAIN_SQUID","available":false}'
-```
-
-**Screen layout:**
+**Screen layout** (two browser windows, same app):
 
 | Left half | Right half |
 |---|---|
-| Guest tablet: `http://localhost:5173/?table_id=T4` | Kitchen: `http://localhost:5173/?view=kitchen` |
+| Table device: `http://localhost:5173/?table_id=T4`, **Dining** tab | Staff: `http://localhost:5173/?table_id=T9`, **Management** tab |
+
+The staff window uses another table ID so its own session never mixes with table 4.
 
 **Checklist:**
 - [ ] Headset mic, quiet room. Speakers low, so the agent's voice doesn't reach the mic.
-- [ ] Click **Start voice service**, allow the microphone, and wait for "Speak or type your request".
-- [ ] Kitchen shows **Connection: Live** and "Waiting for a guest to speak".
-- [ ] One throwaway line on **another table** (e.g. T9: "What do you recommend?") to warm everything, then reload the kitchen page so the feed is empty.
-- [ ] Fresh DB file per take (the `DATABASE_PATH` above), so the board starts empty.
+- [ ] **Crispy Squid must be available at the start.** You mark it 86'd on camera (0:25).
+- [ ] Left window: tap the microphone, allow access, and wait until the status above the guest card reads **Listening…**.
+- [ ] Right window, Management: **Active kitchen tickets 0**, and the Kitchen Display System says the kitchen is clear.
+- [ ] One throwaway line on **another table** (e.g. T8: "What do you recommend?") to warm Qwen and Kokoro.
+- [ ] Fresh DB file per take (the `DATABASE_PATH` above), so the KDS starts empty.
 
 ---
 
@@ -59,9 +56,9 @@ curl -s -X POST localhost:8000/menu/set-available -H 'Content-Type: application/
 | Time | Beat | What it proves |
 |---|---|---|
 | 0:00–0:25 | Hook | The problem |
-| 0:25–0:45 | The two screens | Guest device + live kitchen |
+| 0:25–0:45 | The two screens + 86 the squid | Guest device, live operations |
 | 0:45–2:45 | **Six-turn order** | Memory, references, sold-out, correction, placement |
-| 2:45–3:25 | Kitchen substitute loop | Kitchen ↔ guest closed loop |
+| 2:45–3:25 | Kitchen Display loop | Kitchen ↔ guest closed loop |
 | 3:25–3:55 | Spanish guest | Multilingual |
 | 3:55–4:35 | How it works + numbers | Local SLM + code-owned memory |
 | 4:35–5:00 | Close | |
@@ -78,10 +75,12 @@ curl -s -X POST localhost:8000/menu/set-available -H 'Content-Type: application/
 
 ### 0:25–0:45 · The two screens (voice-over)
 
-> "Left: a table device at table 4. Right: the kitchen. Everything runs locally: AssemblyAI
-> streaming for speech, Qwen 3 4B on Ollama, Kokoro for the voice, SQLite for memory."
+> "Left: a table device at table 4. Right: the restaurant's operations view. Everything runs
+> locally: AssemblyAI streaming for speech, Qwen 3 4B on Ollama, Kokoro for the voice, SQLite for
+> memory. The kitchen just ran out of squid…"
 
-Point at: the empty kitchen board, and **Live table activity: Waiting for a guest to speak**.
+**On camera, right window:** in **Menu & 86'd Stock**, type `squid` in the search box and click
+**Available**. It flips to **86'd**, and the KPI **86'd Out of Stock** becomes 1.
 
 ### 0:45–2:45 · The six turns
 
@@ -90,36 +89,39 @@ Speak each line naturally and wait for the reply to finish. A short prerecorded 
 
 | # | Guest says | Filler | Expected reply (verbatim) | Point at |
 |---|---|---|---|---|
-| 1 | **"What would you recommend for a mild couple?"** | "Let me see what's good tonight." | "I recommend Pomelo Salad with Shrimp ($6.50), Lemongrass Chicken ($9.00)." | Feed: **Recommendation**. The kitchen board stays empty: nothing ordered yet |
-| 2 | **"We'll take those two please."** | "Sure, one moment." | "Your order now includes 1 Pomelo Salad with Shrimp, 1 Lemongrass Chicken. Total: $15.50. Tell me when you'd like me to place it." | "**Those two**" resolved from memory. Guest basket fills in. Feed: **Draft · not sent to the kitchen yet** |
-| 3 | **"I'd like the crispy squid too."** | "Sure, one moment." | "Crispy Squid is sold out. Would you like Grilled Seabass instead?" | Live availability, real alternative. Feed: **Needs clarification** |
+| 1 | **"What would you recommend for a mild couple?"** | "Let me see what's good tonight." | "I recommend Pomelo Salad with Shrimp ($6.50), Lemongrass Chicken ($9.00)." | The orb thinks, then speaks. Nothing reaches the KDS: nothing is ordered yet |
+| 2 | **"We'll take those two please."** | "Sure, one moment." | "Your order now includes 1 Pomelo Salad with Shrimp, 1 Lemongrass Chicken. Total: $15.50. Tell me when you'd like me to place it." | "**Those two**" resolved from memory. **Your Table Order** appears. Still a draft: the KDS stays empty |
+| 3 | **"I'd like the crispy squid too."** | "Sure, one moment." | "Crispy Squid is sold out. Would you like Grilled Seabass instead?" | The squid you 86'd a minute ago, refused live, with a real alternative |
 | 4 | **"Okay, make it a grilled seabass instead."** | "Sure, one moment." | "Your order now includes 1 Pomelo Salad with Shrimp, 1 Lemongrass Chicken, 1 Grilled Seabass. Total: $31.50. Tell me when you'd like me to place it." | "**Instead**" means the refused squid, so **nothing was removed**. This is the bug small models get wrong |
 | 5 | **"And stir-fried morning glory on the side."** | "Sure, one moment." | "Your order now includes 1 Pomelo Salad with Shrimp, 1 Lemongrass Chicken, 1 Grilled Seabass, 1 Stir-fried Morning Glory. Total: $36.50. Tell me when you'd like me to place it." | **No invented modifiers** (the model proposes some; code drops what the guest didn't say) |
-| 6 | **"That's all, please place the order."** | "Perfect, sending it through." | "Your order is in: 1 Pomelo Salad with Shrimp, 1 Lemongrass Chicken, 1 Grilled Seabass, 1 Stir-fried Morning Glory. Total: $36.50. I sent it to the kitchen." | **The ticket appears on the kitchen board now**, and only now. Feed card turns green |
+| 6 | **"That's all, please place the order."** | "Perfect, sending it through." | "Your order is in: 1 Pomelo Salad with Shrimp, 1 Lemongrass Chicken, 1 Grilled Seabass, 1 Stir-fried Morning Glory. Total: $36.50. I sent it to the kitchen." | **Right window: the ticket appears in the KDS now**, and only now. Active kitchen tickets: 1 |
 
 Voice-over after turn 6:
 
 > "Six turns, one order, $36.50, nothing invented. The model only interprets each sentence; the
 > waiter's memory lives in SQLite."
 
-### 2:45–3:25 · Kitchen substitute loop
+### 2:45–3:25 · Kitchen Display loop
 
-1. **On the kitchen screen**, in the T4 ticket, choose **Stir-fried Morning Glory → Lemongrass Tofu** and click **Propose substitute**.
-   - Guest device speaks: *"The kitchen cannot prepare Stir-fried Morning Glory. Would you accept Lemongrass Tofu instead?"*
-   - Feed: **Kitchen: propose substitute**.
-2. **Guest says: "Yes, that's fine."**
-   - Reply: *"Your order now includes 1 Pomelo Salad with Shrimp, 1 Lemongrass Chicken, 1 Grilled Seabass, 1 Lemongrass Tofu. Total: $37.50. I updated the kitchen."*
-3. **Kitchen clicks Accept.** Guest hears: *"The kitchen confirmed your order."*
-4. **Kitchen clicks Mark ready.** Guest hears: *"Your order is ready."*
+In the right window, the **Kitchen Display System** now holds the table 4 ticket: 4 dishes,
+status **QUEUED**.
+
+1. Click **Start Cooking**. The ticket moves to **COOKING**, and the table device speaks: *"The kitchen confirmed your order."*
+2. Click **Mark Plating**. The ticket moves to **PLATING**; this step is shown to the kitchen only.
+3. Click **Ready to Serve**. The ticket moves to **READY**, and the table device speaks: *"Your order is ready."*
+4. Click **Mark Served**. The ticket leaves the board.
 
 Voice-over:
 
-> "The kitchen never talks to the guest directly. Every decision is checked against the menu,
-> the guest's allergies and the latest revision, then spoken to the guest."
+> "The kitchen never talks to the guest directly. Each step is recorded against the order's
+> latest revision and spoken on the guest's device."
+
+Optional, if time allows: open the **Logs** tab to show the latest turn's latency breakdown and
+workflow state change.
 
 ### 3:25–3:55 · Spanish guest
 
-Open `http://localhost:5173/?table_id=T5`, start voice, and speak:
+Open `http://localhost:5173/?table_id=T5` in the left window, tap the microphone, and speak:
 
 | Guest says | Expected reply (verbatim) |
 |---|---|
@@ -127,9 +129,9 @@ Open `http://localhost:5173/?table_id=T5`, start voice, and speak:
 | **"Queremos esos dos, por favor."** | "Su pedido ahora incluye 1 Pomelo Salad with Shrimp, 1 Lemongrass Chicken. Total: $15.50. Avíseme cuando quiera que lo envíe." |
 | **"Eso es todo, envíe el pedido, por favor."** | "Su pedido quedó registrado: 1 Pomelo Salad with Shrimp, 1 Lemongrass Chicken. Total: $15.50. Lo envié a la cocina." |
 
-Point at: the kitchen gets the same English ticket for T5, whatever language the guest spoke.
+Point at: the KDS gets the same English ticket for Table 5, whatever language the guest spoke.
 
-### 3:55–4:35 · How it works (voice-over, with a diagram or the kitchen feed on screen)
+### 3:55–4:35 · How it works (voice-over, with a diagram or the Logs tab on screen)
 
 > "Every turn, Qwen gets a prompt of the same size: rules, the menu, and a short state block.
 > It returns one schema-checked intent. Code resolves 'those two' and 'instead', validates the
@@ -153,11 +155,12 @@ Point at: the kitchen gets the same English ticket for T5, whatever language the
 
 | Symptom | What to do |
 |---|---|
-| ASR mishears a line | Use the **Type a request** box with the exact line. It takes the same path |
-| "Please clarify your order." | Repeat the line more slowly, or type it |
-| Status stuck on "Connecting…" for more than 20 s | Click Stop, then Start voice service again. The order resumes from SQLite |
-| Kitchen board shows an old order | Restart the backend with a new `DATABASE_PATH` |
-| Squid gets added | You forgot the `set-available` command in §1 |
+| ASR mishears a line | Repeat it more slowly. Record each turn as its own clip so a retake is cheap |
+| "Please clarify your order." | Repeat the line more slowly |
+| Status stuck on "Connecting to speech recognition…" for more than 20 s | Tap the microphone to stop, then tap again. The order resumes from SQLite |
+| The KDS shows an old ticket | Restart the backend with a new `DATABASE_PATH` |
+| Squid gets added | It wasn't 86'd. Toggle it in **Menu & 86'd Stock** before turn 3 |
+| No sound from the waiter | Click once anywhere on the page first, since browsers block audio until a click. Check the system output device |
 
 ---
 
