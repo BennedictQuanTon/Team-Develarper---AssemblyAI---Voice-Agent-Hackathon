@@ -24,6 +24,25 @@ class RealtimeSession:
         self.order_id = order_id
         self.workflow, self.llm = workflow, llm
         self.dialogue = DialogueState.from_dict(self._repository_call("load_dialogue", self.session_id, table_id))
+        self.language = "en"
+
+    def _reply_language(self, model_language: str | None, transport_language: str | None) -> str:
+        """The language to answer in.
+
+        qwen sometimes labels a short Spanish follow-up ("Queremos esos dos") as English. When the
+        model says English but the ASR/client or the session so far says otherwise, trust those.
+        """
+        def base(code: str | None) -> str:
+            return (code or "en").split("-")[0]
+
+        language = model_language or transport_language or "en"
+        if base(language) == "en":
+            if base(transport_language) != "en":
+                language = transport_language
+            elif base(self.language) != "en":
+                language = self.language
+        self.language = language
+        return language
 
     def _repository_call(self, name: str, *args):
         """Call an optional repository method; scripted test workflows may not have one."""
@@ -117,7 +136,7 @@ class RealtimeSession:
         else:
             intent = IntentProposal(source_language=language, action="clarify", needs_clarification=True, clarification_question="Please confirm your order.")
         intent = self._heard_modifiers_only(intent, transcript)
-        resolved, supported = resolve_language(intent.source_language or language)
+        resolved, supported = resolve_language(self._reply_language(intent.source_language, language))
         base = {"type": "workflow_update", "language_code": resolved, "tts_supported": supported}
         resolution = resolve(intent, self.dialogue, current, self.workflow.store, transcript)
         if resolution.clear_pending:

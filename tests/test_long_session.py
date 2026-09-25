@@ -118,6 +118,31 @@ class SixTurnGateTests(SessionHarness):
         self.assertTrue(all("{" not in reply["response_text"] for reply in replies))
 
 
+class ReplyLanguageTests(SessionHarness):
+    async def test_spanish_session_stays_spanish_when_the_model_says_english(self):
+        session = self.session([
+            IntentProposal(source_language="es", action="recommend"),
+            IntentProposal(source_language="en", action="create_or_update_order", ref="offered_all"),
+            IntentProposal(source_language="en", action="place_order"),
+        ])
+        replies = [await session.handle_transcript("¿Qué nos recomienda para una pareja, algo suave?", "en"),
+                   await session.handle_transcript("Queremos esos dos, por favor", "en"),
+                   await session.handle_transcript("Eso es todo, envíe el pedido", "en")]
+        self.assertTrue(replies[1]["response_text"].startswith("Su pedido ahora incluye"))
+        self.assertIn("Lo envié a la cocina", replies[2]["response_text"])
+        self.assertEqual(replies[2]["language_code"], "es")
+
+    async def test_transport_language_beats_an_english_label(self):
+        session = self.session([IntentProposal(source_language="en", action="recommend")])
+        reply = await session.handle_transcript("¿Qué nos recomienda?", "es")
+        self.assertTrue(reply["response_text"].startswith("Le recomiendo"))
+
+    async def test_english_guest_stays_english(self):
+        session = self.session([IntentProposal(source_language="en", action="recommend")])
+        reply = await session.handle_transcript("What do you recommend?", "en")
+        self.assertTrue(reply["response_text"].startswith("I recommend"))
+
+
 class DialoguePersistenceTests(SessionHarness):
     async def test_state_is_saved_every_turn(self):
         session = self.session([IntentProposal(action="recommend")])

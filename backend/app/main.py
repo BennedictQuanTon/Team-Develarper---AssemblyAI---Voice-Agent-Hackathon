@@ -133,6 +133,29 @@ async def kitchen_decision(order_id: str, request: KitchenDecision):
     return described
 
 
+def agent_turn_event(table_id: str, transcript: str, result: dict, first_audio_ms: float | None) -> dict:
+    """One guest turn as the operations view shows it: what was heard, what the agent did, how fast.
+
+    Drafts stay off the kitchen tickets, but the activity feed shows every turn so staff can
+    follow a table while the guest is still ordering.
+    """
+    return {
+        "type": "agent_turn",
+        "table_id": table_id,
+        "order_id": result.get("order_id"),
+        "transcript": transcript,
+        "language_code": result.get("language_code"),
+        "status": result.get("status"),
+        "response_text": result.get("response_text"),
+        "items": [f"{line['quantity']} × {line['name']}" for line in result.get("basket") or []],
+        "total": result.get("total"),
+        "placed": bool(result.get("placed")),
+        "pipeline_ms": result.get("pipeline_ms"),
+        "voice_ttfb_ms": first_audio_ms,
+        "at": time.time(),
+    }
+
+
 @app.websocket("/ws/realtime")
 async def realtime(websocket: WebSocket):
     table_id = websocket.query_params.get("table_id")
@@ -193,6 +216,7 @@ async def realtime(websocket: WebSocket):
                     "voice_ttfb_ms": first_audio_ms,
                 }
             )
+            broker.publish(agent_turn_event(table_id, text, result, first_audio_ms))
         except asyncio.CancelledError:
             return
         except Exception as exc:  # noqa: BLE001

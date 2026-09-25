@@ -119,6 +119,38 @@ class ConversationFlowTests(unittest.IsolatedAsyncioTestCase):
 
 
 class KitchenDeliveryTests(unittest.TestCase):
+    def test_every_guest_turn_reaches_the_ops_activity_feed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = SQLiteOrderRepository(Path(directory) / "orders.sqlite3")
+            store = LanternStore()
+            workflow = OrderWorkflow(repo, store)
+            original = (main.repository, main.store, main.workflow, main.broker, main.llm, main.tts)
+
+            class SilentTTS:
+                sample_rate = 24000
+
+                async def stream_async(self, *_args):
+                    if False:
+                        yield b""
+
+            main.repository, main.store, main.workflow, main.broker, main.llm, main.tts = repo, store, workflow, KitchenEventBroker(), None, SilentTTS()
+            try:
+                client = TestClient(main.app)
+                with client.websocket_connect("/ws/ops") as ops, client.websocket_connect("/ws/realtime?table_id=T4") as guest:
+                    self.assertEqual(ops.receive_json()["type"], "kitchen_snapshot")
+                    guest.receive_json()  # session_ready
+                    guest.send_json({"type": "transcript", "text": "Hello there", "language_code": "en"})
+                    while guest.receive_json()["type"] != "turn_complete":
+                        pass
+                    turn = ops.receive_json()
+                    self.assertEqual((turn["type"], turn["table_id"], turn["transcript"]), ("agent_turn", "T4", "Hello there"))
+                    self.assertEqual(turn["status"], "clarification_required")
+                    self.assertFalse(turn["placed"])
+                    self.assertIsInstance(turn["pipeline_ms"], float)
+            finally:
+                main.repository, main.store, main.workflow, main.broker, main.llm, main.tts = original
+                repo.close()
+
     def test_kitchen_decision_reaches_guest_websocket(self):
         with tempfile.TemporaryDirectory() as directory:
             repo = SQLiteOrderRepository(Path(directory) / "orders.sqlite3")
