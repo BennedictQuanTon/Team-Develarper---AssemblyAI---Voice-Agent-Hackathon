@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import json
 import httpx
+from ...domain.restaurant.mentions import mentioned_skus
 from ...domain.restaurant.models import IntentProposal
+
+# Required so the model always commits to an action and a reference before listing items.
+INTENT_SCHEMA = {**IntentProposal.model_json_schema(), "required": ["action", "ref", "items"]}
 
 
 class OllamaClient:
-    _KNOWN_ALIASES = {
-        "スズキ": "MAIN_SEABASS",
-        "sea bass": "MAIN_SEABASS",
-        "seabass": "MAIN_SEABASS",
-    }
     def __init__(
         self,
         base_url: str,
@@ -56,16 +55,9 @@ class OllamaClient:
             for item in menu
         ]
 
-    @classmethod
-    def _entity_hints(cls, transcript: str, menu: list[dict]) -> list[dict]:
-        lowered = transcript.casefold()
-        hinted_skus = {
-            sku for phrase, sku in cls._KNOWN_ALIASES.items() if phrase.casefold() in lowered
-        }
-        for item in menu:
-            name = str(item.get("name") or "")
-            if name and name.casefold() in lowered:
-                hinted_skus.add(str(item.get("sku")))
+    @staticmethod
+    def _entity_hints(transcript: str, menu: list[dict]) -> list[dict]:
+        hinted_skus = mentioned_skus(transcript, menu, distinctive_words=False)
         return [item for item in menu if item.get("sku") in hinted_skus]
 
     @staticmethod
@@ -94,12 +86,15 @@ class OllamaClient:
             "Extract one restaurant action as schema-valid JSON. "
             "Use menu SKUs and allowed modifiers exactly; ENTITY_HINTS are deterministic matches. "
             "For a new/additional dish, emit create_or_update_order with only the requested NEW items, not the full basket. "
-            "For a correction such as 'X instead of Y', emit replace_item with one new item X and replaces_sku=Y from STATE.items. "
+            "For dishes the waiter just offered (STATE.last_offered), such as 'those two' or 'the first one', emit create_or_update_order with ref offered_all, offered_first or offered_second and no items. "
+            "When STATE.pending shows a refused dish, 'X instead' means create_or_update_order with item X and ref pending. "
+            "Only when the guest names both dishes, 'X instead of Y', emit replace_item with one new item X and replaces_sku=Y. "
             "For a removal, emit remove_item with the SKU from STATE.items. "
+            "When the guest is finished or asks to place, send or confirm the order, emit place_order with no items. "
             "For cancellation, emit cancel_order with no items. "
+            "For yes or no to the waiter's question in STATE.pending, emit confirm or decline with no items. "
             "For menu questions or recommendations, emit menu_query or recommend with no items. "
-            "Resolve references such as 'those two' from STATE.last_recommendations; resolve corrections from STATE.items. "
-            "For a kitchen substitute proposal, emit accept_substitute or reject_substitute only when the guest accepts or rejects it. "
+            "Otherwise set ref to none. "
             "If a known menu item is sold out, still return its SKU so deterministic code can explain and suggest an alternative. "
             "Unknown dishes or unsupported modifiers require clarify with no items. "
             "Set source_language to USER's language. Do not explain outside the JSON fields.\n"
@@ -108,7 +103,7 @@ class OllamaClient:
             f"STATE={json.dumps(current, ensure_ascii=False, separators=(',', ':'))}\n"
             f"USER={transcript}"
         )
-        raw, _ = await self._chat(prompt, schema=IntentProposal.model_json_schema(), max_tokens=224)
+        raw, _ = await self._chat(prompt, schema=INTENT_SCHEMA, max_tokens=224)
         try:
             intent = IntentProposal.model_validate_json(raw)
         except Exception:
