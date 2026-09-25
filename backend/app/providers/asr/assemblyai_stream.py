@@ -10,6 +10,11 @@ TranscriptCallback = Callable[["TranscriptEvent"], Awaitable[None] | None]
 SimpleCallback = Callable[[], Awaitable[None] | None]
 ErrorCallback = Callable[[str], Awaitable[None] | None]
 
+# The SDK waits 1.0 s for the WebSocket handshake by default and retries twice.
+# The handshake measured 1.4-1.9 s from a Windows dev machine, so the first attempt
+# timed out with "Connection failed" before a retry got through (#35).
+CONNECT_TIMEOUT_S = 5.0
+
 
 @dataclass(frozen=True)
 class TranscriptEvent:
@@ -57,6 +62,7 @@ class AssemblyAIRealtimeProvider:
             AsyncStreamingClient,
             Encoding,
             SpeechModel,
+            StreamingClientOptions,
             StreamingEvents,
             StreamingParameters,
         )
@@ -65,7 +71,9 @@ class AssemblyAIRealtimeProvider:
             if self._connected:
                 return
             factory = self.client_factory or AsyncStreamingClient
-            self._client = factory(api_key=self.api_key)
+            self._client = factory(
+                options=StreamingClientOptions(api_key=self.api_key, connect_timeout=CONNECT_TIMEOUT_S),
+            )
             self._client.on(StreamingEvents.SpeechStarted, self._handle_speech_started)
             self._client.on(StreamingEvents.Turn, self._handle_turn)
             self._client.on(StreamingEvents.Error, self._handle_error)

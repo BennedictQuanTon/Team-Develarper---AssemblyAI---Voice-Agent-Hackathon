@@ -255,7 +255,8 @@ async def realtime(websocket: WebSocket):
 
         async def connect_asr() -> None:
             try:
-                await asyncio.wait_for(asr.connect(), timeout=10)
+                # Room for the SDK's own retries: 3 attempts x CONNECT_TIMEOUT_S + 2 x 0.5 s.
+                await asyncio.wait_for(asr.connect(), timeout=20)
                 asr_ready.set()
                 await send({"type": "provider_ready", "provider": "assemblyai"})
             except Exception as exc:  # noqa: BLE001
