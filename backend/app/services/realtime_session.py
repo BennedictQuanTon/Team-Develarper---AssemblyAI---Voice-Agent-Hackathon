@@ -4,7 +4,9 @@ import time
 import uuid
 import re
 
+from ..domain.restaurant.mentions import spoken_modifiers
 from ..domain.restaurant.models import IntentProposal
+from ..domain.restaurant.recommend import recommend
 from ..domain.restaurant.workflow import OrderWorkflow
 from ..providers.llm.ollama import OllamaClient
 from .dialogue import CLOSED_STATUSES, DialogueState, resolve
@@ -21,7 +23,26 @@ class RealtimeSession:
         self.session_id = session_id or str(uuid.uuid4())
         self.order_id = order_id
         self.workflow, self.llm = workflow, llm
-        self.dialogue = DialogueState()
+        self.dialogue = DialogueState.from_dict(self._repository_call("load_dialogue", self.session_id, table_id))
+
+    def _repository_call(self, name: str, *args):
+        """Call an optional repository method; scripted test workflows may not have one."""
+        method = getattr(getattr(self.workflow, "repository", None), name, None)
+        return method(*args) if method else None
+
+    def _save_dialogue(self) -> None:
+        self._repository_call("save_dialogue", self.session_id, self.table_id, self.dialogue.to_dict())
+
+    def _heard_modifiers_only(self, intent: IntentProposal, transcript: str) -> IntentProposal:
+        """Drop modifiers the guest never said; a small model tends to add every allowed one."""
+        if not intent.items:
+            return intent
+        items = []
+        for item in intent.items:
+            menu_item = self.workflow.store.get_item(item.sku)
+            kept = spoken_modifiers(item.modifiers, transcript, menu_item.name if menu_item else "")
+            items.append(item.model_copy(update={"modifiers": kept}))
+        return intent.model_copy(update={"items": items})
 
     def current_order(self) -> dict | None:
         repository = getattr(self.workflow, "repository", None)
@@ -30,15 +51,12 @@ class RealtimeSession:
         order = repository.get_order(self.order_id)
         return self.workflow.describe_order(order) if order else None
 
-    def _menu_answer(self, action: str, transcript: str, language: str) -> dict:
-        available = self.workflow.store.list_menu(available_only=True)
+    def _menu_answer(self, action: str, transcript: str, language: str, order: dict | None = None) -> dict:
         if action == "recommend":
-            mild = "mild" in transcript.lower() or "suave" in transcript.lower()
-            choices = [item for item in available if item.spicy_level <= 1] if mild else available
-            choices.sort(key=lambda item: (-item.ordered_count, item.name))
-            choices = choices[:2]
+            allergies = order.get("allergies", []) if order and order.get("status") not in CLOSED_STATUSES else []
+            choices = recommend(self.workflow.store, transcript, allergies)
         else:
-            choices = available[:5]
+            choices = self.workflow.store.list_menu(available_only=True)[:5]
         self.dialogue.last_offered = [item.sku for item in choices]
         names = ", ".join(f"{item.name} (${item.price:.2f})" for item in choices)
         if action == "recommend":
@@ -98,6 +116,7 @@ class RealtimeSession:
             })
         else:
             intent = IntentProposal(source_language=language, action="clarify", needs_clarification=True, clarification_question="Please confirm your order.")
+        intent = self._heard_modifiers_only(intent, transcript)
         resolved, supported = resolve_language(intent.source_language or language)
         base = {"type": "workflow_update", "language_code": resolved, "tts_supported": supported}
         resolution = resolve(intent, self.dialogue, current, self.workflow.store, transcript)
@@ -110,7 +129,7 @@ class RealtimeSession:
             question = None if resolution.message else intent.clarification_question
             result = {"status": "clarification_required", "response_text": question or render_prompt(resolution.message or "clarify", resolved)}
         elif resolution.kind == "menu":
-            result = self._menu_answer(intent.action, transcript, resolved)
+            result = self._menu_answer(intent.action, transcript, resolved, current)
         elif resolution.kind == "ask":
             result = {"status": "awaiting_reply", "response_text": render_prompt(resolution.message, resolved)}
         elif resolution.kind == "readback":
@@ -148,6 +167,7 @@ class RealtimeSession:
                                               offered=alternatives[0]["sku"] if alternatives else None)
                 result["response_text"] = render_clarification(result, resolved, self._error_names(result))
         result["wrote_revision"] = wrote_revision
+        self._save_dialogue()
         await self._localize_verified(result, resolved)
         return {**result, **base, "pipeline_ms": round((time.perf_counter() - started) * 1000, 2)}
 
@@ -168,6 +188,7 @@ class RealtimeSession:
         enriched = {**decision, "substitutions": substitutions}
         if decision.get("action") == "propose_substitute":
             self.dialogue.set_pending("kitchen_substitute")
+            self._save_dialogue()
         result = {
             "type": "workflow_update", "source": "kitchen", "status": order["status"],
             "order_id": order["order_id"], "revision": order["current_revision"],
