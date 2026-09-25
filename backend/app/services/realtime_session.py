@@ -155,6 +155,8 @@ class RealtimeSession:
                 wrote_revision = True
                 if submitted.action in {"create_or_update_order", "replace_item"}:
                     self.dialogue.last_added = [item.sku for item in submitted.items]
+                    if self.dialogue.last_refused in self.dialogue.last_added:
+                        self.dialogue.last_refused = None  # back in stock and ordered after all
                 result["response_text"] = render_order_response(result, submitted.action, resolved)
             else:
                 unavailable = result.get("unavailable_items") or []

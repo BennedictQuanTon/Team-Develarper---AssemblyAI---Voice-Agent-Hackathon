@@ -29,10 +29,14 @@ class DialogueState:
     last_offered: list[str] = field(default_factory=list)
     last_added: list[str] = field(default_factory=list)
     pending: dict[str, Any] | None = None
+    # The last dish we refused. Outlives the offer, so a late ref=pending still means "that one".
+    last_refused: str | None = None
 
     def set_pending(self, kind: str, **details: Any) -> None:
         # One slot: the newest question replaces any older one.
         self.pending = {"kind": kind, **details, "turns_left": PENDING_TURNS[kind]}
+        if kind == "offer_substitute" and details.get("refused"):
+            self.last_refused = details["refused"]
 
     def begin_turn(self) -> None:
         """Age the pending question; it expires once its turns are used up."""
@@ -44,7 +48,7 @@ class DialogueState:
             self.pending["turns_left"] -= 1
 
     def reset(self) -> None:
-        self.last_offered, self.last_added, self.pending = [], [], None
+        self.last_offered, self.last_added, self.pending, self.last_refused = [], [], None, None
 
     def to_prompt(self, store: LanternStore) -> dict[str, Any]:
         def named(skus: list[str]) -> list[dict[str, str]]:
@@ -61,13 +65,13 @@ class DialogueState:
 
     def to_dict(self) -> dict[str, Any]:
         return {"last_offered": list(self.last_offered), "last_added": list(self.last_added),
-                "pending": dict(self.pending) if self.pending else None}
+                "pending": dict(self.pending) if self.pending else None, "last_refused": self.last_refused}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "DialogueState":
         data = data or {}
         return cls(list(data.get("last_offered") or []), list(data.get("last_added") or []),
-                   dict(data["pending"]) if data.get("pending") else None)
+                   dict(data["pending"]) if data.get("pending") else None, data.get("last_refused"))
 
 
 ResolutionKind = Literal["submit", "place", "ask", "readback", "clarify", "menu"]
@@ -105,12 +109,13 @@ def _words(text: str) -> set[str]:
 
 
 def _swap_target(new_sku: str, lines: list[dict[str, Any]], dialogue: DialogueState,
-                 store: LanternStore, transcript: str) -> tuple[str | None, bool]:
+                 store: LanternStore, transcript: str, *, recent_ok: bool = True) -> tuple[str | None, bool]:
     """The order line an unqualified "instead" replaces, and whether the guest named one we can't find.
 
     Named beats recent: a dish the guest mentions (by the menu matcher, or by a word only one
-    line in the order has, e.g. "the tea") wins; otherwise the dish just added. "Instead of X"
-    with no matching line returns (None, True) so the waiter asks instead of guessing.
+    line in the order has, e.g. "the tea") wins; otherwise the dish just added, unless
+    ``recent_ok`` is False. "Instead of X" with no matching line returns (None, True) so the
+    waiter asks instead of guessing.
     """
     in_order = [line["sku"] for line in lines if line["sku"] != new_sku]
     mentioned = mentioned_skus(transcript, store.list_menu())
@@ -124,7 +129,7 @@ def _swap_target(new_sku: str, lines: list[dict[str, Any]], dialogue: DialogueSt
         return named[0], False
     if EXPLICIT_TARGET.search(transcript):
         return None, True
-    if len(dialogue.last_added) == 1 and dialogue.last_added[0] in in_order:
+    if recent_ok and len(dialogue.last_added) == 1 and dialogue.last_added[0] in in_order:
         return dialogue.last_added[0], False
     return None, False
 
@@ -176,8 +181,11 @@ def resolve(intent: IntentProposal, dialogue: DialogueState, order: dict[str, An
     if action == "replace_item":
         in_order = {line["sku"] for line in lines}
         target = intent.replaces_sku
+        # A ref=pending after the refusal's offer lapsed still points at the refused dish, not the one just added.
+        stale_refusal = intent.ref == "pending" and kind != "offer_substitute" and bool(dialogue.last_refused)
         if target is None and intent.ref in {"last_added", "pending"} and kind != "offer_substitute" and len(intent.items) == 1:
-            target, unmatched = _swap_target(intent.items[0].sku, lines, dialogue, store, transcript)
+            target, unmatched = _swap_target(intent.items[0].sku, lines, dialogue, store, transcript,
+                                             recent_ok=not stale_refusal)
             if unmatched:
                 return Resolution("clarify", message="which_swap", clear_pending=confirming)
         new_items = intent.items
@@ -191,7 +199,7 @@ def resolve(intent: IntentProposal, dialogue: DialogueState, order: dict[str, An
         if kind == "offer_substitute" and (intent.ref == "pending" or target in {None, pending.get("refused")} or target not in mentioned):
             # "Seabass instead" after the squid was refused: the squid never entered the order.
             return Resolution("submit", as_addition, clear_pending=True)
-        if target not in in_order:
+        if stale_refusal or target not in in_order:
             return Resolution("submit", as_addition, clear_pending=confirming)
         return Resolution("submit", intent.model_copy(update={"replaces_sku": target, "items": new_items}), clear_pending=confirming)
 
@@ -209,7 +217,8 @@ def resolve(intent: IntentProposal, dialogue: DialogueState, order: dict[str, An
             items = _items([pending["offered"]])
         elif intent.ref == "pending" and kind != "offer_substitute" and len(items) == 1:
             # "X instead" with nothing refused: swap the dish the guest named, else the one just added.
-            target, unmatched = _swap_target(items[0].sku, lines, dialogue, store, transcript)
+            target, unmatched = _swap_target(items[0].sku, lines, dialogue, store, transcript,
+                                             recent_ok=not dialogue.last_refused)
             if unmatched:
                 return Resolution("clarify", message="which_swap", clear_pending=confirming)
             if target:

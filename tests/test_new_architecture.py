@@ -144,6 +144,8 @@ class ProviderLatencyContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(options.api_key, "test-key")
         self.assertEqual(options.connect_timeout, CONNECT_TIMEOUT_S)
         self.assertGreater(CONNECT_TIMEOUT_S, 1.0)
+        self.assertEqual(options.max_connection_retries, 2)
+        self.assertEqual(options.connection_retry_delay, 0.5)
         self.assertTrue(fake.connected)
         self.assertEqual([len(chunk) for chunk in fake.streamed], [3200])
         self.assertTrue(fake.disconnected)

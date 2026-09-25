@@ -14,6 +14,10 @@ ErrorCallback = Callable[[str], Awaitable[None] | None]
 # The handshake measured 1.4-1.9 s from a Windows dev machine, so the first attempt
 # timed out with "Connection failed" before a retry got through (#35).
 CONNECT_TIMEOUT_S = 5.0
+MAX_CONNECTION_RETRIES = 2
+CONNECTION_RETRY_DELAY_S = 0.5
+# Worst case for connect(): every attempt times out, plus the pauses between them and some slack.
+CONNECT_BUDGET_S = CONNECT_TIMEOUT_S * (MAX_CONNECTION_RETRIES + 1) + CONNECTION_RETRY_DELAY_S * MAX_CONNECTION_RETRIES + 3.0
 
 
 @dataclass(frozen=True)
@@ -72,7 +76,12 @@ class AssemblyAIRealtimeProvider:
                 return
             factory = self.client_factory or AsyncStreamingClient
             self._client = factory(
-                options=StreamingClientOptions(api_key=self.api_key, connect_timeout=CONNECT_TIMEOUT_S),
+                options=StreamingClientOptions(
+                    api_key=self.api_key,
+                    connect_timeout=CONNECT_TIMEOUT_S,
+                    max_connection_retries=MAX_CONNECTION_RETRIES,
+                    connection_retry_delay=CONNECTION_RETRY_DELAY_S,
+                ),
             )
             self._client.on(StreamingEvents.SpeechStarted, self._handle_speech_started)
             self._client.on(StreamingEvents.Turn, self._handle_turn)
