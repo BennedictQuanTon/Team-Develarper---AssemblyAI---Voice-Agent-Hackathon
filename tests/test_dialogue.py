@@ -54,6 +54,14 @@ class ResolverTests(unittest.TestCase):
             self.assertEqual(result.kind, "submit")
             self.assertEqual([item.sku for item in result.intent.items], expected)
 
+    def test_offered_ref_keeps_the_models_pick_from_a_longer_offer(self):
+        self.dialogue.last_offered = ["DS_COCONUT", "DS_BANANAFRIED", "DS_PLANTAIN", "DRINK_LEMON", "DRINK_BEER"]
+        intent = IntentProposal(action="create_or_update_order", ref="offered_all", items=items("DS_COCONUT", "DS_BANANAFRIED"))
+        result = self.resolve(intent, transcript="We'll take those two please")
+        self.assertEqual([item.sku for item in result.intent.items], ["DS_COCONUT", "DS_BANANAFRIED"])
+        stray = IntentProposal(action="create_or_update_order", ref="offered_first", items=items("MAIN_SEABASS"))
+        self.assertEqual([item.sku for item in self.resolve(stray).intent.items], ["DS_COCONUT"])
+
     def test_offered_ref_without_an_offer_asks_which(self):
         result = self.resolve(IntentProposal(action="create_or_update_order", ref="offered_all"))
         self.assertEqual((result.kind, result.message), ("clarify", "which_offered"))

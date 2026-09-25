@@ -166,10 +166,12 @@ def resolve(intent: IntentProposal, dialogue: DialogueState, order: dict[str, An
         items = intent.items
         if intent.ref in OFFERED_REFS:
             offered = dialogue.last_offered
-            picked = {"offered_all": offered, "offered_first": offered[:1], "offered_second": offered[1:2]}[intent.ref]
-            if not picked:
-                return Resolution("clarify", message="which_offered", clear_pending=confirming)
-            items = _items(picked)
+            # Keep the model's own pick when it comes from the offer ("those two" out of a longer list).
+            if not (items and all(item.sku in offered for item in items)):
+                picked = {"offered_all": offered, "offered_first": offered[:1], "offered_second": offered[1:2]}[intent.ref]
+                if not picked:
+                    return Resolution("clarify", message="which_offered", clear_pending=confirming)
+                items = _items(picked)
         elif intent.ref == "pending" and not items and kind == "offer_substitute" and pending.get("offered"):
             items = _items([pending["offered"]])
         if _is_restatement(items, lines, transcript):
