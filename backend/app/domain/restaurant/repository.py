@@ -26,6 +26,7 @@ class SQLiteOrderRepository:
         CREATE TABLE IF NOT EXISTS order_revisions (order_id TEXT NOT NULL, revision INTEGER NOT NULL, parent_revision INTEGER, transcript TEXT NOT NULL, source_language TEXT NOT NULL, items_json TEXT NOT NULL, allergies_json TEXT NOT NULL, validation_flags_json TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(order_id, revision));
         CREATE TABLE IF NOT EXISTS kitchen_decisions (decision_id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT NOT NULL, expected_revision INTEGER NOT NULL, action TEXT NOT NULL, eta_minutes INTEGER, substitute_json TEXT, reason TEXT, actor TEXT NOT NULL, created_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS order_events (event_id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT NOT NULL, revision INTEGER NOT NULL, event_type TEXT NOT NULL, payload_json TEXT NOT NULL, created_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS dialogue_sessions (guest_session_id TEXT PRIMARY KEY, table_id TEXT NOT NULL, state_json TEXT NOT NULL, updated_at TEXT NOT NULL);
         """)
         self.conn.commit()
 
@@ -89,3 +90,19 @@ class SQLiteOrderRepository:
         with self._lock:
             ids = [r[0] for r in self.conn.execute("SELECT order_id FROM order_sessions ORDER BY updated_at DESC").fetchall()]
             return [self.get_order(order_id) for order_id in ids]
+
+    def load_dialogue(self, guest_session_id: str, table_id: str) -> dict[str, Any] | None:
+        """The saved dialogue state for one guest session, or None if it belongs to another table."""
+        with self._lock:
+            row = self.conn.execute("SELECT table_id,state_json FROM dialogue_sessions WHERE guest_session_id=?", (guest_session_id,)).fetchone()
+        if not row or row["table_id"] != table_id:
+            return None
+        return json.loads(row["state_json"])
+
+    def save_dialogue(self, guest_session_id: str, table_id: str, state: dict[str, Any]) -> None:
+        now = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()
+        with self._lock, self.conn:
+            self.conn.execute(
+                "INSERT INTO dialogue_sessions VALUES (?,?,?,?) ON CONFLICT(guest_session_id) DO UPDATE SET state_json=excluded.state_json, updated_at=excluded.updated_at WHERE dialogue_sessions.table_id=excluded.table_id",
+                (guest_session_id, table_id, json.dumps(state), now),
+            )

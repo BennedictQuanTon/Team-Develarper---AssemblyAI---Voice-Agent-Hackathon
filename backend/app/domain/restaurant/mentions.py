@@ -25,6 +25,32 @@ def _name_and_sku(item: Any) -> tuple[str, str]:
     return str(item.name), str(item.sku)
 
 
+# Words that shape a modifier but don't say which one it is ("no chili" is about chili).
+_MODIFIER_FUNCTION_WORDS = {"no", "with", "without", "extra", "less", "more", "added", "and", "the", "of", "on", "side"}
+
+
+def spoken_modifiers(modifiers: Iterable[str], transcript: str, dish_name: str = "") -> list[str]:
+    """The modifiers the guest actually said.
+
+    A modifier counts only when one of its content words ("chili" in "no chili") is in the
+    transcript. Words of the dish's own name don't count, so "pomelo salad with shrimp" doesn't
+    select "extra shrimp".
+    """
+    spoken = set(_words(transcript)) - set(_words(dish_name))
+
+    def heard(word: str) -> bool:
+        # "peanuts" and "chilies" still name "peanut" and "chili".
+        return any(said == word or (len(word) >= 4 and said.startswith(word) and len(said) - len(word) <= 2)
+                   for said in spoken)
+
+    kept = []
+    for modifier in modifiers:
+        content = [word for word in _words(modifier) if word not in _MODIFIER_FUNCTION_WORDS]
+        if content and any(heard(word) for word in content):
+            kept.append(modifier)
+    return kept
+
+
 def mentioned_skus(transcript: str, menu: Iterable[Any], *, distinctive_words: bool = True) -> set[str]:
     """SKUs the guest named: full dish name, a known alias, or a word only one dish name uses.
 
