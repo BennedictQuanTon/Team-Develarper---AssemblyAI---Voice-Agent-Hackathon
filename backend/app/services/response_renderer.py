@@ -53,6 +53,7 @@ PROMPTS = {
     "kept_order": ("De acuerdo, mantuve su pedido como está.", "Okay, I kept your order as it is."),
     "anything_else": ("Claro. ¿Qué más desea?", "Sure. What else would you like?"),
     "which_offered": ("¿Qué platos desea?", "Which dishes would you like?"),
+    "which_swap": ("¿Qué plato de su pedido cambio?", "Which dish in your order should I swap out?"),
     "nothing_pending": ("Perdón, ¿qué desea hacer?", "Sorry, what would you like to do?"),
     "no_order": ("Su pedido está vacío. ¿Qué desea?", "There's nothing in your order yet. What would you like?"),
     "clarify": ("¿Puede aclarar su pedido?", "Please clarify your order."),

@@ -18,6 +18,8 @@ CLOSED_STATUSES = {"cancelled", "ready", "rejected"}
 OFFERED_REFS = {"offered_all", "offered_first", "offered_second"}
 # Words that make a repeated dish a real addition rather than a restatement of the order.
 ADD_WORDS = {"another", "more", "add", "extra", "again", "otra", "otro", "más", "mas"}
+# "Instead of X" in the demo languages: the guest named what to replace.
+EXPLICIT_TARGET = re.compile(r"\binstead of\b|\ben (?:lugar|vez) de\b|\bau lieu de\b", re.IGNORECASE)
 # How many guest turns each kind of pending question stays answerable.
 PENDING_TURNS = {"offer_substitute": 2, "kitchen_substitute": 2, "confirm_cancel": 1, "confirm_place": 1}
 
@@ -98,6 +100,35 @@ def _is_restatement(items: list[IntentItem], lines: list[dict[str, Any]], transc
     return wanted == current
 
 
+def _words(text: str) -> set[str]:
+    return {word for word in re.findall(r"[^\W\d_]+", text.casefold()) if len(word) >= 3}
+
+
+def _swap_target(new_sku: str, lines: list[dict[str, Any]], dialogue: DialogueState,
+                 store: LanternStore, transcript: str) -> tuple[str | None, bool]:
+    """The order line an unqualified "instead" replaces, and whether the guest named one we can't find.
+
+    Named beats recent: a dish the guest mentions (by the menu matcher, or by a word only one
+    line in the order has, e.g. "the tea") wins; otherwise the dish just added. "Instead of X"
+    with no matching line returns (None, True) so the waiter asks instead of guessing.
+    """
+    in_order = [line["sku"] for line in lines if line["sku"] != new_sku]
+    mentioned = mentioned_skus(transcript, store.list_menu())
+    named = [sku for sku in in_order if sku in mentioned]
+    if not named:
+        spoken = _words(transcript)
+        names = {sku: _words(item.name) for sku in in_order if (item := store.get_item(sku))}
+        named = [sku for sku, words in names.items()
+                 if any(word in spoken and sum(word in other for other in names.values()) == 1 for word in words)]
+    if len(named) == 1:
+        return named[0], False
+    if EXPLICIT_TARGET.search(transcript):
+        return None, True
+    if len(dialogue.last_added) == 1 and dialogue.last_added[0] in in_order:
+        return dialogue.last_added[0], False
+    return None, False
+
+
 def resolve(intent: IntentProposal, dialogue: DialogueState, order: dict[str, Any] | None,
             store: LanternStore, transcript: str) -> Resolution:
     """Map the model's intent onto the dialogue and the saved order. Pure: never writes."""
@@ -145,8 +176,10 @@ def resolve(intent: IntentProposal, dialogue: DialogueState, order: dict[str, An
     if action == "replace_item":
         in_order = {line["sku"] for line in lines}
         target = intent.replaces_sku
-        if target is None and intent.ref == "last_added" and len(dialogue.last_added) == 1:
-            target = dialogue.last_added[0]
+        if target is None and intent.ref in {"last_added", "pending"} and kind != "offer_substitute" and len(intent.items) == 1:
+            target, unmatched = _swap_target(intent.items[0].sku, lines, dialogue, store, transcript)
+            if unmatched:
+                return Resolution("clarify", message="which_swap", clear_pending=confirming)
         new_items = intent.items
         if not new_items and kind == "offer_substitute" and pending.get("offered"):
             new_items = _items([pending["offered"]])
@@ -174,6 +207,14 @@ def resolve(intent: IntentProposal, dialogue: DialogueState, order: dict[str, An
                 items = _items(picked)
         elif intent.ref == "pending" and not items and kind == "offer_substitute" and pending.get("offered"):
             items = _items([pending["offered"]])
+        elif intent.ref == "pending" and kind != "offer_substitute" and len(items) == 1:
+            # "X instead" with nothing refused: swap the dish the guest named, else the one just added.
+            target, unmatched = _swap_target(items[0].sku, lines, dialogue, store, transcript)
+            if unmatched:
+                return Resolution("clarify", message="which_swap", clear_pending=confirming)
+            if target:
+                swap = intent.model_copy(update={"action": "replace_item", "replaces_sku": target, "items": items})
+                return Resolution("submit", swap, clear_pending=confirming)
         if _is_restatement(items, lines, transcript):
             # Usually "that's all" worded as the whole basket: read it back and offer to place it.
             placing = {"kind": "confirm_place"} if not order.get("placed") else None

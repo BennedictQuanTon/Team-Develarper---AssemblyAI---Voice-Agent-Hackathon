@@ -77,6 +77,24 @@ class ResolverTests(unittest.TestCase):
             self.assertEqual([item.sku for item in result.intent.items], ["MAIN_SEABASS"])
             self.assertTrue(result.clear_pending)
 
+    def test_instead_without_a_refusal_swaps_the_named_or_last_added_dish(self):
+        order = order_with("SP_PHO", "MAIN_SQUID")
+        self.dialogue.last_added = ["MAIN_SQUID"]
+        seabass = IntentProposal(action="create_or_update_order", ref="pending", items=items("MAIN_SEABASS"))
+        swapped = self.resolve(seabass, order, "Okay, make it a grilled seabass instead")
+        self.assertEqual((swapped.intent.action, swapped.intent.replaces_sku), ("replace_item", "MAIN_SQUID"))
+        beer = IntentProposal(action="create_or_update_order", ref="pending", items=items("DRINK_BEER"))
+        named = self.resolve(beer, order, "Actually, a beer instead of the pho")
+        self.assertEqual((named.intent.action, named.intent.replaces_sku), ("replace_item", "SP_PHO"))
+        tea_order = order_with("SP_PHO", "DRINK_LEMON")
+        by_word = self.resolve(beer, tea_order, "Actually, a beer instead of the tea")
+        self.assertEqual(by_word.intent.replaces_sku, "DRINK_LEMON")
+        missing = self.resolve(beer, order_with("SP_PHO", "MAIN_SQUID"), "Actually, a beer instead of the iced tea")
+        self.assertEqual((missing.kind, missing.message), ("clarify", "which_swap"))
+        self.dialogue.last_added = []
+        unclear = self.resolve(seabass, order, "seabass instead")
+        self.assertEqual(unclear.intent.action, "create_or_update_order")
+
     def test_named_swap_beats_the_pending_offer(self):
         self.dialogue.set_pending("offer_substitute", refused="MAIN_SQUID", offered="ST_SPRINGROLL")
         intent = IntentProposal(action="replace_item", items=items("ST_SPRINGROLL"), replaces_sku="MAIN_SEABASS")
