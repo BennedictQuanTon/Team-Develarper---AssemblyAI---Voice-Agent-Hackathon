@@ -27,3 +27,16 @@ input, select { width: 100%; margin-top: 12px; padding: 12px; border: 1px solid 
 select { min-width: 0; }
 #notice { margin-top: 8px; color: #8a5a22; }
 @media (max-width: 520px) { .shell { padding-top: 24px; } .row { align-items: flex-start; flex-direction: column; gap: 3px; } .row span { text-align: left; } }
+.modifiers { display: block; margin-top: 2px; color: #8a5a22; font-size: 0.82rem; font-weight: 600; }
+.allergy { margin: 8px 0; padding: 8px 12px; border-radius: 10px; color: #8b1e1e; background: #fbe4e1; font-weight: 700; }
+.ops { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.lane { margin: 8px 0 10px; }
+.lane small { color: #6e776f; font-weight: 500; }
+.activity { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.activity li { padding: 12px 14px; border: 1px solid #d9cbb4; border-radius: 14px; background: rgba(255, 255, 255, 0.78); }
+.activity li.placed { border-color: #285b3a; box-shadow: inset 4px 0 0 #285b3a; }
+.turn-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.badge { padding: 2px 9px; border-radius: 999px; background: #efe6d6; color: #5a4a2e; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+.heard { margin: 6px 0 4px; font-style: italic; }
+.activity small { color: #6e776f; }
+@media (max-width: 860px) { .ops { grid-template-columns: 1fr; } }

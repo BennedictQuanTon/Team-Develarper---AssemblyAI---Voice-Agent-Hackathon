@@ -1,0 +1,37 @@
+{
+  "recommend_en": {
+    "language": "en",
+    "text": "Let me see what's good tonight.",
+    "file": "recommend_en.wav",
+    "voice": "af_heart",
+    "seconds": 1.35
+  },
+  "order_en": {
+    "language": "en",
+    "text": "Sure, one moment.",
+    "file": "order_en.wav",
+    "voice": "af_heart",
+    "seconds": 0.99
+  },
+  "check_en": {
+    "language": "en",
+    "text": "Let me check that for you.",
+    "file": "check_en.wav",
+    "voice": "af_heart",
+    "seconds": 1.24
+  },
+  "place_en": {
+    "language": "en",
+    "text": "Perfect, sending it through.",
+    "file": "place_en.wav",
+    "voice": "af_heart",
+    "seconds": 1.44
+  },
+  "generic_es": {
+    "language": "es",
+    "text": "Un momento, por favor.",
+    "file": "generic_es.wav",
+    "voice": "ef_dora",
+    "seconds": 1.52
+  }
+}
