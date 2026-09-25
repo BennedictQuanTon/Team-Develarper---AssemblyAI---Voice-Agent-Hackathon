@@ -57,6 +57,8 @@ class SQLiteOrderRepository:
             current = out["revisions"][-1]
             out["items"] = json.loads(current["items_json"])
             out["allergies"] = json.loads(current["allergies_json"])
+            # Placing writes a pending_kitchen revision; drafts never do, so this survives kitchen decisions.
+            out["placed"] = any(r["status"] == "pending_kitchen" for r in out["revisions"])
             decision = self.conn.execute("SELECT * FROM kitchen_decisions WHERE order_id=? ORDER BY decision_id DESC LIMIT 1", (order_id,)).fetchone()
             if decision:
                 out["latest_decision"] = dict(decision)

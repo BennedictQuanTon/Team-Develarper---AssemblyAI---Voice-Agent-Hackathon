@@ -245,7 +245,7 @@ async def run_websocket_probe(server_url: str) -> dict[str, Any]:
             while True:
                 message = json.loads(await asyncio.wait_for(socket.recv(), timeout=30))
                 elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
-                if message.get("type") == "workflow_update" and message.get("status") == "pending_kitchen":
+                if message.get("type") == "workflow_update" and message.get("status") in {"draft", "pending_kitchen"}:
                     workflow_ms = elapsed_ms
                     server_pipeline_ms = message.get("pipeline_ms")
                 elif message.get("type") == "audio_chunk":

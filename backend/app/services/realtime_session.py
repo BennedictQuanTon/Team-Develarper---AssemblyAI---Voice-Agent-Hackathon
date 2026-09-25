@@ -7,8 +7,9 @@ import re
 from ..domain.restaurant.models import IntentProposal
 from ..domain.restaurant.workflow import OrderWorkflow
 from ..providers.llm.ollama import OllamaClient
+from .dialogue import CLOSED_STATUSES, DialogueState, resolve
 from .language_router import resolve_language
-from .response_renderer import render_clarification, render_kitchen_decision, render_order_response
+from .response_renderer import SKU_PATTERN, render_clarification, render_kitchen_decision, render_order_response, render_prompt
 
 
 class RealtimeSession:
@@ -20,7 +21,7 @@ class RealtimeSession:
         self.session_id = session_id or str(uuid.uuid4())
         self.order_id = order_id
         self.workflow, self.llm = workflow, llm
-        self.last_recommendations: list[str] = []
+        self.dialogue = DialogueState()
 
     def current_order(self) -> dict | None:
         repository = getattr(self.workflow, "repository", None)
@@ -36,9 +37,9 @@ class RealtimeSession:
             choices = [item for item in available if item.spicy_level <= 1] if mild else available
             choices.sort(key=lambda item: (-item.ordered_count, item.name))
             choices = choices[:2]
-            self.last_recommendations = [item.sku for item in choices]
         else:
             choices = available[:5]
+        self.dialogue.last_offered = [item.sku for item in choices]
         names = ", ".join(f"{item.name} (${item.price:.2f})" for item in choices)
         if action == "recommend":
             response = f"I recommend {names}." if language != "es" else f"Le recomiendo {names}."
@@ -69,9 +70,20 @@ class RealtimeSession:
         except Exception:  # noqa: BLE001
             pass  # English verified response is safer than a failed localization.
 
+    def _error_names(self, result: dict) -> dict[str, str]:
+        """Dish names for the SKUs inside error strings, so the guest never hears a SKU."""
+        names = {}
+        for error in result.get("errors") or []:
+            for sku in SKU_PATTERN.findall(str(error)):
+                item = self.workflow.store.get_item(sku)
+                if item:
+                    names[sku] = item.name
+        return names
+
     async def handle_transcript(self, transcript: str, language: str = "en") -> dict:
         started = time.perf_counter()
         current = self.current_order()
+        self.dialogue.begin_turn()
         if self.llm:
             intent = await self.llm.extract_intent(transcript, {
                 "menu": [item.as_dict() for item in self.workflow.store.list_menu()],
@@ -81,30 +93,61 @@ class RealtimeSession:
                     "items": current["basket"] if current else [],
                     "total": current["total"] if current else 0,
                     "latest_decision": current["latest_decision"] if current else None,
-                    "last_recommendations": self.last_recommendations,
+                    **self.dialogue.to_prompt(self.workflow.store),
                 },
             })
         else:
             intent = IntentProposal(source_language=language, action="clarify", needs_clarification=True, clarification_question="Please confirm your order.")
         resolved, supported = resolve_language(intent.source_language or language)
         base = {"type": "workflow_update", "language_code": resolved, "tts_supported": supported}
-        if intent.action == "clarify" or intent.needs_clarification:
-            result = {"status": "clarification_required", "response_text": intent.clarification_question or "Please clarify your order."}
-        elif intent.action in {"recommend", "menu_query"}:
+        resolution = resolve(intent, self.dialogue, current, self.workflow.store, transcript)
+        if resolution.clear_pending:
+            self.dialogue.pending = None
+        if resolution.new_pending:
+            self.dialogue.set_pending(**resolution.new_pending)
+        wrote_revision = False
+        if resolution.kind == "clarify":
+            question = None if resolution.message else intent.clarification_question
+            result = {"status": "clarification_required", "response_text": question or render_prompt(resolution.message or "clarify", resolved)}
+        elif resolution.kind == "menu":
             result = self._menu_answer(intent.action, transcript, resolved)
+        elif resolution.kind == "ask":
+            result = {"status": "awaiting_reply", "response_text": render_prompt(resolution.message, resolved)}
+        elif resolution.kind == "readback":
+            text = render_order_response(current, "readback", resolved)
+            if resolution.new_pending:
+                text = f"{text} {render_prompt(resolution.new_pending['kind'], resolved)}"
+            result = {**current, "response_text": text}
+        elif resolution.kind == "place":
+            result = self.workflow.place(self.table_id, self.session_id, transcript, self.order_id, intent.source_language)
+            if result.get("order_id"):
+                wrote_revision = not result.get("already_placed")
+                result["response_text"] = render_order_response(result, "place_order", resolved)
+            else:
+                result["response_text"] = render_clarification(result, resolved, self._error_names(result))
         else:
-            if current and current["status"] in {"cancelled", "ready", "rejected"} and intent.action == "create_or_update_order":
+            submitted = resolution.intent
+            if current and current["status"] in CLOSED_STATUSES and submitted.action == "create_or_update_order":
                 self.order_id = None
-            result = self.workflow.submit(self.table_id, self.session_id, transcript, intent, self.order_id)
+                self.dialogue.last_added = []
+            result = self.workflow.submit(self.table_id, self.session_id, transcript, submitted, self.order_id)
             if result.get("order_id"):
                 self.order_id = result["order_id"]
-                result["response_text"] = render_order_response(result, intent.action, resolved)
+                wrote_revision = True
+                if submitted.action in {"create_or_update_order", "replace_item"}:
+                    self.dialogue.last_added = [item.sku for item in submitted.items]
+                result["response_text"] = render_order_response(result, submitted.action, resolved)
             else:
                 unavailable = result.get("unavailable_items") or []
                 if unavailable:
                     item = self.workflow.store.get_item(unavailable[0])
                     result["requested_name"] = item.name if item else unavailable[0]
-                result["response_text"] = render_clarification(result, resolved)
+                    alternatives = result.get("alternatives") or []
+                    # Remember the refusal so "X instead" next turn adds X and removes nothing.
+                    self.dialogue.set_pending("offer_substitute", refused=unavailable[0],
+                                              offered=alternatives[0]["sku"] if alternatives else None)
+                result["response_text"] = render_clarification(result, resolved, self._error_names(result))
+        result["wrote_revision"] = wrote_revision
         await self._localize_verified(result, resolved)
         return {**result, **base, "pipeline_ms": round((time.perf_counter() - started) * 1000, 2)}
 
@@ -123,6 +166,8 @@ class RealtimeSession:
                 "to_name": replacement.name if replacement else proposal.get("to_sku"),
             })
         enriched = {**decision, "substitutions": substitutions}
+        if decision.get("action") == "propose_substitute":
+            self.dialogue.set_pending("kitchen_substitute")
         result = {
             "type": "workflow_update", "source": "kitchen", "status": order["status"],
             "order_id": order["order_id"], "revision": order["current_revision"],

@@ -114,7 +114,7 @@ def get_order(order_id: str):
 
 @app.get("/api/kitchen/orders")
 def kitchen_orders():
-    return {"orders": [workflow.describe_order(order) for order in repository.list_orders()]}
+    return {"orders": [workflow.describe_order(order) for order in repository.list_orders() if order["placed"]]}
 
 
 @app.post("/api/kitchen/orders/{order_id}/decisions")
@@ -182,7 +182,8 @@ async def realtime(websocket: WebSocket):
         try:
             result = await session.handle_transcript(text, language_code)
             await send(result)
-            if result.get("order_id") and result.get("current_revision"):
+            # Drafts stay off the kitchen board, and readbacks that wrote nothing aren't re-published.
+            if result.get("order_id") and result.get("wrote_revision") and result.get("placed"):
                 broker.publish({"type": "order_update", "order": workflow.describe_order(repository.get_order(result["order_id"]))})
             first_audio_ms = await speak(result, turn_cancel, started)
             await send(
@@ -299,7 +300,7 @@ async def operations(websocket: WebSocket):
     await websocket.accept()
     queue = broker.subscribe()
     try:
-        await websocket.send_json({"type": "kitchen_snapshot", "orders": [workflow.describe_order(order) for order in repository.list_orders()]})
+        await websocket.send_json({"type": "kitchen_snapshot", "orders": [workflow.describe_order(order) for order in repository.list_orders() if order["placed"]]})
         while True:
             event = await queue.get()
             await websocket.send_json(event)
