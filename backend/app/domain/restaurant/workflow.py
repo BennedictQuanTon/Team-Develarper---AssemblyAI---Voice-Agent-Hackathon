@@ -52,6 +52,8 @@ class OrderWorkflow:
         order = self.repository.get_order(order_id)
         if not order:
             raise KeyError(order_id)
+        if not order["placed"]:
+            raise ValueError("this order has not been placed yet")
         if decision["action"] != "propose_substitute":
             return
         substitutions = decision.get("substitutions") or []
@@ -91,7 +93,8 @@ class OrderWorkflow:
 
         lines = [dict(line) for line in order["items"]] if order else []
         allergies = effective_allergies
-        status = "pending_kitchen"
+        # Changes stay a draft until the guest places the order; after that they go to the kitchen again.
+        status = "pending_kitchen" if order and order["placed"] else "draft"
         if action == "create_or_update_order":
             for item in intent.items:
                 match = next((line for line in lines if line["sku"] == item.sku and line.get("modifiers", []) == item.modifiers), None)
@@ -145,5 +148,19 @@ class OrderWorkflow:
             order["order_id"] if order else str(uuid.uuid4()), table_id, guest_session_id,
             intent.source_language, transcript, lines, allergies, status,
             expected_revision=order["current_revision"] if order else 0,
+        )
+        return self.describe_order(saved)
+
+    def place(self, table_id: str, guest_session_id: str, transcript: str, order_id: str | None, language: str = "en") -> dict[str, Any]:
+        """Send the draft to the kitchen: a new revision with the same lines, status pending_kitchen."""
+        order = self._current(order_id, table_id, guest_session_id)
+        if not order or order["status"] in {"cancelled", "ready", "rejected"} or not order["items"]:
+            return {"status": "clarification_required", "errors": ["there is no order to place"]}
+        if order["placed"]:
+            return {**self.describe_order(order), "already_placed": True}
+        saved = self.repository.create_revision(
+            order["order_id"], table_id, guest_session_id, language, transcript,
+            [dict(line) for line in order["items"]], order["allergies"], "pending_kitchen",
+            expected_revision=order["current_revision"],
         )
         return self.describe_order(saved)

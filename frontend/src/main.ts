@@ -71,7 +71,8 @@ function guestView(): void {
   function showOrder(order: Order | null): void {
     if (order) {
       localStorage.setItem(orderKey, order.order_id);
-      text("order-status", `#${order.order_id.slice(0, 8)} · ${order.status} · revision ${order.current_revision}`);
+      const status = order.status === "draft" ? "draft · not sent to the kitchen yet" : order.status;
+      text("order-status", `#${order.order_id.slice(0, 8)} · ${status} · revision ${order.current_revision}`);
       basket(document.getElementById("basket")!, order.basket, order.total);
       if (["cancelled", "ready", "rejected"].includes(order.status)) localStorage.removeItem(orderKey);
     } else {

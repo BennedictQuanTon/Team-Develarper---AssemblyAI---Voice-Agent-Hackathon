@@ -37,7 +37,7 @@ class ConversationFlowTests(unittest.IsolatedAsyncioTestCase):
                 intent("create_or_update_order", "VG_MORNING"),
                 intent("recommend"), intent("menu_query"),
                 intent("remove_item", "MAIN_SEABASS"),
-                intent("cancel_order"),
+                intent("cancel_order"), intent("confirm"),
                 intent("create_or_update_order", "MAIN_SQUID"),
             ])
             session = RealtimeSession("T4", OrderWorkflow(repo, store), llm)
@@ -46,11 +46,14 @@ class ConversationFlowTests(unittest.IsolatedAsyncioTestCase):
             recommendation = await session.handle_transcript("what do you recommend?")
             menu = await session.handle_transcript("what's on the menu?")
             removed = await session.handle_transcript("remove sea bass")
-            cancelled = await session.handle_transcript("cancel the order")
+            asked = await session.handle_transcript("cancel the order")
+            cancelled = await session.handle_transcript("yes")
             store.set_available("MAIN_SQUID", False)
             soldout = await session.handle_transcript("can I get the crispy squid?")
 
             self.assertEqual(first["order_id"], second["order_id"])
+            self.assertEqual(asked["status"], "awaiting_reply")
+            self.assertEqual(asked["response_text"], "Cancel the whole order?")
             self.assertEqual([first["current_revision"], second["current_revision"], removed["current_revision"], cancelled["current_revision"]], [1, 2, 3, 4])
             self.assertEqual({line["sku"] for line in second["basket"]}, {"MAIN_SEABASS", "VG_MORNING"})
             self.assertEqual([line["sku"] for line in removed["basket"]], ["VG_MORNING"])
@@ -69,23 +72,26 @@ class ConversationFlowTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as directory:
             repo = SQLiteOrderRepository(Path(directory) / "orders.sqlite3")
             workflow = OrderWorkflow(repo, LanternStore())
-            llm = ScriptedLLM([intent("create_or_update_order", "MAIN_SEABASS"), intent("accept_substitute")])
+            llm = ScriptedLLM([intent("create_or_update_order", "MAIN_SEABASS"), intent("place_order"), intent("accept_substitute")])
             session = RealtimeSession("T4", workflow, llm)
             created = await session.handle_transcript("one sea bass")
-            decision = {"action": "propose_substitute", "expected_revision": 1,
+            self.assertEqual(created["status"], "draft")
+            placed = await session.handle_transcript("that's all, please place the order")
+            self.assertEqual((placed["status"], placed["current_revision"]), ("pending_kitchen", 2))
+            decision = {"action": "propose_substitute", "expected_revision": 2,
                         "substitutions": [{"from_sku": "MAIN_SEABASS", "to_sku": "MAIN_LEMCHICKEN"}]}
             workflow.validate_kitchen_decision(created["order_id"], decision)
             proposed = repo.decide(created["order_id"], decision)
             guest_update = await session.handle_kitchen_decision(proposed, decision)
             self.assertEqual(guest_update["status"], "substitution_proposed")
             self.assertIn("Would you accept", guest_update["response_text"])
-            self.assertEqual(len(llm.contexts), 1)
+            self.assertEqual(len(llm.contexts), 2)
             accepted = await session.handle_transcript("yes, that works")
-            self.assertEqual(accepted["current_revision"], 2)
+            self.assertEqual(accepted["current_revision"], 3)
             self.assertEqual(accepted["basket"][0]["sku"], "MAIN_LEMCHICKEN")
-            self.assertEqual(llm.contexts[1]["current_state"]["latest_decision"]["action"], "propose_substitute")
+            self.assertEqual(llm.contexts[2]["current_state"]["latest_decision"]["action"], "propose_substitute")
             with self.assertRaisesRegex(ValueError, "stale revision"):
-                repo.decide(created["order_id"], {"action": "accept", "expected_revision": 1})
+                repo.decide(created["order_id"], {"action": "accept", "expected_revision": 2})
             repo.close()
 
     async def test_existing_allergy_still_blocks_later_addition(self):
