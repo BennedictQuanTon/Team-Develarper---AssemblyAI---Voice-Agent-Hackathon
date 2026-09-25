@@ -14,7 +14,7 @@ from .domain.restaurant.store import get_lantern_store
 from .domain.restaurant.workflow import OrderWorkflow
 from .services.kitchen_events import KitchenEventBroker
 from .services.realtime_session import RealtimeSession
-from .providers.asr.assemblyai_stream import AssemblyAIRealtimeProvider, TranscriptEvent
+from .providers.asr.assemblyai_stream import CONNECT_BUDGET_S, AssemblyAIRealtimeProvider, TranscriptEvent
 from .providers.llm.ollama import OllamaClient
 from .providers.tts.kokoro import KokoroProvider
 
@@ -280,8 +280,7 @@ async def realtime(websocket: WebSocket):
 
         async def connect_asr() -> None:
             try:
-                # Room for the SDK's own retries: 3 attempts x CONNECT_TIMEOUT_S + 2 x 0.5 s.
-                await asyncio.wait_for(asr.connect(), timeout=20)
+                await asyncio.wait_for(asr.connect(), timeout=CONNECT_BUDGET_S)
                 asr_ready.set()
                 await send({"type": "provider_ready", "provider": "assemblyai"})
             except Exception as exc:  # noqa: BLE001

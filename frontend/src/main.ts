@@ -128,7 +128,9 @@ function guestView(): void {
 
   function handleMessage(message: ServerMessage): void {
     if (message.type === "session_ready") {
-      setStatus("Connected — you can type a request now");
+      setStatus(message.asr_status === "connecting"
+        ? "Connecting to speech recognition… you can type a request meanwhile"
+        : "Connected — you can type a request now");
       showOrder((message.order as Order | null) ?? null);
     } else if (message.type === "provider_ready" && message.provider === "assemblyai") {
       setStatus("Speak or type your request");

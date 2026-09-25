@@ -173,7 +173,7 @@ class DialoguePersistenceTests(SessionHarness):
         self.assertEqual(self.repo.load_dialogue(session.session_id, "T4")["last_offered"], ["ST_POMELO", "MAIN_LEMCHICKEN"])
 
     async def test_new_guest_starts_empty(self):
-        self.assertEqual(self.session([]).dialogue.to_dict(), {"last_offered": [], "last_added": [], "pending": None})
+        self.assertEqual(self.session([]).dialogue.to_dict(), {"last_offered": [], "last_added": [], "pending": None, "last_refused": None})
 
 
 if __name__ == "__main__":

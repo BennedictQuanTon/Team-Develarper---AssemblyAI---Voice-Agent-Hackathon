@@ -145,6 +145,21 @@ class ResolverTests(unittest.TestCase):
         self.assertEqual(result.kind, "place")
         self.assertTrue(result.clear_pending)
 
+    def test_late_ref_pending_after_a_refusal_adds_instead_of_swapping(self):
+        # #37 review / #39: squid refused, morning glory ordered (offer cleared), then "seabass instead".
+        self.dialogue.set_pending("offer_substitute", refused="MAIN_SQUID", offered="MAIN_SEABASS")
+        self.dialogue.pending = None
+        self.dialogue.last_added = ["VG_MORNING"]
+        order = order_with("VG_MORNING")
+        for intent in [IntentProposal(action="create_or_update_order", ref="pending", items=items("MAIN_SEABASS")),
+                       IntentProposal(action="replace_item", ref="pending", items=items("MAIN_SEABASS")),
+                       IntentProposal(action="replace_item", ref="pending", items=items("MAIN_SEABASS"), replaces_sku="VG_MORNING")]:
+            result = self.resolve(intent, order, "Actually a seabass instead")
+            self.assertEqual((result.intent.action, result.intent.replaces_sku), ("create_or_update_order", None), intent)
+        named = self.resolve(IntentProposal(action="create_or_update_order", ref="pending", items=items("MAIN_SEABASS")),
+                             order, "a seabass instead of the morning glory")
+        self.assertEqual(named.intent.replaces_sku, "VG_MORNING")
+
     def test_pending_expires_and_round_trips(self):
         self.dialogue.set_pending("offer_substitute", refused="MAIN_SQUID", offered="MAIN_SEABASS")
         self.dialogue.begin_turn()
@@ -188,6 +203,26 @@ def six_turns(turn4="pending", turn6="place"):
                                              items=[IntentItem(sku=line["sku"], quantity=line["quantity"]) for line in st["items"]]),
         "cancel": lambda st: IntentProposal(action="cancel_order"),
     }[turn6]
+
+
+class StaleRefusalFlowTests(unittest.IsolatedAsyncioTestCase):
+    async def test_seabass_instead_after_the_offer_lapsed_keeps_the_morning_glory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = SQLiteOrderRepository(Path(directory) / "orders.sqlite3")
+            store = LanternStore()
+            store.set_available("MAIN_SQUID", False)
+            session = RealtimeSession("T4", OrderWorkflow(repo, store), ScriptedLLM([
+                lambda st: IntentProposal(action="create_or_update_order", items=items("MAIN_SQUID")),
+                lambda st: IntentProposal(action="create_or_update_order", items=items("VG_MORNING")),
+                lambda st: IntentProposal(action="create_or_update_order", ref="pending", items=items("MAIN_SEABASS")),
+            ]))
+            for text in ["Crispy squid please", "One morning glory", "Actually a seabass instead"]:
+                await session.handle_transcript(text)
+            order = session.current_order()
+            self.assertEqual(sorted(line["sku"] for line in order["basket"]), ["MAIN_SEABASS", "VG_MORNING"])
+            self.assertEqual(order["total"], 21.0)
+            self.assertEqual(DialogueState.from_dict(session.dialogue.to_dict()).last_refused, "MAIN_SQUID")
+            repo.close()
 
 
 class SixTurnScenarioTests(unittest.IsolatedAsyncioTestCase):
