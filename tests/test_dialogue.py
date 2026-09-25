@@ -283,6 +283,22 @@ class SixTurnScenarioTests(unittest.IsolatedAsyncioTestCase):
 
 
 class KitchenVisibilityTests(unittest.TestCase):
+    def test_floor_map_seats_and_clears_a_table(self):
+        store = LanternStore()
+        original = main.store
+        main.store = store
+        try:
+            client = TestClient(main.app)
+            seated = client.post("/floor/status", json={"table_id": "T3", "status": "seated"})
+            self.assertEqual((seated.status_code, seated.json()["status"]), (200, "seated"))
+            floor = {t["id"]: t["status"] for t in client.get("/floor").json()["tables"]}
+            self.assertEqual(floor["T3"], "seated")
+            self.assertEqual(client.post("/floor/status", json={"table_id": "T3", "status": "free"}).json()["status"], "free")
+            self.assertEqual(client.post("/floor/status", json={"table_id": "T99", "status": "free"}).status_code, 404)
+            self.assertEqual(client.post("/floor/status", json={"table_id": "T3", "status": "on fire"}).status_code, 422)
+        finally:
+            main.store = original
+
     def test_drafts_stay_off_the_kitchen_board_until_placed(self):
         with tempfile.TemporaryDirectory() as directory:
             repo = SQLiteOrderRepository(Path(directory) / "orders.sqlite3")

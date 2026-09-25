@@ -1,46 +1,97 @@
-export class MicRecorder {
-  private context: AudioContext | null = null;
-  private stream: MediaStream | null = null;
-  private processor: ScriptProcessorNode | null = null;
-  private source: MediaStreamAudioSourceNode | null = null;
+/**
+ * Microphone capture and linear downsampling to 16kHz 16-bit PCM.
+ * Mutes audio loopback to prevent speaker echo.
+ */
 
-  async start(onPcm16: (pcm: ArrayBuffer) => void): Promise<void> {
-    if (this.stream) return;
-    this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
-    });
-    this.context = new AudioContext();
-    await this.context.resume();
-    this.source = this.context.createMediaStreamSource(this.stream);
-    this.processor = this.context.createScriptProcessor(4096, 1, 1);
-    const inputRate = this.context.sampleRate;
-    this.processor.onaudioprocess = (event) => {
-      const input = event.inputBuffer.getChannelData(0);
-      const ratio = inputRate / 16000;
-      const size = Math.floor(input.length / ratio);
-      const output = new Int16Array(size);
-      for (let index = 0; index < size; index += 1) {
-        const start = Math.floor(index * ratio);
-        const end = Math.max(start + 1, Math.floor((index + 1) * ratio));
-        let total = 0;
-        for (let sourceIndex = start; sourceIndex < end && sourceIndex < input.length; sourceIndex += 1) total += input[sourceIndex];
-        const sample = Math.max(-1, Math.min(1, total / (end - start)));
-        output[index] = sample < 0 ? sample * 32768 : sample * 32767;
-      }
-      onPcm16(output.buffer);
-    };
-    this.source.connect(this.processor);
-    this.processor.connect(this.context.destination);
+export class MicRecorder {
+  private ctx: AudioContext;
+  private stream: MediaStream | null = null;
+  private sourceNode: MediaStreamAudioSourceNode | null = null;
+  private processor: ScriptProcessorNode | null = null;
+  private muteGain: GainNode | null = null;
+  public analyser: AnalyserNode | null = null;
+  public onAudioChunk?: (pcmData: Int16Array) => void;
+
+  constructor(ctx: AudioContext) {
+    this.ctx = ctx;
   }
 
-  async stop(): Promise<void> {
-    this.processor?.disconnect();
-    this.source?.disconnect();
-    this.stream?.getTracks().forEach((track) => track.stop());
-    await this.context?.close();
-    this.processor = null;
-    this.source = null;
-    this.stream = null;
-    this.context = null;
+  public async start(): Promise<void> {
+    if (this.stream) return;
+
+    this.stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: false,
+    });
+
+    this.sourceNode = this.ctx.createMediaStreamSource(this.stream);
+    this.analyser = this.ctx.createAnalyser();
+    this.analyser.fftSize = 256;
+    this.sourceNode.connect(this.analyser);
+
+    // Use 2048 buffer (~42ms at 48kHz) for low latency
+    this.processor = this.ctx.createScriptProcessor(2048, 1, 1);
+    this.processor.onaudioprocess = (e) => {
+      const inputFloat = e.inputBuffer.getChannelData(0);
+      const pcm16 = this.downsampleTo16k(inputFloat, this.ctx.sampleRate);
+      if (this.onAudioChunk) {
+        this.onAudioChunk(pcm16);
+      }
+    };
+
+    this.sourceNode.connect(this.processor);
+
+    // Mute mic output to speakers so user doesn't hear themselves
+    this.muteGain = this.ctx.createGain();
+    this.muteGain.gain.value = 0;
+    this.processor.connect(this.muteGain);
+    this.muteGain.connect(this.ctx.destination);
+  }
+
+  public stop(): void {
+    if (this.processor) {
+      this.processor.disconnect();
+      this.processor = null;
+    }
+    if (this.sourceNode) {
+      this.sourceNode.disconnect();
+      this.sourceNode = null;
+    }
+    if (this.muteGain) {
+      this.muteGain.disconnect();
+      this.muteGain = null;
+    }
+    if (this.stream) {
+      this.stream.getTracks().forEach((track) => track.stop());
+      this.stream = null;
+    }
+  }
+
+  private downsampleTo16k(input: Float32Array, inputRate: number): Int16Array {
+    if (inputRate === 16000) {
+      const out = new Int16Array(input.length);
+      for (let i = 0; i < input.length; i++) {
+        const s = Math.max(-1, Math.min(1, input[i]));
+        out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      return out;
+    }
+
+    const ratio = inputRate / 16000;
+    const newLen = Math.round(input.length / ratio);
+    const out = new Int16Array(newLen);
+
+    for (let i = 0; i < newLen; i++) {
+      const idx = Math.min(input.length - 1, Math.round(i * ratio));
+      const s = Math.max(-1, Math.min(1, input[idx] || 0));
+      out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+
+    return out;
   }
 }

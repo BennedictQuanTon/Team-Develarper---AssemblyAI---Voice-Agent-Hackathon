@@ -1,31 +1,31 @@
+/**
+ * Main application orchestrator for The Lantern Voice Agent.
+ * Rebuilt completely in TypeScript following Apple Human Interface Guidelines
+ * and ThoughtStream Design System (DESIGN.md).
+ *
+ * The views, markup and styles are the original V1 design. This file connects them to the V2
+ * runtime: /ws/realtime for one provisioned table, /ws/ops and the REST API for operations.
+ */
+
+import "./styles/tokens.css";
+import "./styles/base.css";
+import "./styles/components.css";
+
+import { PCMStreamPlayer } from "./audio/pcm_player";
 import { MicRecorder } from "./audio/mic_recorder";
-import { PcmPlayer } from "./audio/pcm_player";
-import "./styles/app.css";
+import { VoiceService } from "./services/voice_service";
+import { OpsService, type AgentTurnEvent } from "./services/ops_service";
+import { GuestView } from "./components/guest_view";
+import { OpsView } from "./components/ops_view";
+import { LogsView } from "./components/logs_view";
+import type { BasketItem, TurnTelemetry, V2BasketLine, V2Order } from "./types/realtime";
 
-type ServerMessage = Record<string, unknown> & { type: string };
-type BasketLine = { sku: string; name: string; quantity: number; line_total: number; modifiers?: string[] };
-type Order = { order_id: string; table_id: string; status: string; current_revision: number; basket: BasketLine[]; total: number; allergies?: string[] };
-type MenuItem = { sku: string; name: string; category: string; available: boolean };
-type AgentTurn = { table_id: string; transcript: string; status: string; response_text: string; total: number | null;
-  placed: boolean; pipeline_ms: number | null; voice_ttfb_ms: number | null; at: number };
+// One device per table: /?table_id=T4. Defaults to T4 for the demo.
+const TABLE_ID = new URLSearchParams(location.search).get("table_id")?.trim() || "T4";
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft · not sent to the kitchen yet",
-  pending_kitchen: "New · waiting for the kitchen",
-  committed: "Accepted",
-  substitution_proposed: "Substitute proposed",
-  clarification_required: "Needs clarification",
-  awaiting_reply: "Waiting for the guest's answer",
-  recommend: "Recommendation",
-  menu_query: "Menu question",
-  ready: "Ready",
-  rejected: "Rejected",
-  cancelled: "Cancelled",
-};
-const label = (status: string): string => STATUS_LABELS[status] ?? status;
-
-// Prerecorded Kokoro clips (tools/generate_fillers.py) played while Qwen and Kokoro work on the answer.
+// Prerecorded Kokoro clips (tools/generate_fillers.py) played while Qwen and Kokoro work.
 const FILLER_DIR = "/audio/fillers";
+const FILLERS = ["recommend_en", "order_en", "check_en", "place_en", "generic_es"];
 function fillerFor(transcript: string, language: string): string {
   const said = transcript.toLowerCase();
   if (language.startsWith("es") || /[¿¡ñ]|\b(quiero|quisiera|por favor|para nosotros|recomienda)\b/.test(said)) return "generic_es";
@@ -35,317 +35,381 @@ function fillerFor(transcript: string, language: string): string {
   return "order_en";
 }
 
-const params = new URLSearchParams(location.search);
-const tableId = params.get("table_id")?.trim() ?? "";
-const root = document.querySelector<HTMLDivElement>("#root")!;
-const wsUrl = (path: string): string => `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${path}`;
-const text = (id: string, value: string): void => { document.getElementById(id)!.textContent = value; };
-const money = (value: number): string => `$${value.toFixed(2)}`;
-
-function basket(container: HTMLElement, lines: BasketLine[], total: number): void {
-  container.replaceChildren();
-  for (const line of lines) {
-    const row = document.createElement("div");
-    row.className = "row";
-    const name = document.createElement("strong");
-    name.textContent = `${line.quantity} × ${line.name}`;
-    if (line.modifiers?.length) {
-      const modifiers = document.createElement("small");
-      modifiers.className = "modifiers";
-      modifiers.textContent = line.modifiers.join(" · ");
-      name.append(modifiers);
-    }
-    const amount = document.createElement("span");
-    amount.textContent = money(line.line_total);
-    row.append(name, amount);
-    container.append(row);
-  }
-  const totalRow = document.createElement("div");
-  totalRow.className = "row total";
-  const totalLabel = document.createElement("strong");
-  totalLabel.textContent = "Total";
-  const amount = document.createElement("strong");
-  amount.textContent = money(total);
-  totalRow.append(totalLabel, amount);
-  container.append(totalRow);
+/** V2 basket lines in the shape the guest basket card renders; modifiers ride along with the name. */
+function toBasketItems(lines: V2BasketLine[] | undefined): BasketItem[] {
+  return (lines || []).map((line) => ({
+    sku: line.sku,
+    name: line.modifiers?.length ? `${line.name} · ${line.modifiers.join(", ")}` : line.name,
+    price: line.unit_price,
+    quantity: line.quantity,
+  }));
 }
 
-function allergyBanner(allergies: string[] | undefined): HTMLElement | null {
-  if (!allergies?.length) return null;
-  const banner = document.createElement("p");
-  banner.className = "allergy";
-  banner.textContent = `Allergy: ${allergies.join(", ")}`;
-  return banner;
+interface TurnInProgress {
+  transcript: string;
+  answer: string;
+  status: string;
+  startedAt: number;
+  firstAudioLogged: boolean;
+  order?: Partial<V2Order>;
 }
 
-if (params.get("view") === "kitchen") {
-  kitchenView();
-} else {
-  guestView();
-}
+class LanternApp {
+  private audioCtx: AudioContext | null = null;
+  private pcmPlayer: PCMStreamPlayer | null = null;
+  private micRecorder: MicRecorder | null = null;
+  private ttsAnalyser: AnalyserNode | null = null;
+  private voiceService: VoiceService;
+  private opsService: OpsService;
 
-function guestView(): void {
-  const recorder = new MicRecorder();
-  const player = new PcmPlayer();
-  const orderKey = `lantern_order_${tableId}`;
-  let socket: WebSocket | null = null;
-  root.innerHTML = `
-    <main class="shell">
-      <nav><a href="?view=kitchen">Kitchen dashboard</a></nav>
-      <header><span class="eyebrow">Multilingual table service</span><h1>The Lantern</h1></header>
-      <section class="card">
-        <div class="row"><strong>Device</strong><span id="table">Checking provisioning…</span></div>
-        <div class="row"><strong>Status</strong><span id="status">Idle</span></div>
-        <div class="row"><strong>Language</strong><span id="language">—</span></div>
-        <div class="row"><strong>Latency</strong><span id="latency">—</span></div>
-        <button id="toggle" disabled>Start voice service</button>
-      </section>
-      <section class="card transcript"><h2>Live transcript</h2><p id="transcript">Your speech will appear here.</p></section>
-      <section class="card"><h2>Verified response</h2><p id="response">Waiting for an order.</p></section>
-      <section class="card"><h2>Your order</h2><p id="order-status">No active order</p><div id="basket"></div></section>
-      <section class="card"><h2>Type a request</h2><p>Use this when speech recognition is unavailable.</p><form id="manual"><input id="request" aria-label="Order request" placeholder="e.g. Add one sea bass" required /><button type="submit">Send request</button></form></section>
-    </main>`;
-  const button = document.getElementById("toggle") as HTMLButtonElement;
-  const form = document.getElementById("manual") as HTMLFormElement;
-  const input = document.getElementById("request") as HTMLInputElement;
-  const setStatus = (value: string): void => text("status", value);
+  private guestView: GuestView;
+  private opsView: OpsView;
+  private logsView: LogsView;
 
-  function showOrder(order: Order | null): void {
-    if (order) {
-      localStorage.setItem(orderKey, order.order_id);
-      text("order-status", `#${order.order_id.slice(0, 8)} · ${label(order.status)} · revision ${order.current_revision}`);
-      const container = document.getElementById("basket")!;
-      basket(container, order.basket, order.total);
-      const banner = allergyBanner(order.allergies);
-      if (banner) container.prepend(banner);
-      if (["cancelled", "ready", "rejected"].includes(order.status)) localStorage.removeItem(orderKey);
-    } else {
-      localStorage.removeItem(orderKey);
-      text("order-status", "No active order");
-      document.getElementById("basket")!.replaceChildren();
-    }
+  // The header status dot was removed from the design; these stay optional.
+  private statusDot: HTMLElement | null;
+  private statusText: HTMLElement | null = null;
+  private tabGuestBtn: HTMLButtonElement;
+  private tabOpsBtn: HTMLButtonElement;
+  private tabLogsBtn: HTMLButtonElement;
+  private viewGuestPanel: HTMLElement;
+  private viewOpsPanel: HTMLElement;
+  private viewLogsPanel: HTMLElement;
+
+  private isVoiceActive: boolean = false;
+  private pendingPrompt: string | null = null;
+  private turn: TurnInProgress | null = null;
+  private providers: { asr?: string; llm?: string; tts?: string } = {};
+
+  constructor() {
+    // DOM Elements
+    this.statusDot = document.getElementById("statusDot");
+    this.statusText = document.getElementById("statusText");
+    this.tabGuestBtn = document.getElementById("tabGuest") as HTMLButtonElement;
+    this.tabOpsBtn = document.getElementById("tabOps") as HTMLButtonElement;
+    this.tabLogsBtn = document.getElementById("tabLogs") as HTMLButtonElement;
+    this.viewGuestPanel = document.getElementById("viewGuest")!;
+    this.viewOpsPanel = document.getElementById("viewOps")!;
+    this.viewLogsPanel = document.getElementById("viewLogs")!;
+
+    // Services
+    this.voiceService = new VoiceService(TABLE_ID);
+    this.opsService = new OpsService();
+
+    // Components
+    this.guestView = new GuestView(this.viewGuestPanel);
+    this.opsView = new OpsView(this.viewOpsPanel);
+    this.logsView = new LogsView(this.viewLogsPanel);
+
+    this.initTabs();
+    this.initVoiceEvents();
+    this.initOpsEvents();
+    // Operations follow the backend from the start, so switching tabs mid-demo shows live state.
+    this.opsService.connect();
+    window.setInterval(() => this.opsView.tick(), 30000);
   }
 
-  function handleMessage(message: ServerMessage): void {
-    if (message.type === "session_ready") {
-      setStatus(message.asr_status === "connecting"
-        ? "Connecting to speech recognition… you can type a request meanwhile"
-        : "Connected — you can type a request now");
-      showOrder((message.order as Order | null) ?? null);
-    } else if (message.type === "provider_ready" && message.provider === "assemblyai") {
-      setStatus("Speak or type your request");
-      recorder.start((pcm) => { if (socket?.readyState === WebSocket.OPEN) socket.send(pcm); })
-        .catch((error: Error) => setStatus(`Microphone unavailable: ${error.message}; typing is available`));
-    } else if (message.type === "interim_transcript" || message.type === "final_transcript") {
-      text("transcript", String(message.text ?? ""));
-      if (message.language_code) text("language", String(message.language_code));
-      if (message.type === "final_transcript" && String(message.text ?? "").trim()) {
-        const clip = fillerFor(String(message.text), String(message.language_code ?? "en"));
-        player.enqueueClip(`${FILLER_DIR}/${clip}.wav`).catch(() => { /* a missing filler must never block the reply */ });
-      }
-    } else if (message.type === "workflow_update" || message.type === "basket_update") {
-      setStatus(message.status === "interpreting" ? "Understanding your request…" : label(String(message.status ?? "Order updated")));
-      if (message.response_text) text("response", String(message.response_text));
-      if (message.order_id) {
-        showOrder({ order_id: String(message.order_id), table_id: tableId, status: String(message.status),
-          current_revision: Number(message.current_revision ?? message.revision ?? 0),
-          basket: (message.basket as BasketLine[]) ?? [], total: Number(message.total ?? 0),
-          allergies: (message.allergies as string[]) ?? [] });
-      }
-    } else if (message.type === "audio_chunk") {
-      player.enqueue(String(message.pcm_b64), Number(message.sample_rate)).catch(() => setStatus("Audio playback failed"));
-    } else if (message.type === "barge_in") {
-      player.stop();
-      setStatus("Listening to your correction…");
-    } else if (message.type === "turn_complete") {
-      setStatus("Ready for your next request");
-      text("latency", `pipeline ${message.pipeline_ms ?? "—"} ms · first audio ${message.voice_ttfb_ms ?? "—"} ms`);
-    } else if (message.type === "provider_unavailable" || message.type === "error") {
-      setStatus(`${message.provider ?? "Service"}: ${message.message ?? "unavailable"}`);
-    }
+  private setConnectionStatus(className: string, label: string): void {
+    if (this.statusDot) this.statusDot.className = className;
+    if (this.statusText) this.statusText.textContent = label;
   }
 
-  async function stop(): Promise<void> {
-    player.stop();
-    await recorder.stop();
-    socket?.close();
-    socket = null;
-    button.textContent = "Start voice service";
-    setStatus("Stopped");
-  }
-
-  async function start(): Promise<void> {
-    await player.resume();
-    for (const clip of ["recommend_en", "order_en", "check_en", "place_en", "generic_es"]) {
-      player.preload(`${FILLER_DIR}/${clip}.wav`).catch(() => { /* the reply still plays without a filler */ });
-    }
-    const query = new URLSearchParams({ table_id: tableId });
-    const saved = localStorage.getItem(orderKey);
-    if (saved) query.set("order_id", saved);
-    socket = new WebSocket(wsUrl(`/ws/realtime?${query}`));
-    socket.binaryType = "arraybuffer";
-    socket.onmessage = (event) => handleMessage(JSON.parse(event.data) as ServerMessage);
-    socket.onerror = () => setStatus("Realtime connection failed");
-    socket.onclose = () => { void recorder.stop(); button.textContent = "Start voice service"; socket = null; };
-    button.textContent = "Stop voice service";
-    setStatus("Connecting…");
-  }
-
-  button.addEventListener("click", () => { void (socket ? stop() : start()); });
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (socket?.readyState !== WebSocket.OPEN) { setStatus("Connect first, then send your request"); return; }
-    const request = input.value.trim();
-    if (!request) return;
-    socket.send(JSON.stringify({ type: "transcript", text: request, language_code: "en" }));
-    input.value = "";
-  });
-  if (!tableId) { text("table", "Use ?table_id=T4 in the URL"); setStatus("Table ID required"); return; }
-  void fetch("/floor").then((response) => response.json()).then((payload: { tables: Array<{ table_id?: string; id?: string }> }) => {
-    const valid = payload.tables.some((table) => (table.table_id ?? table.id) === tableId);
-    text("table", valid ? `Table ${tableId}` : "Unknown table");
-    button.disabled = !valid;
-    setStatus(valid ? "Ready to connect" : "Table ID not provisioned");
-  }).catch(() => setStatus("Could not verify table provisioning"));
-}
-
-function kitchenView(): void {
-  const orders = new Map<string, Order>();
-  const activity: AgentTurn[] = [];
-  let menu: MenuItem[] = [];
-  let socket: WebSocket | null = null;
-  root.innerHTML = `
-    <main class="shell wide">
-      <nav><a href="?table_id=${encodeURIComponent(tableId || "T4")}">Guest view</a></nav>
-      <header><span class="eyebrow">Live operations</span><h1>Kitchen dashboard</h1></header>
-      <section class="card"><div class="row"><strong>Connection</strong><span id="status">Connecting…</span></div><p id="notice"></p></section>
-      <div class="ops">
-        <div><h2 class="lane">Kitchen tickets <small>placed orders only</small></h2><div id="orders" class="order-grid"></div></div>
-        <aside><h2 class="lane">Live table activity <small>every guest turn</small></h2><ol id="activity" class="activity"></ol></aside>
-      </div>
-    </main>`;
-
-  function renderActivity(): void {
-    const list = document.getElementById("activity")!;
-    list.replaceChildren();
-    if (!activity.length) { const empty = document.createElement("li"); empty.textContent = "Waiting for a guest to speak."; list.append(empty); }
-    for (const turn of activity) {
-      const item = document.createElement("li");
-      item.className = `turn ${turn.placed ? "placed" : ""}`;
-      const head = document.createElement("div");
-      head.className = "turn-head";
-      const where = document.createElement("strong");
-      where.textContent = `Table ${turn.table_id} · ${new Date(turn.at * 1000).toLocaleTimeString()}`;
-      const badge = document.createElement("span");
-      badge.className = "badge";
-      badge.textContent = label(turn.status);
-      head.append(where, badge);
-      const heard = document.createElement("p");
-      heard.className = "heard";
-      heard.textContent = `“${turn.transcript}”`;
-      const reply = document.createElement("p");
-      reply.textContent = turn.response_text;
-      const timing = document.createElement("small");
-      const total = turn.total != null ? ` · ${money(turn.total)}` : "";
-      timing.textContent = turn.pipeline_ms == null ? `kitchen action${total}`
-        : `agent ${Math.round(turn.pipeline_ms)} ms · first audio ${turn.voice_ttfb_ms != null ? Math.round(turn.voice_ttfb_ms) + " ms" : "—"}${total}`;
-      item.append(head, heard, reply, timing);
-      list.append(item);
-    }
-  }
-
-  function render(): void {
-    const container = document.getElementById("orders")!;
-    container.replaceChildren();
-    const active = [...orders.values()].sort((a, b) => b.current_revision - a.current_revision);
-    if (!active.length) { const empty = document.createElement("p"); empty.textContent = "No orders yet."; container.append(empty); }
-    for (const order of active) {
-      const card = document.createElement("section");
-      card.className = "card";
-      const title = document.createElement("h2");
-      title.textContent = `Table ${order.table_id} · #${order.order_id.slice(0, 8)}`;
-      const status = document.createElement("p");
-      status.textContent = `${label(order.status)} · revision ${order.current_revision}`;
-      const lines = document.createElement("div");
-      basket(lines, order.basket, order.total);
-      card.append(title, status);
-      const banner = allergyBanner(order.allergies);
-      if (banner) card.append(banner);
-      card.append(lines);
-      if (!["cancelled", "ready", "rejected"].includes(order.status)) {
-        const actions = document.createElement("div");
-        actions.className = "actions";
-        for (const [label, action] of [["Accept", "accept"], ["Reject", "reject"], ["Mark ready", "mark_ready"]]) {
-          const button = document.createElement("button");
-          button.textContent = label;
-          button.addEventListener("click", () => { void decide(order, action); });
-          actions.append(button);
+  private ensureAudioContext(): AudioContext {
+    if (!this.audioCtx) {
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      this.audioCtx = new AudioContextClass();
+      this.ttsAnalyser = this.audioCtx.createAnalyser();
+      this.ttsAnalyser.fftSize = 256;
+      this.pcmPlayer = new PCMStreamPlayer(this.audioCtx, this.ttsAnalyser);
+      this.pcmPlayer.onPlaybackEnd = () => {
+        if (this.isVoiceActive) {
+          this.guestView.setOrbMode("listen");
+          if (this.micRecorder) {
+            this.guestView.setAnalyser(this.micRecorder.analyser);
+          }
+        } else {
+          this.guestView.setOrbMode("idle");
         }
-        card.append(actions);
-        const original = document.createElement("select");
-        original.setAttribute("aria-label", "Item to replace");
-        for (const line of order.basket) original.add(new Option(line.name, line.sku));
-        const replacement = document.createElement("select");
-        replacement.setAttribute("aria-label", "Replacement item");
-        for (const item of menu.filter((item) => item.available)) replacement.add(new Option(item.name, item.sku));
-        const propose = document.createElement("button");
-        propose.textContent = "Propose substitute";
-        propose.disabled = !order.basket.length || !replacement.options.length;
-        propose.addEventListener("click", () => { void decide(order, "propose_substitute", [{ from_sku: original.value, to_sku: replacement.value }]); });
-        const replacementRow = document.createElement("div");
-        replacementRow.className = "replacement";
-        replacementRow.append(original, replacement, propose);
-        card.append(replacementRow);
+      };
+      this.micRecorder = new MicRecorder(this.audioCtx);
+      for (const clip of FILLERS) {
+        this.pcmPlayer.preloadClip(`${FILLER_DIR}/${clip}.wav`).catch(() => { /* the reply still plays */ });
       }
-      container.append(card);
+    }
+    if (this.audioCtx.state === "suspended") {
+      this.audioCtx.resume();
+    }
+    return this.audioCtx;
+  }
+
+  private initTabs(): void {
+    this.tabGuestBtn.addEventListener("click", () => this.switchTab("guest"));
+    this.tabOpsBtn.addEventListener("click", () => this.switchTab("ops"));
+    if (this.tabLogsBtn) {
+      this.tabLogsBtn.addEventListener("click", () => this.switchTab("logs"));
     }
   }
 
-  async function decide(order: Order, action: string, substitutions: Array<{ from_sku: string; to_sku: string }> = []): Promise<void> {
-    try {
-      const response = await fetch(`/api/kitchen/orders/${encodeURIComponent(order.order_id)}/decisions`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, expected_revision: order.current_revision, substitutions }),
-      });
-      const payload = await response.json();
-      if (!response.ok) { text("notice", `Decision failed: ${JSON.stringify(payload.detail ?? payload)}`); return; }
-      orders.set(order.order_id, payload as Order);
-      text("notice", `${action} recorded for table ${order.table_id}`);
-      render();
-    } catch (error) { text("notice", `Decision failed: ${String(error)}`); }
+  private switchTab(tab: "guest" | "ops" | "logs"): void {
+    const isGuest = tab === "guest";
+    const isOps = tab === "ops";
+    const isLogs = tab === "logs";
+
+    this.tabGuestBtn.setAttribute("aria-selected", isGuest ? "true" : "false");
+    this.tabOpsBtn.setAttribute("aria-selected", isOps ? "true" : "false");
+    if (this.tabLogsBtn) {
+      this.tabLogsBtn.setAttribute("aria-selected", isLogs ? "true" : "false");
+    }
+
+    this.viewGuestPanel.classList.toggle("active", isGuest);
+    this.viewOpsPanel.classList.toggle("active", isOps);
+    if (this.viewLogsPanel) {
+      this.viewLogsPanel.classList.toggle("active", isLogs);
+    }
+
+    if (isOps) {
+      void this.opsService.refresh();
+    }
   }
 
-  renderActivity();
-  void fetch("/menu").then((response) => response.json()).then((payload: { items: MenuItem[] }) => { menu = payload.items; render(); });
-  function connect(): void {
-    socket = new WebSocket(wsUrl("/ws/ops"));
-    socket.onopen = () => text("status", "Live");
-    socket.onmessage = (event) => {
-      const message = JSON.parse(event.data) as ServerMessage;
-      if (message.type === "kitchen_snapshot") {
-        orders.clear();
-        for (const order of message.orders as Order[]) orders.set(order.order_id, order);
-      } else if ((message.type === "order_update" || message.type === "kitchen_decision") && message.order) {
-        const order = message.order as Order;
-        orders.set(order.order_id, order);
-        if (message.type === "kitchen_decision") {
-          const decision = (message.decision as { action?: string } | undefined)?.action ?? "decision";
-          activity.unshift({ table_id: order.table_id, transcript: `Kitchen: ${decision.replace(/_/g, " ")}`, status: order.status,
-            response_text: "Sent to the guest's device and spoken in their language.", total: order.total, placed: true,
-            pipeline_ms: null, voice_ttfb_ms: null, at: Date.now() / 1000 });
-          activity.splice(12);
-          renderActivity();
-        }
-      } else if (message.type === "agent_turn") {
-        activity.unshift(message as unknown as AgentTurn);
-        activity.splice(12);
-        renderActivity();
-        return;
+  private showOrder(order: Partial<V2Order> | null | undefined): void {
+    if (!order) return;
+    this.guestView.updateBasket(toBasketItems(order.basket), order.total ?? undefined);
+    this.voiceService.rememberOrder(order.order_id, order.status);
+  }
+
+  private initVoiceEvents(): void {
+    this.guestView.onMicClick = async () => {
+      if (this.isVoiceActive) {
+        this.stopVoiceSession();
+      } else {
+        await this.startVoiceSession();
       }
-      render();
     };
-    socket.onclose = () => { text("status", "Disconnected — reconnecting…"); setTimeout(connect, 2000); };
-    socket.onerror = () => text("status", "Connection error");
+
+    // Suggestion chips send their sentence as a typed request (starting the session if needed).
+    this.guestView.onPromptSelect = async (prompt: string) => {
+      if (this.voiceService.isConnected()) {
+        this.voiceService.sendTranscript(prompt);
+      } else {
+        this.pendingPrompt = prompt;
+        await this.startVoiceSession();
+      }
+    };
+
+    this.voiceService.onOpen = () => {
+      this.setConnectionStatus("status-dot live", "Live");
+      this.logsView.addEvent("ws_connected", `Connected to /ws/realtime for table ${TABLE_ID}`, "accent");
+    };
+
+    this.voiceService.onClose = () => {
+      this.setConnectionStatus("status-dot", "Disconnected");
+      this.logsView.addEvent("ws_close", "Realtime WebSocket disconnected", "warn");
+      if (this.isVoiceActive) this.stopVoiceSession();
+    };
+
+    this.voiceService.onError = () => {
+      this.setConnectionStatus("status-dot error", "Error");
+      this.logsView.addEvent("ws_error", "WebSocket communication error", "warn");
+    };
+
+    this.voiceService.onMessage = (msg) => {
+      if (msg.type === "session_ready") {
+        this.providers = msg.providers || {};
+        this.guestView.setOrbMode("listen");
+        this.showOrder(msg.order);
+        const connecting = msg.asr_status === "connecting";
+        this.guestView.setGuestStatus(connecting ? "Connecting to speech recognition…" : "Tap a suggestion to order");
+        this.logsView.addEvent(
+          "session_ready",
+          `Table ${msg.table_id} ready · ASR ${this.providers.asr ?? "—"} (${msg.asr_status}) · LLM ${this.providers.llm ?? "—"} · TTS ${msg.has_tts ? this.providers.tts ?? "Kokoro" : "unavailable"}${msg.order ? ` · resumed order #${msg.order.order_id.slice(0, 8)}` : ""}`,
+          "info"
+        );
+        if (this.pendingPrompt) {
+          this.voiceService.sendTranscript(this.pendingPrompt);
+          this.pendingPrompt = null;
+        }
+      } else if (msg.type === "provider_ready") {
+        this.guestView.setGuestStatus("Listening…");
+        this.logsView.addEvent("provider_ready", `${msg.provider} connected · speak naturally`, "accent");
+      } else if (msg.type === "provider_unavailable") {
+        this.guestView.setGuestStatus("Speech unavailable · tap a suggestion");
+        this.logsView.addEvent("provider_unavailable", `${msg.provider}: ${msg.message ?? "unavailable"}`, "warn");
+      } else if (msg.type === "interim_transcript") {
+        this.guestView.showInterimTranscript(msg.text);
+        this.logsView.addEvent("interim_transcript", msg.text, "info");
+      } else if (msg.type === "final_transcript") {
+        this.guestView.showFinalTranscript(msg.text);
+        this.guestView.setOrbMode("think");
+        this.turn = { transcript: msg.text, answer: "", status: "interpreting", startedAt: performance.now(), firstAudioLogged: false };
+        this.logsView.addEvent("final_transcript", `User: "${msg.text}"`, "accent");
+        if (this.pcmPlayer && msg.text.trim()) {
+          const clip = fillerFor(msg.text, msg.language_code ?? "en");
+          this.pcmPlayer.playClip(`${FILLER_DIR}/${clip}.wav`).catch(() => { /* a missing clip never blocks the reply */ });
+        }
+      } else if (msg.type === "workflow_update") {
+        if (msg.status === "interpreting") return;
+        if (msg.response_text) this.guestView.showAgentAnswer(msg.response_text);
+        if (msg.order_id) this.showOrder(msg);
+        if (this.turn && msg.source !== "kitchen") {
+          this.turn.answer = msg.response_text ?? "";
+          this.turn.status = msg.status;
+          this.turn.order = msg;
+        }
+        const total = msg.total != null ? ` · Total: $${Number(msg.total).toFixed(2)}` : "";
+        this.logsView.addEvent(msg.source === "kitchen" ? "kitchen_update" : "workflow_update", `Status: ${msg.status}${total}`, "accent");
+      } else if (msg.type === "barge_in") {
+        // Immediate interruption
+        if (this.pcmPlayer) this.pcmPlayer.stop();
+        this.guestView.setOrbMode("listen");
+        if (this.micRecorder) {
+          this.guestView.setAnalyser(this.micRecorder.analyser);
+        }
+        this.logsView.addEvent("barge_in", msg.reason || "User interrupted speech", "warn");
+      } else if (msg.type === "audio_chunk") {
+        if (!this.pcmPlayer) return;
+        const binStr = atob(msg.pcm_b64);
+        const bytes = new Uint8Array(binStr.length);
+        for (let i = 0; i < binStr.length; i++) {
+          bytes[i] = binStr.charCodeAt(i);
+        }
+        const pcm16 = new Int16Array(bytes.buffer);
+        // Kokoro streams 24 kHz; playing it at V1's fixed 16 kHz would slow and deepen the voice.
+        this.pcmPlayer.playChunk(pcm16, msg.sample_rate || 24000);
+        this.guestView.setOrbMode("speak");
+        if (this.ttsAnalyser) {
+          this.guestView.setAnalyser(this.ttsAnalyser);
+        }
+        if (msg.ttfb_ms && this.turn && !this.turn.firstAudioLogged) {
+          this.turn.firstAudioLogged = true;
+          this.logsView.addEvent("audio_chunk_ttfb", `First audio chunk received · TTFB: ${Math.round(msg.ttfb_ms)}ms`, "accent");
+        }
+      } else if (msg.type === "turn_complete") {
+        this.logsView.handleTurnComplete(this.telemetry(msg.pipeline_ms, msg.voice_ttfb_ms));
+        this.turn = null;
+      } else if (msg.type === "error") {
+        this.logsView.addEvent("error", msg.message ?? "Server error", "warn");
+      }
+    };
   }
-  connect();
+
+  /** One finished turn in the Logs view's shape: what was heard, said, done, and how long it took. */
+  private telemetry(pipelineMs?: number | null, voiceTtfbMs?: number | null): TurnTelemetry {
+    const turn = this.turn;
+    const order = turn?.order;
+    return {
+      turn_id: `turn-${Date.now()}`,
+      transcript: turn?.transcript,
+      answer: turn?.answer ?? "",
+      timestamp: new Date().toISOString(),
+      provider: { asr: `assemblyai ${this.providers.asr ?? ""}`, llm: this.providers.llm, tts: this.providers.tts },
+      e2e_turn_ms: turn ? Math.round(performance.now() - turn.startedAt) : undefined,
+      ttfb_ms: voiceTtfbMs ?? undefined,
+      timings_ms: { llm_ttft_ms: pipelineMs ?? undefined },
+      tool_calls: [{
+        tool: `workflow · ${turn?.status ?? "done"}`,
+        args: {
+          table: TABLE_ID,
+          order: order?.order_id ? `#${order.order_id.slice(0, 8)} rev ${order.current_revision ?? ""}`.trim() : undefined,
+          items: order?.basket?.map((line) => `${line.quantity} × ${line.name}${line.modifiers?.length ? ` (${line.modifiers.join(", ")})` : ""}`),
+          total: order?.total,
+        },
+      }],
+    };
+  }
+
+  private async startVoiceSession(): Promise<void> {
+    this.ensureAudioContext();
+
+    try {
+      await this.voiceService.connect();
+      this.isVoiceActive = true;
+      this.guestView.setMicActive(true);
+      this.guestView.setOrbMode("listen");
+      if (this.micRecorder) {
+        try {
+          await this.micRecorder.start();
+          this.micRecorder.onAudioChunk = (pcm16) => {
+            this.voiceService.sendAudioChunk(pcm16);
+          };
+          this.guestView.setAnalyser(this.micRecorder.analyser);
+          this.logsView.addEvent("mic_started", "Microphone stream active · Sampling @ 16kHz PCM16", "accent");
+        } catch (err) {
+          // Without a microphone the suggestion chips still work.
+          this.guestView.setGuestStatus("Microphone unavailable · tap a suggestion");
+          this.logsView.addEvent("mic_error", String(err), "warn");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to start voice session:", err);
+      this.setConnectionStatus("status-dot error", "Mic Error");
+      this.logsView.addEvent("mic_error", String(err), "warn");
+    }
+  }
+
+  private stopVoiceSession(): void {
+    if (this.micRecorder) {
+      this.micRecorder.stop();
+    }
+    if (this.pcmPlayer) {
+      this.pcmPlayer.stop();
+    }
+    this.isVoiceActive = false;
+    this.voiceService.disconnect();
+
+    this.guestView.setMicActive(false);
+    this.guestView.setOrbMode("idle");
+    this.guestView.setIdlePrompt();
+    this.logsView.addEvent("mic_stopped", "Microphone stream stopped", "info");
+  }
+
+  private initOpsEvents(): void {
+    this.opsService.onSnapshot = (floor, menu) => {
+      this.opsView.update(floor, menu);
+    };
+
+    this.opsService.onOrders = (orders) => this.opsView.setOrders(orders);
+
+    this.opsService.onOrder = (order, decision) => {
+      this.opsView.upsertOrder(order);
+      if (decision) {
+        this.logsView.addEvent("kitchen_decision", `Table ${order.table_id} · ${decision.replace(/_/g, " ")} · spoken to the guest`, "accent");
+      }
+    };
+
+    this.opsService.onAgentTurn = (turn: AgentTurnEvent) => {
+      // This device's own turns are already logged in detail; show the other tables' turns.
+      if (turn.table_id !== TABLE_ID) {
+        this.logsView.addEvent("agent_turn", `Table ${turn.table_id} · "${turn.transcript}" → ${turn.status}`, "info");
+      }
+    };
+
+    this.opsView.onToggleAvailable = (sku, available) => {
+      void this.opsService.setAvailable(sku, available);
+      this.logsView.addEvent("inventory_toggle", `Item ${sku} set available=${available}`, "info");
+    };
+
+    this.opsView.onTableAction = (tableId, action) => {
+      if (action === "seat") {
+        void this.opsService.seatParty(tableId);
+        this.logsView.addEvent("table_seated", `Party seated at ${tableId}`, "info");
+      } else {
+        void this.opsService.clearTable(tableId);
+        this.logsView.addEvent("table_cleared", `Table ${tableId} cleared`, "info");
+      }
+    };
+
+    this.opsView.onKitchenAction = async (orderId, action) => {
+      const order = await fetch(`/api/orders/${encodeURIComponent(orderId)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (!order) return;
+      const updated = await this.opsService.decide(order as V2Order, action);
+      if (updated) this.opsView.upsertOrder(updated);
+      this.logsView.addEvent("kitchen_decision", `Order #${orderId.slice(0, 8)} · ${action.replace(/_/g, " ")}`, updated ? "accent" : "warn");
+    };
+  }
 }
+
+// Bootstrap once DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+  new LanternApp();
+});

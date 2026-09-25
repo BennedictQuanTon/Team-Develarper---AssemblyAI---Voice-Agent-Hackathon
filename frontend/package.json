@@ -1,1 +1,16 @@
-{"name":"lantern-frontend","private":true,"version":"1.0.0","type":"module","scripts":{"build":"vite build","typecheck":"tsc --noEmit","dev":"vite"},"dependencies":{"@vitejs/plugin-react":"latest","vite":"latest","typescript":"latest","react":"latest","react-dom":"latest"},"devDependencies":{}}
+{
+  "name": "lantern-voice-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0"
+  }
+}
