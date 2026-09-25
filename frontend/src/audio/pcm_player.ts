@@ -1,64 +1,81 @@
-export class PcmPlayer {
-  private context: AudioContext | null = null;
-  private nextStart = 0;
-  private sources = new Set<AudioBufferSourceNode>();
-  private clips = new Map<string, Promise<AudioBuffer>>();
+/**
+ * Low-latency Web Audio API PCM Stream Player.
+ * Schedules 16kHz 16-bit linear PCM chunks back-to-back with instant cancellation on barge-in.
+ */
 
-  async resume(): Promise<void> {
-    if (!this.context) this.context = new AudioContext();
-    if (this.context.state === "suspended") await this.context.resume();
+export class PCMStreamPlayer {
+  private ctx: AudioContext;
+  private analyser: AnalyserNode | null;
+  private nextTime: number = 0;
+  private sources: AudioBufferSourceNode[] = [];
+  public isPlaying: boolean = false;
+  public onPlaybackEnd?: () => void;
+
+  constructor(ctx: AudioContext, analyser: AnalyserNode | null = null) {
+    this.ctx = ctx;
+    this.analyser = analyser;
   }
 
-  /** Fetch and decode a prerecorded clip once; later plays start without a network round trip. */
-  preload(url: string): Promise<AudioBuffer> {
-    let clip = this.clips.get(url);
-    if (!clip) {
-      clip = this.resume()
-        .then(() => fetch(url))
-        .then((response) => response.arrayBuffer())
-        .then((bytes) => this.context!.decodeAudioData(bytes));
-      clip.catch(() => this.clips.delete(url));
-      this.clips.set(url, clip);
+  public playChunk(pcmBytes: Int16Array, sampleRate: number = 16000): void {
+    if (!pcmBytes || pcmBytes.length === 0) return;
+
+    // Convert Int16 [-32768, 32767] to Float32 [-1.0, 1.0]
+    const float32 = new Float32Array(pcmBytes.length);
+    for (let i = 0; i < pcmBytes.length; i++) {
+      float32[i] = pcmBytes[i] / 32768.0;
     }
-    return clip;
-  }
 
-  /** Queue a prerecorded clip; streamed reply chunks that arrive later play after it. */
-  async enqueueClip(url: string): Promise<void> {
-    this.schedule(await this.preload(url));
-  }
+    const audioBuf = this.ctx.createBuffer(1, float32.length, sampleRate);
+    audioBuf.getChannelData(0).set(float32);
 
-  async enqueue(pcmBase64: string, sampleRate: number): Promise<void> {
-    await this.resume();
-    const context = this.context!;
-    const bytes = Uint8Array.from(atob(pcmBase64), (value) => value.charCodeAt(0));
-    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    const samples = new Float32Array(Math.floor(bytes.byteLength / 2));
-    for (let index = 0; index < samples.length; index += 1) {
-      samples[index] = view.getInt16(index * 2, true) / 32768;
+    const source = this.ctx.createBufferSource();
+    source.buffer = audioBuf;
+
+    if (this.analyser) {
+      source.connect(this.analyser);
+      this.analyser.connect(this.ctx.destination);
+    } else {
+      source.connect(this.ctx.destination);
     }
-    const buffer = context.createBuffer(1, samples.length, sampleRate);
-    buffer.copyToChannel(samples, 0);
-    this.schedule(buffer);
-  }
 
-  private schedule(buffer: AudioBuffer): void {
-    const context = this.context!;
-    const source = context.createBufferSource();
-    source.buffer = buffer;
-    source.connect(context.destination);
-    const startAt = Math.max(context.currentTime + 0.02, this.nextStart);
-    source.start(startAt);
-    this.nextStart = startAt + buffer.duration;
-    this.sources.add(source);
-    source.onended = () => this.sources.delete(source);
-  }
-
-  stop(): void {
-    for (const source of this.sources) {
-      try { source.stop(); } catch { /* source already stopped */ }
+    const now = this.ctx.currentTime;
+    if (this.nextTime < now) {
+      this.nextTime = now;
     }
-    this.sources.clear();
-    this.nextStart = this.context?.currentTime ?? 0;
+
+    source.start(this.nextTime);
+    this.nextTime += audioBuf.duration;
+    this.sources.push(source);
+    this.isPlaying = true;
+
+    source.onended = () => {
+      const idx = this.sources.indexOf(source);
+      if (idx !== -1) {
+        this.sources.splice(idx, 1);
+      }
+      if (this.sources.length === 0) {
+        this.isPlaying = false;
+        if (this.onPlaybackEnd) {
+          this.onPlaybackEnd();
+        }
+      }
+    };
+  }
+
+  /**
+   * Instantly stops all playing audio. Crucial for sub-second barge-in response.
+   */
+  public stop(): void {
+    for (const src of this.sources) {
+      try {
+        src.stop();
+        src.disconnect();
+      } catch (_) {
+        // Source might already have ended
+      }
+    }
+    this.sources = [];
+    this.nextTime = 0;
+    this.isPlaying = false;
   }
 }
