@@ -1,6 +1,6 @@
 # The Lantern
 
-**A multilingual voice waiter that runs on one machine, remembers the whole table, and never invents a dish.**
+**A multilingual AI maître d' that takes a full table's order by voice, remembers every word, never invents a dish, and keeps the kitchen in perfect sync. Powered by AssemblyAI, running on local AI.**
 
 Guests speak to a device at their table. The Lantern transcribes them with AssemblyAI streaming, interprets each sentence with a local 4B model, validates every change against the live menu in deterministic code, and answers in the guest's language with a local neural voice. The kitchen sees placed orders and every guest turn live, and can send decisions back to the table.
 
@@ -272,10 +272,11 @@ legacy/                V1 (Gemini/Cartesia tool-calling) and the earlier travel 
 
 ---
 
-## Team
+## Team Develarper
 
-Team Develarper:
 
-- **Long Quan (Bennedict) Ton** ([@BennedictQuanTon](https://github.com/BennedictQuanTon)): product lead, conversation-memory design, SQLite dialogue state, recommender, demo experience.
-- **Yo** ([@UniverseScripts](https://github.com/UniverseScripts)): reference resolution, draft/placed order flow, ASR reliability, the #26 benchmark.
-- **Tường** ([@khanhtuongnakitomo](https://github.com/khanhtuongnakitomo)): V2 architecture, repository reorganization and CI, end-to-end voice benchmarks.
+- **Long Quan Ton** ([@BennedictQuanTon](https://github.com/BennedictQuanTon)) — *Project Lead & AI Engineer (System Architect)*
+- **Yoshio Nomura** ([@UniverseScripts](https://github.com/UniverseScripts)) — *AI Engineer (Logic and Reliability)*
+- **Khanh Tuong Huynh** ([@khanhtuongnakitomo](https://github.com/khanhtuongnakitomo)) — *AI Engineer (Evaluation and Infrastructure)*
+- **Tuan Khoa Vi** — *UI/UX Designer & Project Presenter*
+- **Trong Dang Thai** — *UI/UX Designer & Project Presenter*
